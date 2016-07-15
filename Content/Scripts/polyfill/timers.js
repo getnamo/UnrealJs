@@ -1,7 +1,7 @@
 "use strict"
 
 function makeWindowTimer(target) {
-    var freeSymbols = []
+    let freeSymbols = []
     function sym_alloc() {
         if (freeSymbols.length) {
             return freeSymbols.pop()
@@ -13,16 +13,16 @@ function makeWindowTimer(target) {
         freeSymbols.push(sym)
     }
 
-    var FastPriorityQueue = require('./FastPriorityQueue')
-    var Queue = new FastPriorityQueue(function (a, b) {
+    let FastPriorityQueue = require('./FastPriorityQueue')
+    let Queue = new FastPriorityQueue(function (a, b) {
         return a.T < b.T;
     })
-    var currentTime = 0
-    var frame = 0
-    var timers = {}    
+    let currentTime = 0
+    let frame = 0
+    let timers = {}    
     target.setTimeout = function (handler, timeout) {
-        var timerId = sym_alloc()
-        var t = timers[timerId] = {
+        let timerId = sym_alloc()
+        let t = timers[timerId] = {
             T: currentTime + timeout,
             handler: handler,
             frame: frame,
@@ -33,7 +33,7 @@ function makeWindowTimer(target) {
         return timerId
     }
     target.clearTimeout = function (timerId) {
-        var t = timers[timerId]
+        let t = timers[timerId]
         if (t) {
             t.active = false
             delete timers[timerId]
@@ -41,8 +41,8 @@ function makeWindowTimer(target) {
         }
     }
     target.setInterval = function (handler, interval) {
-        var timerId = sym_alloc()
-        var t = timers[timerId] = {
+        let timerId = sym_alloc()
+        let t = timers[timerId] = {
             T: currentTime + interval,
             handler: handler,
             frame: frame,
@@ -57,7 +57,7 @@ function makeWindowTimer(target) {
     return function (elapsedTime) {
         currentTime += elapsedTime
         while (Queue.size) {
-            var y = Queue.peek()
+            let y = Queue.peek()
             if (y.T >= currentTime || y.frame == frame) break
 
             Queue.poll()
@@ -76,40 +76,43 @@ function makeWindowTimer(target) {
 (function (target) {
     if (Root == undefined || Root.OnTick == undefined) return
     
-    var timerLoop = makeWindowTimer(target);
+    let timerLoop = makeWindowTimer(target);
 
-    var current_time = 0
+    let current_time = 0
     target.$time = 0
 
-    var nextTicks = []
+    let nextTicks = []
 
     function flushTicks() {
         nextTicks.push(null)
         while (true) {
-            var x = nextTicks.shift()
+            let x = nextTicks.shift()
             if (!x) break
             x()
         }
     }    
     
-    var root = function (elapsedTime) {        
+    let root = function (elapsedTime) {        
         flushTicks()
         
         current_time += elapsedTime
         target.$time = current_time
         
-        timerLoop(elapsedTime | 0)
+        timerLoop((elapsedTime * 1000) | 0)
     }
 
     target.process = {
         nextTick: function (fn) {
-            nextTicks.push(fn)
+            nextTicks.push(fn);
+            console.log('added timer: <' + fn + '>');
         },        
         argv: [],
         argc: 0,
         platform: 'UnrealJS',
         env: {}
     }
+
+
 
     Root.OnTick.Add(root)
 })(global)
