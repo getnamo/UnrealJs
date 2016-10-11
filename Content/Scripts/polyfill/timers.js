@@ -104,7 +104,7 @@ function makeWindowTimer(target) {
     target.process = {
         nextTick: function (fn) {
             nextTicks.push(fn);
-            console.log('added timer: <' + fn + '>');
+            //console.log('added timer: <' + fn + '>');
         },        
         argv: [],
         argc: 0,
