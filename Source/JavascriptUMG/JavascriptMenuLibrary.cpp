@@ -4,6 +4,7 @@
 #include "Components/Widget.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "JavascriptUICommands.h"
+#include "../../Launch/Resources/Version.h"
 
 FJavascriptUICommandList UJavascriptMenuLibrary::CreateUICommandList()
 {
@@ -135,11 +136,20 @@ void UJavascriptMenuLibrary::AddMenuEntry(FJavascriptMenuBuilder& Builder, UJava
 		FUIAction DefaultAction;
 		DefaultAction.CanExecuteAction = FCanExecuteAction::CreateUObject(Object, &UJavascriptMenuContext::Public_CanExecute);
 		DefaultAction.ExecuteAction = FExecuteAction::CreateUObject(Object, &UJavascriptMenuContext::Public_Execute);
+		DefaultAction.GetActionCheckState = FGetActionCheckState::CreateUObject(Object, &UJavascriptMenuContext::Public_GetActionCheckState);
+#if ENGINE_MINOR_VERSION > 22
+		const EUserInterfaceActionType CommandType = EUserInterfaceActionType(Object->ActionType.GetValue());
+#else
+		const EUserInterfaceActionType::Type CommandType = EUserInterfaceActionType::Type(Object->ActionType.GetValue());
+#endif
 		Builder.Menu->AddMenuEntry(
 			Object->Description,
 			Object->ToolTip,
 			Object->Icon,
-			DefaultAction);
+			DefaultAction,
+			NAME_None,
+			CommandType
+		);
 	}
 }
 
@@ -242,7 +252,11 @@ FJavascriptUICommandInfo UJavascriptMenuLibrary::UI_COMMAND_Function(FJavascript
 	const FString DotOutCommandName = FString::Printf(TEXT(".%s"), *info.Id);
 	const TCHAR* FriendlyName = *info.FriendlyName;
 	const TCHAR* InDescription = *info.Description;
+#if ENGINE_MINOR_VERSION > 22
+	const EUserInterfaceActionType CommandType = EUserInterfaceActionType(info.ActionType.GetValue());
+#else
 	const EUserInterfaceActionType::Type CommandType = EUserInterfaceActionType::Type(info.ActionType.GetValue());
+#endif
 	const FInputChord& InDefaultChord = info.DefaultChord;
 	const FInputChord& InAlternateDefaultChord = FInputChord();
 	const FString IconStyleName = *info.IconStyleName;

@@ -51,6 +51,18 @@ bool UJavascriptLibrary::ResolveIp(FString HostName, FString& OutIp)
 {
 	auto SocketSub = ISocketSubsystem::Get();
 	TSharedRef<FInternetAddr> HostAddr = SocketSub->CreateInternetAddr();
+
+#if ENGINE_MINOR_VERSION > 22
+	FAddressInfoResult GAIResult = SocketSub->GetAddressInfo(*HostName, nullptr, EAddressInfoFlags::Default, NAME_None);
+	if (GAIResult.Results.Num() > 0)
+	{
+		OutIp = GAIResult.Results[0].Address->ToString(false);
+		return true;
+	}
+
+	return false;
+
+#else
 	ESocketErrors HostResolveError = SocketSub->GetHostByName(TCHAR_TO_ANSI(*HostName), *HostAddr);
 	if (HostResolveError == SE_NO_ERROR || HostResolveError == SE_EWOULDBLOCK)
 	{
@@ -58,6 +70,7 @@ bool UJavascriptLibrary::ResolveIp(FString HostName, FString& OutIp)
 		return true;
 	}
 	return false;
+#endif
 }
 
 void UJavascriptLibrary::SetIp(FJavascriptInternetAddr& Addr, FString ResolvedAddress, bool& bValid)
@@ -457,26 +470,23 @@ float UJavascriptLibrary::GetLastRenderTime(AActor* Actor)
 	return Actor->GetLastRenderTime();
 }
 
-UEnum* UJavascriptLibrary::CreateEnum(UObject* Outer, FName Name, TArray<FName> DisplayNames)
+UEnum* UJavascriptLibrary::CreateEnum(UObject* Outer, FName Name, TArray<FName> DisplayNames, const TArray<FString>& Flags)
 {
 	UEnum* Enum = NewObject<UEnum>(Outer,Name,RF_Public);
 
 	if (NULL != Enum)
 	{
-#if ENGINE_MINOR_VERSION > 14
 		TArray<TPair<FName, int64>> Names;
-#else
-		TArray<TPair<FName, uint8>> Names;
-#endif
-
 		int32 Index = 0;
+
+		bool IsBitFlags = Flags.Contains(TEXT("Bitflags"));
 
 		for (auto DisplayName : DisplayNames)
 		{
-			Names.Add(TPairInitializer<FName, uint8>(DisplayName, Index));
-			Index++;
+			Names.Add(TPairInitializer<FName, int64>(DisplayName, IsBitFlags ? 1 << Index++ : Index++));
 		}
 		Enum->SetEnums(Names, UEnum::ECppForm::Namespaced);
+		SetEnumFlags(Enum, Flags);
 	}
 
 	return Enum;

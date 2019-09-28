@@ -21,6 +21,7 @@ public:
 	virtual void Serialize(FArchive& Ar) override { UClass::Serialize(Ar);  }
 	virtual void PostLoad() override { UClass::PostLoad(); }
 	virtual void PostInitProperties() override { UClass::PostInitProperties(); }
+	virtual void PostInitInstance(UObject* InObj) override;
 	// End UObject interface
 
 	// UClass interface
@@ -33,7 +34,12 @@ public:
 #endif
 	virtual UObject* GetArchetypeForCDO() const override { return UClass::GetArchetypeForCDO();  }
 #endif //WITH_EDITOR
+
+#if ENGINE_MINOR_VERSION < 23
 	virtual bool IsFunctionImplementedInBlueprint(FName InFunctionName) const override { return false;  }
+#else
+	virtual bool IsFunctionImplementedInScript(FName InFunctionName) const override { return false; }
+#endif
 
 #if ENGINE_MINOR_VERSION < 21
 	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override { return nullptr;  }
