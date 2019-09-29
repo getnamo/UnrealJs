@@ -1871,6 +1871,29 @@ public:
 		Template->Set(I.Keyword("Find"), I.FunctionTemplate(fn, ClassToExport));
 	}
 
+	/*template <typename ObjClass>
+	static FORCEINLINE ObjClass* LoadBlueprintFromPath(const FName& Path, const FName& BlueprintName)
+	{
+		if (Path == NAME_None) return NULL;
+		FString cName = BlueprintName.ToString().Append(FString("_C"));
+		TArray<UObject*> tempArray;
+		if (EngineUtils::FindOrLoadAssetsByPath(*Path.ToString(), tempArray, EngineUtils::ATL_Class))
+		{
+			for (int i = 0; i < tempArray.Num(); ++i)
+			{
+				UObject* temp = tempArray[i];
+				if (temp == NULL || (!Cast<ObjClass>(temp)) || (temp->GetName().Compare(cName) != 0))
+				{
+					continue;
+				}
+
+				return Cast<ObjClass>(temp);
+			}
+		}
+
+		return NULL;
+	}*/
+
 	void AddMemberFunction_Class_Load(Local<FunctionTemplate> Template, UClass* ClassToExport)
 	{
 		FIsolateHelper I(isolate_);
@@ -1884,7 +1907,14 @@ public:
 
 			if (info.Length() == 1 && info[0]->IsString())
 			{
-				auto obj = StaticLoadObject(ClassToExport, nullptr, *StringFromV8(isolate, info[0]->ToString(isolate->GetCurrentContext()).ToLocalChecked()));
+				FString Path = StringFromV8(isolate, info[0]->ToString(isolate->GetCurrentContext()).ToLocalChecked());
+				//Path = TEXT("Blueprint'") + Path + TEXT(".TestJs_C'");
+
+				//auto SomeClass = <class>LoadBlueprintFromPath(FName(*Path), FName(TEXT("TestJs")));
+				UE_LOG(LogTemp, Log, TEXT("Loading: %s"), *Path);
+
+				//this is the function called when you do Blueprint.Load('/Game/Bp/TestJs').GeneratedClass
+				auto obj = StaticLoadObject(ClassToExport, nullptr, *Path);
 				auto out = GetSelf(isolate)->ExportObject(obj);
 				info.GetReturnValue().Set(out);
 			}
