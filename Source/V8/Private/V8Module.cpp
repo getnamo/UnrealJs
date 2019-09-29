@@ -183,6 +183,7 @@ public:
 		Paths.Add(GetPluginScriptsDirectory3());
 		Paths.Add(GetPluginScriptsDirectory4());
 		Paths.Add(GetPluginScriptsDirectory5());
+		Paths.Add(GetPluginScriptsDirectory6());
 		Paths.Add(GetPakPluginScriptsDirectory());
 
 		const UJavascriptSettings& Settings = *GetDefault<UJavascriptSettings>();
@@ -225,9 +226,16 @@ public:
 		return FPaths::ProjectPluginsDir() / "UnrealJS/Content/Scripts/";
 	}
 
+	//git clones project plugin
 	static FString GetPluginScriptsDirectory5()
 	{
 		return FPaths::ProjectPluginsDir() / "Unreal.js-core/Content/Scripts/";
+	}
+
+	//Packaged with plugin scripts copied to project for e.g. android
+	static FString GetPluginScriptsDirectory6()
+	{
+		return FPaths::ProjectDir() / "/Content/Scripts/UnrealJSPlugin/";
 	}
 
 	static FString GetPakPluginScriptsDirectory()
