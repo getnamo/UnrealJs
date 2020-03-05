@@ -905,6 +905,31 @@ public:
 					WriteProperty(isolate_, p->Inner, helper.GetRawPtr(Index), arr->Get(Index), Owner, Flags);
 				}
 			}
+			//are we trying to fill a binary value?
+			else if (p->Inner->IsA<UByteProperty>())
+			{
+				//for now we only support Uint8ArrayView
+				if (Value->IsUint8Array())
+				{
+					//Get the view and fill it
+					v8::Local<v8::Uint8Array> view = Value.As<v8::Uint8Array>();
+					uint8* RawMemoryPtr = (uint8*)view->Buffer()->GetContents().Data();
+					int32 RawMemorySize = view->Buffer()->GetContents().ByteLength();
+
+					//copy over
+					FScriptArrayHelper ArrayHelper(p, Buffer);
+					ArrayHelper.EmptyAndAddUninitializedValues(RawMemorySize);
+					FGenericPlatformMemory::Memcpy(ArrayHelper.GetRawPtr(), RawMemoryPtr, RawMemorySize);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Log, TEXT("Is ArrayBufferView: %d"), Value->IsArrayBufferView());
+					UE_LOG(LogTemp, Log, TEXT("Is Uint8Array: %d"), Value->IsUint8Array());
+					UE_LOG(LogTemp, Log, TEXT("Is ArrayBuffer(unsupported): %d"), Value->IsArrayBuffer());
+
+					I.Throw(TEXT("Pass in Uint8Array on js side for binary data conversion to TArray<uint8> (byte arrays)"));
+				}
+			}
 			else
 			{
 				I.Throw(TEXT("Should write into array by passing an array instance"));
