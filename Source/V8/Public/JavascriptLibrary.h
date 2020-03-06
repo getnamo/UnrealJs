@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "JavascriptProfile.h"
@@ -7,6 +7,23 @@
 #include "IPAddress.h"
 #include "NavMesh/RecastNavMesh.h"
 #include "JavascriptLibrary.generated.h"
+
+USTRUCT(BlueprintType)
+struct FReadStringFromFileHandle
+{
+	GENERATED_BODY()
+
+	TSharedPtr<class FReadStringFromFileThread> Runnable;
+};
+
+USTRUCT(BlueprintType)
+struct FReadStringFromFileAsyncData
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString String;
+};
 
 USTRUCT(BlueprintType)
 struct V8_API FDirectoryItem
@@ -332,7 +349,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	static bool HasAnyPackageFlags(UPackage* Package, int32 Flags);
 
-	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript", meta = (BlueprintInternalUseOnly = "true"))
 	static FString GetName(UObject* Object);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
@@ -376,6 +393,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	static bool WriteFile(UObject* Object, FString Filename);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	static FReadStringFromFileHandle ReadStringFromFileAsync(UObject* Object, FString Filename, FJavascriptFunction Function);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	static FString ReadStringFromFile(UObject* Object, FString Filename);

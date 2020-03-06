@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "CoreMinimal.h"
 #include "Styling/SlateStyle.h"
 #include "Widgets/SWidget.h"
@@ -94,10 +94,13 @@ class JAVASCRIPTUMG_API UJavascriptUMGLibrary : public UBlueprintFunctionLibrary
 	static void AddFontInfo(FJavascriptSlateStyle StyleSet, FName PropertyName, const FSlateFontInfo& FontInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
-	static FJavascriptSlateWidget TakeWidget(UWidget* Widget);
+	static FJavascriptSlateWidget TakeWidget(class UWidget* Widget);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
-	static UWidget* SetContent(UNativeWidgetHost* TargetWidget, FJavascriptSlateWidget SlateWidget);
+	static class UWidget* SetContent(class UNativeWidgetHost* TargetWidget, FJavascriptSlateWidget SlateWidget);
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript | Editor")
+	static FJavascriptSlateWidget GetRootWindow();
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript | Editor")
 	static void AddWindowAsNativeChild(FJavascriptSlateWidget NewWindow, FJavascriptSlateWidget RootWindow);

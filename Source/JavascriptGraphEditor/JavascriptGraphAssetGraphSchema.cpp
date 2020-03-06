@@ -1,4 +1,4 @@
-#include "JavascriptGraphAssetGraphSchema.h"
+﻿#include "JavascriptGraphAssetGraphSchema.h"
 #include "JavascriptGraphEdNode.h"
 #include "JavascriptGraphConnectionDrawingPolicy.h"
 
@@ -17,12 +17,12 @@ UEdGraphNode* FJavascriptGraphAction_NewNode::PerformAction(class UEdGraph* Pare
 {
 	if (Schema->OnPerformAction.IsBound())
 	{
-		FPerformActionContext Context;		
+		FPerformActionContext Context;
 		Context.ParentGraph = ParentGraph;
 		for (auto pin : FromPins)
 		{
 			Context.FromPins.Add(FJavascriptEdGraphPin(pin));
-		}		
+		}
 		Context.Location = Location;
 		Context.bSelectNewNode = bSelectNewNode;
 		return Schema->OnPerformAction.Execute(*this, Context);
@@ -46,7 +46,7 @@ void UJavascriptGraphAssetGraphSchema::BreakSinglePinLink(FJavascriptEdGraphPin 
 	if (SourcePin.IsValid() && TargetPin.IsValid())
 	{
 		Super::BreakSinglePinLink(SourcePin, TargetPin);
-	}	
+	}
 }
 
 void UJavascriptGraphAssetGraphSchema::BreakNodeLinks(UEdGraphNode* TargetNode)
@@ -54,7 +54,7 @@ void UJavascriptGraphAssetGraphSchema::BreakNodeLinks(UEdGraphNode* TargetNode)
 	if (TargetNode)
 	{
 		Super::BreakNodeLinks(*TargetNode);
-	}	
+	}
 }
 
 void UJavascriptGraphAssetGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const
@@ -73,9 +73,10 @@ void UJavascriptGraphAssetGraphSchema::GetGraphContextActions(FGraphContextMenuB
 
 			ContextMenuBuilder.AddAction(NewNodeAction);
 		}
-	}	
+	}
 }
 
+#if ENGINE_MINOR_VERSION < 24
 void UJavascriptGraphAssetGraphSchema::GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, class FMenuBuilder* MenuBuilder, bool bIsDebugging) const
 {
 	if (OnBuildMenu.IsBound())
@@ -90,10 +91,31 @@ void UJavascriptGraphAssetGraphSchema::GetContextMenuActions(const UEdGraph* Cur
 
 		OnBuildMenu.Execute(Builder);
 		return;
-	}	
+	}
 
 	Super::GetContextMenuActions(CurrentGraph, InGraphNode, InGraphPin, MenuBuilder, bIsDebugging);
 }
+#else
+void UJavascriptGraphAssetGraphSchema::GetContextMenuActions(class UToolMenu* Menu, class UGraphNodeContextMenuContext* Context) const
+{
+	//@ Todo
+	
+	if (OnBuildMenu.IsBound())
+	{
+		FJavascriptGraphMenuBuilder Builder;
+		Builder.ToolMenu = Menu;
+		Builder.Graph = Context->Graph;
+		Builder.GraphNode = Context->Node;
+		Builder.GraphPin.GraphPin = const_cast<UEdGraphPin*>(Context->Pin);
+		Builder.bIsDebugging = Context->bIsDebugging;
+
+		OnBuildMenu.Execute(Builder);
+		return;
+	}
+
+	Super::GetContextMenuActions(Menu, Context);
+}
+#endif
 
 const FPinConnectionResponse UJavascriptGraphAssetGraphSchema::CanCreateConnection(const UEdGraphPin* A, const UEdGraphPin* B) const
 {
@@ -101,7 +123,7 @@ const FPinConnectionResponse UJavascriptGraphAssetGraphSchema::CanCreateConnecti
 	{
 		auto Result = OnCanCreateConnection.Execute(FJavascriptEdGraphPin{ const_cast<UEdGraphPin*>(A) }, FJavascriptEdGraphPin{ const_cast<UEdGraphPin*>(B) });
 		return FPinConnectionResponse(Result.Response, Result.Message);
-	}	
+	}
 
 	return FPinConnectionResponse(CONNECT_RESPONSE_MAKE, FText::FromString(TEXT("Connect")));
 }
@@ -160,7 +182,7 @@ bool UJavascriptGraphAssetGraphSchema::ShouldAlwaysPurgeOnModification() const
 	{
 		return OnShouldAlwaysPurgeOnModification.Execute();
 	}
-	
+
 	return Super::ShouldAlwaysPurgeOnModification();
 }
 

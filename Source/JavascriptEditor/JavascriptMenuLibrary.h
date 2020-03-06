@@ -1,17 +1,19 @@
-#pragma once
+﻿#pragma once
 
-#include "JavascriptUMGLibrary.h"
-#include "JavascriptObject.h"
+#include "JavascriptUMG/JavascriptUMGLibrary.h"
 #include "JavascriptIsolate.h"
-#include "JavascriptComboButtonContext.h"
-#include "JavascriptMenuContext.h"
+#include "JavascriptUMG/JavascriptComboButtonContext.h"
+#include "JavascriptUMG/JavascriptMenuContext.h"
 #include "Framework/Commands/UICommandInfo.h"
-#include "Framework/Multibox/MultiBoxBuilder.h"
-#include "Framework/Multibox/MultiBoxExtender.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #include "Framework/Commands/InputBindingManager.h"
-#include "UObject/ScriptMacros.h"
 #include "UObject/TextProperty.h"
 #include "JavascriptMenuLibrary.generated.h"
+
+class UJavascriptUICommands;
+class UJavascriptToolbarButtonContext;
+class UToolMenu;
 
 USTRUCT(BlueprintType)
 struct FJavascriptUICommandInfo
@@ -54,6 +56,7 @@ struct FJavascriptMenuBuilder
 {
 	GENERATED_BODY()
 
+	UToolMenu* ToolMenu = nullptr;
 	FMultiBoxBuilder* MultiBox = nullptr;
 	FMenuBuilder* Menu = nullptr;
 	FMenuBarBuilder* MenuBar = nullptr;
@@ -93,7 +96,7 @@ public:
 
 
 USTRUCT(BlueprintType)
-struct JAVASCRIPTUMG_API FJavascriptExtender
+struct JAVASCRIPTEDITOR_API FJavascriptExtender
 {
 	GENERATED_BODY()
 
@@ -133,10 +136,10 @@ namespace EJavascriptExtensionHook
 }
 
 /**
- * 
+ *
  */
 UCLASS()
-class JAVASCRIPTUMG_API UJavascriptMenuLibrary : public UBlueprintFunctionLibrary
+class JAVASCRIPTEDITOR_API UJavascriptMenuLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
@@ -201,7 +204,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static void PushCommandList(FJavascriptMenuBuilder& Builder, FJavascriptUICommandList List);
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static void PopCommandList(FJavascriptMenuBuilder& Builder);
 

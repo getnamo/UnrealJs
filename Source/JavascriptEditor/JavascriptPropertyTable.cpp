@@ -1,5 +1,8 @@
-#include "JavascriptPropertyTable.h"
+﻿#include "JavascriptPropertyTable.h"
 #include "IPropertyTableColumn.h"
+#include "IPropertyTableCustomColumn.h"
+#include "PropertyEditorModule.h"
+#include "JavascriptCustomColumn.h"
 
 #define LOCTEXT_NAMESPACE "JavascriptPropertyTable"
 
@@ -16,6 +19,55 @@ void UJavascriptPropertyTable::ReleaseSlateResources(bool bReleaseChildren)
 	PropertyTable.Reset();
 }
 
+
+void UJavascriptPropertyTable::SetEditingObjects(TArray<UObject*> InEditingObjects)
+{
+	EditingObjects = InEditingObjects;
+
+	if (PropertyTable.IsValid())
+	{
+		PropertyTable->SetObjects(EditingObjects);
+
+		if (EditingObjects.Num() > 0)
+		{
+			UObject* Object = EditingObjects[0];
+			UClass* Class = Object->GetClass();
+			for (TFieldIterator<UProperty> PropertyIterator(Class); PropertyIterator; ++PropertyIterator)
+			{
+				TWeakObjectPtr< UProperty > Property = *PropertyIterator;
+				if (!Property->HasMetaData(TEXT("Hidden")))
+				{
+					PropertyTable->AddColumn(Property);
+				}
+			}
+		}
+
+		for(auto object : EditingObjects)
+		{
+			PropertyTable->AddRow(object);
+		}
+		
+		PropertyTable->RequestRefresh();
+	}
+}
+
+TArray<UObject*> UJavascriptPropertyTable::GetSelectedTableObjects()
+{
+	TArray<UObject*> objects;
+
+	if (PropertyTable.IsValid())
+	{
+		TArray<TWeakObjectPtr<UObject>> SelectedObjects;
+		PropertyTable->GetSelectedTableObjects(SelectedObjects);
+
+		for (auto object : SelectedObjects)
+		{
+			objects.Add(object.Get());
+		}
+	}
+
+	return objects;
+}
 
 TSharedRef<SWidget> UJavascriptPropertyTable::RebuildWidget()
 {
@@ -51,7 +103,17 @@ TSharedRef<SWidget> UJavascriptPropertyTable::RebuildWidget()
 			}
 		}
 
-		return PropertyEditorModule.CreatePropertyTableWidget(PropertyTable.ToSharedRef());
+		if (bUseCustomColumns)
+		{
+			TArray< TSharedRef<class IPropertyTableCustomColumn>> CustomColumns;
+			CustomColumns.Add(MakeShareable(new FJavascriptCustomColumn(this)));
+
+			return PropertyEditorModule.CreatePropertyTableWidget(PropertyTable.ToSharedRef(), CustomColumns);
+		}
+		else
+		{
+			return PropertyEditorModule.CreatePropertyTableWidget(PropertyTable.ToSharedRef());			
+		}
 	}
 }
 

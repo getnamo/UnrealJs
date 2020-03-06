@@ -1,4 +1,4 @@
-#include "JavascriptWindow.h"
+﻿#include "JavascriptWindow.h"
 #include "Widgets/SWindow.h"
 #include "Launch/Resources/Version.h"
 
@@ -25,6 +25,7 @@ UJavascriptWindow::UJavascriptWindow(const FObjectInitializer& ObjectInitializer
 	SaneWindowPlacement = true;
 	LayoutBorder = FMargin(5, 5, 5, 5);
 	UserResizeBorder = FMargin(5, 5, 5, 5);
+	bIsCloseRequested = false;
 }
 
 TSharedRef<SWidget> UJavascriptWindow::RebuildWidget()
@@ -54,13 +55,27 @@ TSharedRef<SWidget> UJavascriptWindow::RebuildWidget()
 		.SaneWindowPlacement(SaneWindowPlacement)
 		.LayoutBorder(LayoutBorder)
 		.UserResizeBorder(UserResizeBorder)
+		.IsTopmostWindow(IsTopmostWindow)
 		.Content()
 			[
 				Content == nullptr ? SNullWidget::NullWidget : Content->TakeWidget()
 			];
 
+	Window->SetOnWindowClosed(FOnWindowClosed::CreateLambda([&](const TSharedRef<SWindow>&)
+	{
+		OnWindowClosed.ExecuteIfBound();
+	}));
+
+	Window->GetOnWindowDeactivatedEvent().AddUObject(this, &UJavascriptWindow::OnWindowDeactivatedEvent);
+
 	WeakWindow = Window;
 	return Window;
+}
+
+void UJavascriptWindow::OnWindowDeactivatedEvent()
+{
+	if (!bIsCloseRequested)
+		OnWindowDeactivated.ExecuteIfBound();
 }
 
 void UJavascriptWindow::MoveWindowTo(FVector2D NewPosition)
@@ -105,10 +120,14 @@ void UJavascriptWindow::BringToFront()
 }
 void UJavascriptWindow::RequestDestroyWindow()
 {
-	auto MyWindow = GetSlatePtr();
-	if (MyWindow.IsValid())
+	if (!bIsCloseRequested)
 	{
-		MyWindow->RequestDestroyWindow();
+		bIsCloseRequested = true;
+		auto MyWindow = GetSlatePtr();
+		if (MyWindow.IsValid())
+		{
+			MyWindow->RequestDestroyWindow();
+		}
 	}
 }
 void UJavascriptWindow::DestroyWindowImmediately()

@@ -1,11 +1,10 @@
-#include "JavascriptLibrary.h"
+﻿#include "JavascriptLibrary.h"
 #include "Engine/DynamicBlueprintBinding.h"
 #include "JavascriptContext.h"
 #include "IV8.h"
 #include "SocketSubsystem.h"
 #include "GameFramework/GameMode.h"
 #include "Sockets.h"
-#include "EngineUtils.h"
 #include "NavigationSystem.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Launch/Resources/Version.h"
@@ -13,12 +12,21 @@
 #include "UObject/MetaData.h"
 #include "Engine/Engine.h"
 #include "V8PCH.h"
+#include "Translator.h"
+#include "StructMemoryInstance.h"
 #include "Internationalization/TextNamespaceUtil.h"
 #include "Internationalization/TextPackageNamespaceUtil.h"
 #include "Serialization/TextReferenceCollector.h"
 #include "Internationalization/TextLocalizationManager.h"
 #include "Internationalization/Text.h"
 #include "Internationalization/Internationalization.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "Async/Async.h"
+
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+#include "EngineUtils.h"
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 struct FPrivateSocketHandle
 {
@@ -196,13 +204,12 @@ UPackage* UJavascriptLibrary::LoadPackage(UPackage* InOuter, FString PackageName
 	return ::LoadPackage(InOuter, *PackageName, LOAD_None);
 }
 
-
 void UJavascriptLibrary::AddDynamicBinding(UClass* Outer, UDynamicBlueprintBinding* BindingObject)
 {
 	if (Cast<UBlueprintGeneratedClass>(Outer) && BindingObject)
 	{
 		Cast<UBlueprintGeneratedClass>(Outer)->DynamicBindingObjects.Add(BindingObject);
-	}	
+	}
 }
 
 UDynamicBlueprintBinding* UJavascriptLibrary::GetDynamicBinding(UClass* Outer, TSubclassOf<UDynamicBlueprintBinding> BindingObjectClass)
@@ -253,7 +260,7 @@ bool UJavascriptLibrary::ReadFile(UObject* Object, FString Filename)
 	}
 
 	Reader->Serialize(FArrayBufferAccessor::GetData(), Size);
-	return Reader->Close();	
+	return Reader->Close();
 }
 
 bool UJavascriptLibrary::WriteFile(UObject* Object, FString Filename)
@@ -263,9 +270,72 @@ bool UJavascriptLibrary::WriteFile(UObject* Object, FString Filename)
 	{
 		return false;
 	}
-		
+
 	Writer->Serialize(FArrayBufferAccessor::GetData(), FArrayBufferAccessor::GetSize());
 	return Writer->Close();
+}
+
+class FReadStringFromFileThread : public FRunnable
+{
+public:
+	FReadStringFromFileThread(FString InFilename, TSharedPtr<FJavascriptFunction> InFunction)
+		: Filename(InFilename), Thread(nullptr), Function(InFunction)
+	{
+		Start();
+		UE_LOG(Javascript, Warning, TEXT("ReadStringFromFileAsync Thread, started %s"), *Filename);
+	}
+
+	~FReadStringFromFileThread()
+	{
+		if (Thread != nullptr)
+		{
+			Thread->Kill();
+			delete Thread;
+			UE_LOG(Javascript, Warning, TEXT("ReadStringFromFileAsync Thread, killed %s"), *Filename);
+		}
+	}
+
+	/// FRunnable inherites
+public:
+
+	void Start()
+	{
+		check(Thread == nullptr);
+		Thread = FRunnableThread::Create(this, TEXT("ReadStringFromFileThread"), 512 * 1024, TPri_Normal, FPlatformAffinity::GetPoolThreadMask());
+	}
+
+private:
+	virtual uint32 Run() override
+	{
+		FString Result;
+		FFileHelper::LoadFileToString(Result, *Filename);
+		TSharedPtr<FJavascriptFunction> Copy = Function;
+
+		AsyncTask(ENamedThreads::GameThread, [Copy, Result]()
+			{
+				FReadStringFromFileAsyncData Out;
+				Out.String = Result;
+				Copy->Execute(FReadStringFromFileAsyncData::StaticStruct(), &Out);
+			});
+
+		return 0;
+	}
+
+private:
+	/** thread should continue running. */
+	FString Filename;
+	FRunnableThread* Thread;
+	TSharedPtr<FJavascriptFunction> Function;
+};
+
+FReadStringFromFileHandle UJavascriptLibrary::ReadStringFromFileAsync(UObject* Object, FString Filename, FJavascriptFunction Function)
+{
+	TSharedPtr<FJavascriptFunction> Copy(new FJavascriptFunction);
+	*(Copy.Get()) = Function;
+
+	FReadStringFromFileHandle Handle;
+	Handle.Runnable	= MakeShareable<FReadStringFromFileThread>(new FReadStringFromFileThread(Filename, Copy));
+	return Handle;
 }
 
 FString UJavascriptLibrary::ReadStringFromFile(UObject* Object, FString Filename)
@@ -350,7 +420,7 @@ bool UJavascriptLibrary::ReadDirectory(UObject* Object, FString Directory, TArra
 		}
 	} Visitor(OutItems);
 
-	return IPlatformFile::GetPlatformPhysical().IterateDirectory(*Directory, Visitor);	
+	return IPlatformFile::GetPlatformPhysical().IterateDirectory(*Directory, Visitor);
 }
 
 void UJavascriptLibrary::ReregisterComponent(UActorComponent* ActorComponent)
@@ -404,7 +474,7 @@ void UJavascriptLibrary::GetAllActorsOfClassAndTags(UObject* WorldContextObject,
 				if (bAccept && !bReject)
 				{
 					OutActors.Add(Actor);
-				}				
+				}
 			}
 		}
 	}
@@ -575,7 +645,7 @@ void UJavascriptLibrary::Log(const FJavascriptLogCategory& Category, ELogVerbosi
 	if (!Category.Handle->IsSuppressed(Verbosity))
 	{
 		FMsg::Logf_Internal(TCHAR_TO_ANSI(*FileName), LineNumber, Category.Handle->GetCategoryName(), Verbosity, TEXT("%s"), *Message);
-		if (Verbosity == ELogVerbosity::Fatal) 
+		if (Verbosity == ELogVerbosity::Fatal)
 		{
 			_DebugBreakAndPromptForRemote();
 			FDebug::AssertFailed("", TCHAR_TO_ANSI(*FileName), LineNumber, *Message);
@@ -697,7 +767,7 @@ TArray<FJavscriptProperty> UJavascriptLibrary::GetStructProperties(const FString
 			if (UProperty* Property = dynamic_cast<UProperty*>(Field))
 			{
 				FJavscriptProperty JavascriptProperty;
-				
+
 				FString Type = Property->GetCPPType();
 				if (auto p = Cast<UArrayProperty>(Property))
 				{
@@ -705,7 +775,7 @@ TArray<FJavscriptProperty> UJavascriptLibrary::GetStructProperties(const FString
 				}
 				JavascriptProperty.Type = Type;
 				JavascriptProperty.Name = Property->GetName();
-                
+
 				Properties.Add(JavascriptProperty);
 			}
 		}
@@ -754,28 +824,28 @@ FJavascriptStat UJavascriptLibrary::NewStat(
     Out.Instance = MakeShareable(new FJavascriptThreadSafeStaticStatBase);
     Out.Instance->DoSetup(
         StatName,
-        *InStatDesc, 
+        *InStatDesc,
         GroupName,
         GroupCategoryName,
-        *InGroupDesc, 
-        bDefaultEnable, 
-        bShouldClearEveryFrame, 
-        (EStatDataType::Type)InStatType, 
-        bCycleStat, 
+        *InGroupDesc,
+        bDefaultEnable,
+        bShouldClearEveryFrame,
+        (EStatDataType::Type)InStatType,
+        bCycleStat,
         bSortByName,
         FPlatformMemory::EMemoryCounterRegion::MCR_Invalid);
 #else
     Out.Instance = MakeShareable(new FJavascriptThreadSafeStaticStatBase);
     Out.Instance->DoSetup(
         InStatName.GetPlainANSIString(),
-        *InStatDesc, 
+        *InStatDesc,
         InGroupName.GetPlainANSIString(),
         InGroupCategory.GetPlainANSIString(),
-        *InGroupDesc, 
-        bDefaultEnable, 
-        bShouldClearEveryFrame, 
-        (EStatDataType::Type)InStatType, 
-        bCycleStat, 
+        *InGroupDesc,
+        bDefaultEnable,
+        bShouldClearEveryFrame,
+        (EStatDataType::Type)InStatType,
+        bCycleStat,
         bSortByName,
         FPlatformMemory::EMemoryCounterRegion::MCR_Invalid);
 #endif
@@ -907,7 +977,7 @@ FText UJavascriptLibrary::UpdateLocalizationText(const FJavascriptText& JText, c
 		{
 			return TextFromStringTable;
 		}
-	}	
+	}
 
 	auto* Package = GetTransientPackage();
 
