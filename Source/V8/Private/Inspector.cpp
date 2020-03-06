@@ -427,11 +427,8 @@ public:
 		FIsolateHelper I(isolate_);
 
 		{
-			auto console = InContext->Global()->Get(InContext, I.Keyword("console"));
-			if (!console.IsEmpty())
-			{
-				(void)InContext->Global()->Set(InContext, I.Keyword("$console"), console.ToLocalChecked());
-			}
+			auto console = InContext->Global()->Get(I.Keyword("console"));
+			InContext->Global()->Set(I.Keyword("$console"), console);
 		}
 
 		v8inspector = v8_inspector::V8Inspector::create(isolate_, this);
@@ -490,43 +487,33 @@ public:
 			HandleScope handle_scope(isolate_);
 
 			FIsolateHelper I(isolate_);
-			auto context_ = context();
+
 			Isolate::Scope isolate_scope(isolate_);
-			Context::Scope context_scope(context_);
+			Context::Scope context_scope(context());
 
 			TryCatch try_catch(isolate_);
 
-			auto maybe_console = context_->Global()->Get(context_, I.Keyword("console"));
-			if (!maybe_console.IsEmpty())
+			auto console = context()->Global()->Get(I.Keyword("console")).As<v8::Object>();
+
+			auto method =
+				Verbosity == ELogVerbosity::Fatal || Verbosity == ELogVerbosity::Error ? I.Keyword("$error") :
+				Verbosity == ELogVerbosity::Warning ? I.Keyword("$warn") :
+				Verbosity == ELogVerbosity::Display ? I.Keyword("info") :
+				I.Keyword("$log");
+			auto function = console->Get(method).As<v8::Function>();
+
+			if (Verbosity == ELogVerbosity::Display)
 			{
-				auto console = maybe_console.ToLocalChecked().As<v8::Object>();
-
-				auto method =
-					Verbosity == ELogVerbosity::Fatal || Verbosity == ELogVerbosity::Error ? I.Keyword("$error") :
-					Verbosity == ELogVerbosity::Warning ? I.Keyword("$warn") :
-					Verbosity == ELogVerbosity::Display ? I.Keyword("info") :
-					I.Keyword("$log");
-
-				auto maybe_function = console->Get(context_, method);
-
-				if (!maybe_function.IsEmpty())
-				{
-					auto function = maybe_function.ToLocalChecked().As<v8::Function>();
-
-					if (Verbosity == ELogVerbosity::Display)
-					{
-						Handle<Value> argv[2];
-						argv[0] = I.String(FString::Printf(TEXT("%%c%s: %s"), *Category.ToString(), V));
-						argv[1] = I.String(TEXT("color:gray"));
-						(void)function->Call(context(), console, 2, argv);
-					}
-					else
-					{
-						Handle<Value> argv[1];
-						argv[0] = I.String(FString::Printf(TEXT("%s: %s"), *Category.ToString(), V));
-						(void)function->Call(context(), console, 1, argv);
-					}
-				}
+				Handle<Value> argv[2];
+				argv[0] = I.String(FString::Printf(TEXT("%%c%s: %s"), *Category.ToString(), V));
+				argv[1] = I.String(TEXT("color:gray"));
+				(void)function->Call(context(), console, 2, argv);
+			}
+			else
+			{
+				Handle<Value> argv[1];
+				argv[0] = I.String(FString::Printf(TEXT("%s: %s"), *Category.ToString(), V));
+				(void)function->Call(context(), console, 1, argv);
 			}
 		}
 	}

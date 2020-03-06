@@ -97,7 +97,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	bool GetVisible();
 
-	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	UFUNCTION(BlueprintCallable)
 	void SetTitleSelectionMode(float InTitleHeight);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")

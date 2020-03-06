@@ -185,8 +185,8 @@ void UJavascriptWidget::ReleaseSlateResources(bool bReleaseChildren)
 {
 	Super::ReleaseSlateResources(bReleaseChildren);
 
-	if (CanSafelyRouteEvent())
+	if (CanSafelyRouteEvent() && OnDestroy.IsBound())
 	{
-		OnDestroy(bReleaseChildren);
+		OnDestroy.Broadcast(bReleaseChildren);
 	}
 }

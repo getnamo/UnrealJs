@@ -10,8 +10,7 @@ class UJavascriptContext;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInputActionEvent, FName, ActionName);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnInputAxisEvent, float, Axis, FName, AxisName);
-///DECLARE_DYNAMIC_DELEGATE_OneParam(FOnReleaseSlateResources, bool, bReleaseChildren);
-
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnReleaseSlateResources, bool, bReleaseChildren);
 /**
  * 
  */
@@ -65,9 +64,8 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Scripting | Javascript")
 	FOnInputAxisEvent OnInputAxisEvent;
 
-	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
-	void OnDestroy(bool bReleaseChildren);
-
+	UPROPERTY(BlueprintAssignable, Category = "Scripting | Javascript")
+	FOnReleaseSlateResources OnDestroy;
 protected:
 
 	UPROPERTY()

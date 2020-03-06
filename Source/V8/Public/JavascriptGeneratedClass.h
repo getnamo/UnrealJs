@@ -15,5 +15,4 @@ public:
 	TWeakPtr<FJavascriptContext> JavascriptContext;	
 
 	virtual void InitPropertiesFromCustomList(uint8* DataPtr, const uint8* DefaultDataPtr) override;
-	virtual void PostInitInstance(UObject* InObj) override;
 };

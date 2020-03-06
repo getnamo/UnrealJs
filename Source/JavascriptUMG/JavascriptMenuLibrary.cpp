@@ -136,20 +136,11 @@ void UJavascriptMenuLibrary::AddMenuEntry(FJavascriptMenuBuilder& Builder, UJava
 		FUIAction DefaultAction;
 		DefaultAction.CanExecuteAction = FCanExecuteAction::CreateUObject(Object, &UJavascriptMenuContext::Public_CanExecute);
 		DefaultAction.ExecuteAction = FExecuteAction::CreateUObject(Object, &UJavascriptMenuContext::Public_Execute);
-		DefaultAction.GetActionCheckState = FGetActionCheckState::CreateUObject(Object, &UJavascriptMenuContext::Public_GetActionCheckState);
-#if ENGINE_MINOR_VERSION > 22
-		const EUserInterfaceActionType CommandType = EUserInterfaceActionType(Object->ActionType.GetValue());
-#else
-		const EUserInterfaceActionType::Type CommandType = EUserInterfaceActionType::Type(Object->ActionType.GetValue());
-#endif
 		Builder.Menu->AddMenuEntry(
 			Object->Description,
 			Object->ToolTip,
 			Object->Icon,
-			DefaultAction,
-			NAME_None,
-			CommandType
-		);
+			DefaultAction);
 	}
 }
 

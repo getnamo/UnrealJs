@@ -4,7 +4,6 @@
 #include "JavascriptStats.h"
 #include "UObject/GCObject.h"
 #include "../../Launch/Resources/Version.h"
-#include "v8-version.h"
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
@@ -108,10 +107,8 @@ public:
 		auto toJSON = [](const FunctionCallbackInfo<Value>& info) {
 			auto payload = reinterpret_cast<FJavascriptDelegate*>(Local<External>::Cast(info.Data())->Value());
 
-			uint32_t Index = 0;		
-			auto isolate_ = info.GetIsolate();
-			auto context_ = isolate_->GetCurrentContext();
-			auto arr = Array::New(isolate_, payload->DelegateObjects.Num());
+			uint32_t Index = 0;			
+			auto arr = Array::New(info.GetIsolate(), payload->DelegateObjects.Num());
 			const bool bIsMulticastDelegate = payload->Property->IsA(UMulticastDelegateProperty::StaticClass());
 
 			for (auto DelegateObject : payload->DelegateObjects)
@@ -119,20 +116,20 @@ public:
 				auto JavascriptFunction = payload->functions.Find(DelegateObject->UniqueId);
 				if (JavascriptFunction)
 				{
-					auto function = Local<Function>::New(isolate_, *JavascriptFunction);
+					auto function = Local<Function>::New(info.GetIsolate(), *JavascriptFunction);
 					if (!bIsMulticastDelegate)
 					{
 						info.GetReturnValue().Set(function);
 						return;
 					}
 					
-					(void)arr->Set(context_, Index++, function);
+					arr->Set(Index++, function);
 				}
 			}
 
 			if (!bIsMulticastDelegate)
 			{
-				info.GetReturnValue().Set(Null(isolate_));
+				info.GetReturnValue().Set(Null(info.GetIsolate()));
 			}
 			else
 			{
@@ -385,18 +382,17 @@ struct FDelegateManager : IDelegateManager
 	virtual Local<Value> GetProxy(Local<Object> This, UObject* Object, UProperty* Property) override
 	{
 		auto cache_id = V8_KeywordString(isolate_, FString::Printf(TEXT("$internal_%s"), *(Property->GetName())));
-		auto context_ = isolate_->GetCurrentContext();
-		auto maybe_cached = This->Get(context_, cache_id);
-		if (maybe_cached.IsEmpty() || maybe_cached.ToLocalChecked()->IsUndefined())
+		auto cached = This->Get(cache_id);
+		if (cached.IsEmpty() || cached->IsUndefined())
 		{
 			auto created = CreateDelegate(Object, Property);
 
-			(void)This->Set(context_, cache_id, created);
+			This->Set(cache_id, created);
 			return created;
 		}
 		else
 		{
-			return maybe_cached.ToLocalChecked();
+			return cached;
 		}
 	}
 };
