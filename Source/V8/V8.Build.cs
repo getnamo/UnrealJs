@@ -162,31 +162,17 @@ public class V8 : ModuleRules
             string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARM64");
 			//string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARMv7");
 
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_init"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_initializers"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_base"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_libbase"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_libplatform"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_nosnapshot"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_libsampler"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "torque_generated_initializers"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "inspector"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_init"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_initializers"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libbase"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libplatform"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_nosnapshot"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libsampler"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_initializers"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector"));
 
-            if (ShouldLink_lib_v8_compiler)
-            {
-                PublicAdditionalLibraries.Add("v8_compiler");
-                PublicAdditionalLibraries.Add("v8_base_without_compiler");
-                PublicAdditionalLibraries.Add("inspector_string_conversions");
-                PublicAdditionalLibraries.Add("encoding");
-                PublicAdditionalLibraries.Add("bindings");
-                PublicAdditionalLibraries.Add("torque_generated_definitions");
-            }
-            else
-            {
-                PublicAdditionalLibraries.Add("v8_base");
-            }
-
-            PublicDefinitions.Add(string.Format("WITH_V8=1"));
+			PublicDefinitions.Add(string.Format("WITH_V8=1"));
 
             return true;
         }
