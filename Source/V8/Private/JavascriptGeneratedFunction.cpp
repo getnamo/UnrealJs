@@ -1,26 +1,29 @@
 #include "JavascriptGeneratedFunction.h"
-#include "UObject/Stack.h"
+#include "JavascriptContext_Private.h"
+#include "Engine/BlueprintGeneratedClass.h"
+
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
 DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 {
 	auto Function = static_cast<UJavascriptGeneratedFunction*>(Stack.CurrentNativeFunction);
-	auto ProcessInternal = [&](FFrame& Stack, RESULT_DECL)
+	const auto ProcessInternalFunc = [&](FFrame& Stack, RESULT_DECL)
 	{
 		if (Function->JavascriptContext.IsValid())
 		{
-			auto Ctx = Function->JavascriptContext.Pin();
+			TSharedPtr<FJavascriptContext> Ctx = Function->JavascriptContext.Pin();
 
-			Isolate::Scope isolate_scope(Ctx->isolate());
-			HandleScope handle_scope(Ctx->isolate());
+			v8::Isolate::Scope isolate_scope(Ctx->isolate());
+			v8::HandleScope handle_scope(Ctx->isolate());
 
-			bool bCallRet = Ctx->CallProxyFunction(Function->GetOuter(), P_THIS, Function, Stack.Locals);
+			const bool bCallRet = Ctx->CallProxyFunction(Function->GetOuter(), P_THIS, Function, Stack.Locals);
 			if (!bCallRet)
 			{
 				return;
 			}
 
 			UProperty* ReturnProp = ((UFunction*)Stack.Node)->GetReturnProperty();
-			if (ReturnProp != NULL)
+			if (ReturnProp != nullptr)
 			{
 				const bool bHasReturnParam = Function->ReturnValueOffset != MAX_uint16;
 				uint8* ReturnValueAdress = bHasReturnParam ? (Stack.Locals + Function->ReturnValueOffset) : nullptr;
@@ -46,31 +49,33 @@ DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 			if (bHasAnyOutParams)
 			{
 				auto OutParm = Stack.OutParms;
-
-				// Iterate over parameters again
-				for (TFieldIterator<UProperty> It(Function); It; ++It)
+				if (OutParm)
 				{
-					UProperty* Param = *It;
-
-					auto PropertyFlags = Param->GetPropertyFlags();
-					if ((PropertyFlags & (CPF_ConstParm | CPF_OutParm)) == CPF_OutParm)
+					// Iterate over parameters again
+					for (TFieldIterator<UProperty> It(Function); It; ++It)
 					{
-						auto Property = OutParm->Property;
-						if (Property != nullptr)
-						{
-							auto ValueAddress = Property->ContainerPtrToValuePtr<uint8>(Stack.Locals);
-							FMemory::Memcpy(OutParm->PropAddr, ValueAddress, Property->ArrayDim * Property->ElementSize);
-						}
-					}
+						UProperty* Param = *It;
 
-					if (PropertyFlags & CPF_OutParm)
-						OutParm = OutParm->NextOutParm;
+						auto PropertyFlags = Param->GetPropertyFlags();
+						if ((PropertyFlags & (CPF_ConstParm | CPF_OutParm)) == CPF_OutParm)
+						{
+							auto Property = OutParm->Property;
+							if (Property != nullptr)
+							{
+								auto ValueAddress = Property->ContainerPtrToValuePtr<uint8>(Stack.Locals);
+								FMemory::Memcpy(OutParm->PropAddr, ValueAddress, Property->ArrayDim * Property->ElementSize);
+							}
+						}
+
+						if (PropertyFlags & CPF_OutParm)
+							OutParm = OutParm->NextOutParm;
+					}
 				}
 			}
 		}
 	};
 
-	bool bIsVMVirtual = Function->GetSuperFunction() && Cast<UBlueprintGeneratedClass>(Function->GetSuperFunction()->GetOuter()) != nullptr;
+	const bool bIsVMVirtual = Function->GetSuperFunction() && Cast<UBlueprintGeneratedClass>(Function->GetSuperFunction()->GetOuter()) != nullptr;
 	if (bIsVMVirtual && *Stack.Code != EX_EndFunctionParms)
 	{
 		uint8* Frame = NULL;
@@ -83,6 +88,7 @@ DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 			Frame = (uint8*)FMemory_Alloca(Function->PropertiesSize);
 			FMemory::Memzero(Frame, Function->PropertiesSize);
 		}
+
 		FFrame NewStack(P_THIS, Function, Frame, &Stack, Function->Children);
 		FOutParmRec** LastOut = &NewStack.OutParms;
 		UProperty* Property;
@@ -97,7 +103,7 @@ DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 				if (Property->HasAnyPropertyFlags(CPF_ReturnParm))
 				{
 					CA_SUPPRESS(6263)
-						FOutParmRec* RetVal = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
+					FOutParmRec* RetVal = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
 
 					// Our context should be that we're in a variable assignment to the return value, so ensure that we have a valid property to return to
 					check(RESULT_PARAM != NULL);
@@ -130,7 +136,7 @@ DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 				Stack.Step(Stack.Object, NULL);
 
 				CA_SUPPRESS(6263)
-					FOutParmRec* Out = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
+				FOutParmRec* Out = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
 				// set the address and property in the out param info
 				// warning: Stack.MostRecentPropertyAddress could be NULL for optional out parameters
 				// if that's the case, we use the extra memory allocated for the out param in the function's locals
@@ -184,7 +190,7 @@ DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 		// Execute the code.
 		if (bIsValidFunction)
 		{
-			ProcessInternal(NewStack, RESULT_PARAM);
+			ProcessInternalFunc(NewStack, RESULT_PARAM);
 		}
 
 		if (!bUsePersistentFrame)
@@ -202,6 +208,8 @@ DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 	else
 	{
 		P_FINISH;
-		ProcessInternal(Stack, RESULT_PARAM);
+		ProcessInternalFunc(Stack, RESULT_PARAM);
 	}
 }
+
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS

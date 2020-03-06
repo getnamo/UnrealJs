@@ -1,15 +1,18 @@
-#include "SJavascriptGraphEdNode.h"
+﻿#include "SJavascriptGraphEdNode.h"
 #include "SJavascriptGraphEdNodePin.h"
 
-#include "JavascriptGraphEdNode.h"
-#include "JavascriptGraphAssetGraphSchema.h"
-#include "SlateOptMacros.h"
-#include "Widgets/Layout/SBox.h"
+#include "Blueprint/UserWidget.h"
+#include "Components/VerticalBox.h"
 #include "Framework/Application/SlateApplication.h"
+#include "JavascriptGraphAssetGraphSchema.h"
+#include "JavascriptGraphEdNode.h"
+#include "JavascriptUMG/JavascriptUMGLibrary.h"
+#include "SCommentBubble.h"
+#include "SlateOptMacros.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SBox.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SWindow.h"
-#include "Widgets/Images/SImage.h"
-#include "SCommentBubble.h"
 
 TSharedRef<FDragJavascriptGraphNode> FDragJavascriptGraphNode::New(const TSharedRef<SGraphNode>& InDraggedNode)
 {
@@ -74,7 +77,7 @@ void SJavascriptGraphEdNode::Construct(const FArguments& InArgs, UJavascriptGrap
 
 	auto GraphEdNode = CastChecked<UJavascriptGraphEdNode>(GraphNode);
 	if(GraphEdNode)
-	{ 
+	{
 		GraphEdNode->OnWidgetFinalized.ExecuteIfBound();
 	}
 }
@@ -86,7 +89,7 @@ void SJavascriptGraphEdNode::UpdateGraphNode()
 	InputPins.Empty();
 	OutputPins.Empty();
 	RightNodeBox.Reset();
-	LeftNodeBox.Reset();	
+	LeftNodeBox.Reset();
 	
 	auto Schema = CastChecked<UJavascriptGraphAssetGraphSchema>(GraphNode->GetSchema());
 	auto GraphEdNode = CastChecked<UJavascriptGraphEdNode>(GraphNode);
@@ -162,11 +165,11 @@ void SJavascriptGraphEdNode::UpdateGraphNode()
 		[
 			CommentBubble.ToSharedRef()
 		];
-	
+
 	CreatePinWidgets();
 	CreateOutputSideAddButton(RightNodeBox);
-	// TODO:
-	GraphEdNode->SlateGraphNode = this;
+
+	GraphEdNode->SlateGraphNode = SharedThis(this);
 }
 
 TSharedPtr<SWidget> SJavascriptGraphEdNode::GetTitleAreaWidget()
@@ -175,10 +178,10 @@ TSharedPtr<SWidget> SJavascriptGraphEdNode::GetTitleAreaWidget()
 	auto GraphEdNode = CastChecked<UJavascriptGraphEdNode>(GraphNode);
 	if (Schema->OnTakeTitleAreaWidget.IsBound())
 	{
-		auto Widget = Schema->OnTakeTitleAreaWidget.Execute(GraphEdNode).Widget;
-		if (Widget.IsValid())
+		UWidget* Widget = Schema->OnTakeTitleAreaWidget.Execute(GraphEdNode);
+		if (Widget)
 		{
-			return Widget;
+			return Widget->TakeWidget();
 		}
 	}
 	return SNew(SBox);
@@ -190,10 +193,10 @@ TSharedPtr<SWidget> SJavascriptGraphEdNode::GetUserWidget()
 	auto GraphEdNode = CastChecked<UJavascriptGraphEdNode>(GraphNode);
 	if (Schema->OnTakeUserWidget.IsBound())
 	{
-		auto Widget = Schema->OnTakeUserWidget.Execute(GraphEdNode).Widget;
-		if (Widget.IsValid())
+		UWidget* Widget = Schema->OnTakeUserWidget.Execute(GraphEdNode);
+		if (Widget)
 		{
-			return Widget;
+			return Widget->TakeWidget();
 		}
 	}
 	return SNew(SBox);
@@ -260,10 +263,10 @@ TSharedPtr<SWidget> SJavascriptGraphEdNode::ErrorReportingWidget()
 	auto GraphEdNode = CastChecked<UJavascriptGraphEdNode>(GraphNode);
 	if (Schema->OnTakeErrorReportingWidget.IsBound())
 	{
-		auto Widget = Schema->OnTakeErrorReportingWidget.Execute(GraphEdNode).Widget;
-		if (Widget.IsValid())
+		UWidget* Widget = Schema->OnTakeErrorReportingWidget.Execute(GraphEdNode);
+		if (Widget)
 		{
-			return Widget;
+			return Widget->TakeWidget();
 		}
 	}
 	return SNew(SBox);
@@ -272,7 +275,18 @@ TSharedPtr<SWidget> SJavascriptGraphEdNode::ErrorReportingWidget()
 void SJavascriptGraphEdNode::CreatePinWidgets()
 {
 	UJavascriptGraphEdNode* GraphEdNode = CastChecked<UJavascriptGraphEdNode>(GraphNode);
-	auto Schema = CastChecked<UJavascriptGraphAssetGraphSchema>(GraphNode->GetSchema());
+
+	// Custom node currently does not support pin functionality.
+	// Actually, only creating and adding pin widgets to pin box is available.
+	// But connecting, drawing connection and other is not.
+	// This limitation comes from the fact that we didn't add this node widget to a SGraphPanel
+	// like any other implementation of sub-nodes, e.g. Decorator/Service of SGraphNode_BehaviorTree.
+	if (GraphEdNode->IsCustomNode)
+	{
+		return;
+	}
+
+	auto Schema = CastChecked<UJavascriptGraphAssetGraphSchema>(GraphEdNode->GetSchema());
 
 	for (int32 PinIdx = 0; PinIdx < GraphEdNode->Pins.Num(); PinIdx++)
 	{
@@ -283,7 +297,11 @@ void SJavascriptGraphEdNode::CreatePinWidgets()
 
 			if (Schema->OnCreatePin.IsBound())
 			{
-				NewPin = StaticCastSharedPtr<SGraphPin>(Schema->OnCreatePin.Execute(FJavascriptEdGraphPin{ MyPin }).Widget);
+				UWidget* Widget = Schema->OnCreatePin.Execute(FJavascriptEdGraphPin{ MyPin });
+				if (Widget)
+				{
+					NewPin = StaticCastSharedPtr<SGraphPin>(TSharedPtr<SWidget>(Widget->TakeWidget()));
+				}
 			}
 			if (!NewPin.IsValid())
 			{
@@ -315,15 +333,18 @@ void SJavascriptGraphEdNode::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
 		bDisable = Schema->OnUsingDefaultPin.Execute(JavascriptGraphPin);
 	}
 
+	TSharedPtr<SVerticalBox> NodeBox;
+
+	if (Schema->OnGetCustomPinBoxWidget.IsBound())
+	{
+		NodeBox = StaticCastSharedPtr<SVerticalBox>(Schema->OnGetCustomPinBoxWidget.Execute(JavascriptGraphPin).Widget);
+	}
+
 	if (PinToAdd->GetDirection() == EEdGraphPinDirection::EGPD_Input)
 	{
-		TSharedPtr<SVerticalBox> NodeBox = LeftNodeBox;
-
-		if (Schema->OnUsingAlternativeInputPinBox.IsBound() &&
-			Schema->OnUsingAlternativeInputPinBox.Execute(JavascriptGraphPin) &&
-			AltLeftNodeBox.IsValid())
+		if (NodeBox.IsValid() == false)
 		{
-			NodeBox = AltLeftNodeBox;
+			NodeBox = LeftNodeBox;
 		}
 
 		if (bDisable)
@@ -343,27 +364,22 @@ void SJavascriptGraphEdNode::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
 				[
 					PinToAdd
 				];
-
 		}
 		InputPins.Add(PinToAdd);
 	}
 	else // Direction == EEdGraphPinDirection::EGPD_Output
 	{
-		TSharedPtr<SVerticalBox> NodeBox = RightNodeBox;
-
-		if (Schema->OnUsingAlternativeOutputPinBox.IsBound() &&
-			Schema->OnUsingAlternativeOutputPinBox.Execute(JavascriptGraphPin) &&
-			AltRightNodeBox.IsValid())
+		if (NodeBox.IsValid() == false)
 		{
-			NodeBox = AltRightNodeBox;
+			NodeBox = RightNodeBox;
 		}
 
-		if (bDisable) 
+		if (bDisable)
 		{
 			NodeBox->AddSlot()
-				[
-					PinToAdd
-				];
+			[
+				PinToAdd
+			];
 		}
 		else
 		{
@@ -375,7 +391,6 @@ void SJavascriptGraphEdNode::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
 				[
 					PinToAdd
 				];
-
 		}
 		OutputPins.Add(PinToAdd);
 	}

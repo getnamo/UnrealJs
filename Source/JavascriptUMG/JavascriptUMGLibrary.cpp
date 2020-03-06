@@ -1,7 +1,8 @@
-#include "JavascriptUMGLibrary.h"
+﻿#include "JavascriptUMGLibrary.h"
 #include "JavascriptWidget.h"
 #include "Components/NativeWidgetHost.h"
 #include "Styling/SlateStyleRegistry.h"
+#include "Framework/Docking/TabManager.h"
 
 FJavascriptSlateStyle UJavascriptUMGLibrary::CreateSlateStyle(FName InStyleSetName)
 {
@@ -11,11 +12,11 @@ FJavascriptSlateStyle UJavascriptUMGLibrary::CreateSlateStyle(FName InStyleSetNa
 }
 
 void UJavascriptUMGLibrary::Register(FJavascriptSlateStyle StyleSet)
-{	
+{
 	if (FSlateStyleRegistry::FindSlateStyle(StyleSet.Handle->GetStyleSetName()))
 	{
 		FSlateStyleRegistry::UnRegisterSlateStyle(*StyleSet.Handle.Get());
-	}	
+	}
 	FSlateStyleRegistry::RegisterSlateStyle(*StyleSet.Handle.Get());
 }
 
@@ -89,6 +90,14 @@ UWidget* UJavascriptUMGLibrary::SetContent(UNativeWidgetHost* TargetWidget, FJav
 	}
 
 	return Widget;
+}
+
+FJavascriptSlateWidget UJavascriptUMGLibrary::GetRootWindow()
+{
+	FJavascriptSlateWidget Out;
+	Out.Widget = FGlobalTabmanager::Get()->GetRootWindow();
+
+	return Out;
 }
 
 void UJavascriptUMGLibrary::AddWindowAsNativeChild(FJavascriptSlateWidget NewWindow, FJavascriptSlateWidget RootWindow)

@@ -1,4 +1,4 @@
-PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+﻿PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
 #include "JavascriptContext_Private.h"
 #include "JavascriptIsolate.h"
@@ -76,23 +76,6 @@ static TArray<FString> StringArrayFromV8(Isolate* isolate, Handle<Value> InArray
 	}
 	return OutArray;
 };
-
-#if WITH_EDITOR
-template <typename Type>
-static void SetMetaData(Type* Object, const FString& Key, const FString& Value)
-{
-	if (Key.Compare(TEXT("None"), ESearchCase::IgnoreCase) == 0 || Key.Len() == 0) return;
-
-	if (Value.Len() == 0)
-	{
-		Object->SetMetaData(*Key, TEXT("true"));
-	}
-	else
-	{
-		Object->SetMetaData(*Key, *Value);
-	}
-}
-#endif
 
 static void SetFunctionFlags(UFunction* Function, const TArray<FString>& Flags)
 {
@@ -228,22 +211,6 @@ static void SetStructFlags(UScriptStruct* Struct, const TArray<FString>& Flags)
 		{
 			SetMetaData(Struct, Left, Right);
 		}
-#endif
-	}
-}
-
-static void SetEnumFlags(UEnum* Enum, const TArray<FString>& Flags)
-{
-	for (const auto& Flag : Flags)
-	{
-		FString Left, Right;
-		if (!Flag.Split(TEXT(":"), &Left, &Right))
-		{
-			Left = Flag;
-		}
-
-#if WITH_EDITOR
-		SetMetaData(Enum, Left, Right);
 #endif
 	}
 }
@@ -590,7 +557,7 @@ class FJavascriptContextImplementation : public FJavascriptContext
 	TMap<FString, UObject*> WKOs;
 
 public:
-	Isolate* isolate() { return Environment->isolate_; }
+	Isolate* isolate() { return Environment.IsValid() ? Environment->isolate_ : nullptr; }
 	Local<Context> context() { return Local<Context>::New(isolate(), context_); }
 	bool IsValid() const { return Magic == MagicNumber; }
 
@@ -1573,7 +1540,7 @@ public:
 			if (!found)
 			{
 				UE_LOG(Javascript, Warning, TEXT("Undefined required script '%s'"), *required_module);
-				info.GetReturnValue().Set(Undefined(isolate));
+				info.GetReturnValue().Set(v8::Undefined(isolate));
 			}
 		};
 
@@ -2116,44 +2083,44 @@ public:
 		auto exported = ExportObject(Object);
 		if (exported->IsUndefined())
 		{
-			return Undefined(isolate());
+			return v8::Undefined(isolate());
 		}
 
 		auto maybe_obj = exported->ToObject(Context);
 		if (maybe_obj.IsEmpty())
 		{
-			return Undefined(isolate());
+			return v8::Undefined(isolate());
 		}
 
 		auto maybe_proxy = maybe_obj.ToLocalChecked()->Get(Context, V8_KeywordString(isolate(), "proxy"));
 		if (maybe_proxy.IsEmpty())
 		{
-			return Undefined(isolate());
+			return v8::Undefined(isolate());
 		}
 
 		auto proxy = maybe_proxy.ToLocalChecked();
 		if (proxy.IsEmpty() || !proxy->IsObject())
 		{
-			return Undefined(isolate());
+			return v8::Undefined(isolate());
 		}
 
 		auto maybe_proxyObj = proxy->ToObject(Context);
 		if (maybe_proxyObj.IsEmpty())
 		{
-			return Undefined(isolate());
+			return v8::Undefined(isolate());
 		}
 		auto maybe_func = maybe_proxyObj.ToLocalChecked()->Get(Context, V8_KeywordString(isolate(), Name));
 
 		if (maybe_func.IsEmpty())
 		{
-			return Undefined(isolate());
+			return v8::Undefined(isolate());
 		}
 		
 		auto func = maybe_func.ToLocalChecked();
 
 		if (func.IsEmpty() || !func->IsFunction())
 		{
-			return Undefined(isolate());
+			return v8::Undefined(isolate());
 		}
 
 		return func;
@@ -2185,14 +2152,14 @@ public:
 		auto func = GetProxyFunction(context(), Holder, FunctionToCall);
 		if (!func.IsEmpty() && func->IsFunction())
 		{
-			CallJavascriptFunction(context(), This ? ExportObject(This) : Local<Value>::Cast(context()->Global()), FunctionToCall, Local<Function>::Cast(func), Parms);
-
-			return true;
+			auto th = This ? ExportObject(This) : Local<Value>::Cast(context()->Global());
+			if (!th->IsUndefined())
+			{
+				CallJavascriptFunction(context(), th, FunctionToCall, Local<Function>::Cast(func), Parms);
+				return true;
+			}
 		}
-		else
-		{
-			return false;
-		}
+		return false;
 	}
 
 	bool CallProxyFunction(UObject* Holder, UObject* This, const TCHAR* Name, void* Parms)
@@ -2207,13 +2174,14 @@ public:
 		auto func = GetProxyFunction(context(), Holder, Name);
 		if (!func.IsEmpty() && func->IsFunction())
 		{
-			CallJavascriptFunction(context(), This ? ExportObject(This) : Local<Value>::Cast(context()->Global()), nullptr, Local<Function>::Cast(func), Parms);
-			return true;
+			auto th = This ? ExportObject(This) : Local<Value>::Cast(context()->Global());
+			if (!th->IsUndefined())
+			{
+				CallJavascriptFunction(context(), th, nullptr, Local<Function>::Cast(func), Parms);
+				return true;
+			}
 		}
-		else
-		{
-			return false;
-		}
+		return false;
 	}
 
 	// To tell Unreal engine's GC not to destroy these objects!
@@ -2269,8 +2237,6 @@ FJavascriptContext* FJavascriptContext::Create(TSharedPtr<FJavascriptIsolate> In
 
 inline void FJavascriptContextImplementation::AddReferencedObjects(UObject * InThis, FReferenceCollector & Collector)
 {
-	RequestV8GarbageCollection();
-
 	// All objects
 	for (auto It = ObjectToObjectMap.CreateIterator(); It; ++It)
 	{
@@ -2289,7 +2255,7 @@ inline void FJavascriptContextImplementation::AddReferencedObjects(UObject * InT
 	// All structs
 	for (auto It = MemoryToObjectMap.CreateIterator(); It; ++It)
 	{
-		TSharedPtr<FStructMemoryInstance> StructScript = It.Key();
+		TSharedPtr<FStructMemoryInstance> StructScript = It.Value().Instance;
 		if (!StructScript.IsValid() || StructScript->Struct->IsPendingKill())
 		{
 			It.RemoveCurrent();

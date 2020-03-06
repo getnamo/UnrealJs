@@ -1,4 +1,4 @@
-using UnrealBuildTool;
+﻿using UnrealBuildTool;
 using System.IO;
 using System;
 
@@ -36,13 +36,15 @@ public class V8 : ModuleRules
     public V8(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        bLegacyPublicIncludePaths = false;
+        ShadowVariableWarningLevel = WarningLevel.Error;
         PrivateIncludePaths.AddRange(new string[]
         {
             Path.Combine(ThirdPartyPath, "v8", "include")
         });
 
-        PublicDependencyModuleNames.AddRange(new string[] 
-        { 
+        PublicDependencyModuleNames.AddRange(new string[]
+        {
             "Core", "CoreUObject", "Engine", "Sockets", "ApplicationCore", "NavigationSystem", "OpenSSL"
         });
 
@@ -53,13 +55,13 @@ public class V8 : ModuleRules
                 "DirectoryWatcher"
             });
         }
-        
-        HackWebSocketIncludeDir(Path.Combine(Directory.GetCurrentDirectory(), "ThirdParty", "libWebSockets", "libWebSockets"), Target);
+
+        HackWebSocketIncludeDir(Path.Combine(Directory.GetCurrentDirectory(), "ThirdParty", "libWebSockets", "libwebsockets"), Target);
 
         if (Target.bBuildEditor)
         {
-            PrivateDependencyModuleNames.AddRange(new string[] 
-            { 
+            PrivateDependencyModuleNames.AddRange(new string[]
+            {
                 "UnrealEd"
             });
         }
@@ -80,7 +82,7 @@ public class V8 : ModuleRules
             PlatformSubdir = Path.Combine(PlatformSubdir, "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
             bHasZlib = true;
 
-        }        
+        }
 		else if (Target.Platform == UnrealTargetPlatform.Linux)
         {
             PlatformSubdir = Path.Combine(PlatformSubdir, Target.Architecture);
@@ -150,6 +152,8 @@ public class V8 : ModuleRules
             }
 
             PublicDefinitions.Add(string.Format("WITH_V8=1"));
+
+            PublicDefinitions.Add(string.Format("USING_V8_PLATFORM_SHARED=0"));
 
             return true;
         }
@@ -308,6 +312,7 @@ public class V8 : ModuleRules
 
             return true;
         }
+
         PublicDefinitions.Add(string.Format("WITH_V8=0"));
         return false;
     }
