@@ -89,13 +89,13 @@ namespace v8
 	Local<String> V8_String(Isolate* isolate, const FString& String)
 	{
 		auto maybe_str = String::NewFromUtf8(isolate, TCHAR_TO_UTF8(*String));
-		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str.ToLocalChecked();
+		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str;
 	}
 
 	Local<String> V8_String(Isolate* isolate, const char* String)
 	{
 		auto maybe_str = String::NewFromUtf8(isolate, String);
-		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str.ToLocalChecked();
+		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str;
 	}
 
 	Local<String> V8_KeywordString(Isolate* isolate, const FString& String)
