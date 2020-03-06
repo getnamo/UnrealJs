@@ -26,7 +26,14 @@ namespace v8
 			return nullptr;
 		}
 
-		auto v8_obj = Value->ToObject(context).ToLocalChecked();
+		auto maybe_obj = Value->ToObject(context);
+
+		if (maybe_obj.IsEmpty())
+		{
+			return nullptr;
+		}
+
+		auto v8_obj = maybe_obj.ToLocalChecked();
 		if (v8_obj->InternalFieldCount() == 0)
 		{
 			return nullptr;
@@ -41,7 +48,8 @@ namespace v8
 			return nullptr;
 		}
 
-		auto maybe_v8_obj = Value->ToObject(isolate_->GetCurrentContext());
+		auto context = isolate_->GetCurrentContext();
+		auto maybe_v8_obj = Value->ToObject(context);
 		if (maybe_v8_obj.IsEmpty())
 		{
 			return nullptr;
@@ -51,10 +59,14 @@ namespace v8
 
 		if (v8_obj->IsFunction())
 		{
-			auto maybe_vv = v8_obj->Get(isolate_->GetCurrentContext(), V8_KeywordString(isolate_, "StaticClass"));
+			auto maybe_vv = v8_obj->Get(context, V8_KeywordString(isolate_, "StaticClass"));
 			if (!maybe_vv.IsEmpty())
 			{
-				v8_obj = maybe_vv.ToLocalChecked()->ToObject(isolate_->GetCurrentContext()).ToLocalChecked();
+				auto maybe_v8obj = maybe_vv.ToLocalChecked()->ToObject(context);
+				if (!maybe_v8obj.IsEmpty())
+				{
+					v8_obj = maybe_v8obj.ToLocalChecked();
+				}
 			}
 		}
 
@@ -76,22 +88,26 @@ namespace v8
 
 	Local<String> V8_String(Isolate* isolate, const FString& String)
 	{
-		return String::NewFromUtf8(isolate, TCHAR_TO_UTF8(*String));
+		auto maybe_str = String::NewFromUtf8(isolate, TCHAR_TO_UTF8(*String));
+		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str.ToLocalChecked();
 	}
 
 	Local<String> V8_String(Isolate* isolate, const char* String)
 	{
-		return String::NewFromUtf8(isolate, String);
+		auto maybe_str = String::NewFromUtf8(isolate, String);
+		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str.ToLocalChecked();
 	}
 
 	Local<String> V8_KeywordString(Isolate* isolate, const FString& String)
 	{
-		return String::NewFromUtf8(isolate, TCHAR_TO_UTF8(*String), String::kInternalizedString);
+		auto maybe_str = String::NewFromUtf8(isolate, TCHAR_TO_UTF8(*String), NewStringType::kInternalized);
+		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str.ToLocalChecked();
 	}
 
 	Local<String> V8_KeywordString(Isolate* isolate, const char* String)
 	{
-		return String::NewFromUtf8(isolate, String, String::kInternalizedString);
+		auto maybe_str = String::NewFromUtf8(isolate, String, NewStringType::kInternalized);
+		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str.ToLocalChecked();
 	}
 
 	FString StringFromV8(Isolate* isolate, Local<Value> Value)
