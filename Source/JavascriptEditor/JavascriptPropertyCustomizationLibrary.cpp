@@ -232,7 +232,12 @@ FJavascriptDetailPropertyRow UJavascriptPropertyCustomizationLibrary::AddExterna
 
 FJavascriptDetailPropertyRow UJavascriptPropertyCustomizationLibrary::AddExternalObjectProperty(FJavascriptDetailChildrenBuilder ChildBuilder, TArray<UObject*>& Objects, FName PropertyName, FName UniqueIdName, bool bAllowChildrenOverride, bool bCreateCategoryNodesOverride)
 {
-	return { (ChildBuilder->AddExternalObjectProperty(Objects, PropertyName, UniqueIdName, bAllowChildrenOverride, bCreateCategoryNodesOverride)) };
+	FAddPropertyParams Params;
+	Params.UniqueId(UniqueIdName);
+	Params.AllowChildren(bAllowChildrenOverride);
+	Params.CreateCategoryNodes(bCreateCategoryNodesOverride);
+
+	return { ChildBuilder->AddExternalObjectProperty(Objects, PropertyName, Params) };
 }
 
 FJavascriptSlateWidget UJavascriptPropertyCustomizationLibrary::GenerateStructValueWidget(FJavascriptDetailChildrenBuilder ChildBuilder, FJavascriptPropertyHandle StructPropertyHandle)
