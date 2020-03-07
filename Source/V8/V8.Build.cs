@@ -162,15 +162,15 @@ public class V8 : ModuleRules
             string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARM64");
 			//string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARMv7");
 
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_init"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_initializers"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libbase"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libplatform"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_nosnapshot"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libsampler"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_initializers"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_init.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_initializers.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libbase.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libplatform.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_nosnapshot.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libsampler.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_initializers.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector.a"));
 
 			PublicDefinitions.Add(string.Format("WITH_V8=1"));
 
