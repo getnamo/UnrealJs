@@ -17,6 +17,8 @@ UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectIniti
 	bTickInEditor = false;
 	bAutoActivate = true;
 	bWantsInitializeComponent = true;
+	bExposeDefaultObjects = true;
+	bExposeContextAndGlobals = true;
 }
 
 void UJavascriptComponent::OnRegister()
@@ -48,9 +50,15 @@ void UJavascriptComponent::OnRegister()
 			JavascriptContext = Context;
 			JavascriptIsolate = Isolate;
 
-			Context->Expose("Root", this);
-			Context->Expose("GWorld", GetWorld());
-			Context->Expose("GEngine", GEngine);
+			if (bExposeDefaultObjects)
+			{
+				Context->Expose("Root", this);
+				Context->Expose("GWorld", GetWorld());
+				Context->Expose("GEngine", GEngine);
+			}
+
+			//we can't call this from javascript now so just run it?
+			Context->CreateInspector(9229);
 		}
 	}
 

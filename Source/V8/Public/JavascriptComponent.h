@@ -48,6 +48,39 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
 	bool bActiveWithinEditor;
 
+	/** Root, GEngine, GWorld */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	bool bExposeDefaultObjects;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	bool bExposeContextAndGlobals;
+
+	UPROPERTY(EditAnywhere, Category = "Javascript")
+	TArray<FJavascriptAsset> Assets;
+
+	UPROPERTY(EditAnywhere, Category = "Javascript")
+	TArray<FJavascriptClassAsset> ClassAssets;
+
+	
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void ForceGC();
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void Expose(FString ExposedAs, UObject* Object);
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void Invoke(FName Name);
+	
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	UObject* ResolveAsset(FName Name, bool bTryLoad = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	UClass* ResolveClass(FName Name);
+
+
+	//C++ only
 	UPROPERTY(transient)
 	UJavascriptContext* JavascriptContext;
 
@@ -66,34 +99,13 @@ public:
 	UPROPERTY()
 	FJavascriptNameSignature OnInvoke;
 
-	UPROPERTY(EditAnywhere, Category = "Javascript")
-	TArray<FJavascriptAsset> Assets;
-
-	UPROPERTY(EditAnywhere, Category = "Javascript")
-	TArray<FJavascriptClassAsset> ClassAssets;
+	virtual void ProcessEvent(UFunction* Function, void* Parms) override;
 
 	// Begin UActorComponent interface.
 	virtual void Activate(bool bReset = false) override;
-	virtual void Deactivate() override;	
+	virtual void Deactivate() override;
 	virtual void OnRegister() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void BeginDestroy() override;
 	// Begin UActorComponent interface.	
-
-	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void ForceGC();
-
-	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void Expose(FString ExposedAs, UObject* Object);
-
-	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void Invoke(FName Name);
-
-	virtual void ProcessEvent(UFunction* Function, void* Parms) override;	
-
-	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	UObject* ResolveAsset(FName Name, bool bTryLoad = true);
-
-	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	UClass* ResolveClass(FName Name);
 };

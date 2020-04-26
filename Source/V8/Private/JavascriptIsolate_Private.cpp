@@ -378,6 +378,7 @@ public:
 		// Save it into the persistant handle
 		GlobalTemplate.Reset(isolate_, ObjectTemplate);
 
+		/*
 		// Export all structs
 		for (TObjectIterator<UScriptStruct> It; It; ++It)
 		{
@@ -394,13 +395,13 @@ public:
 		for (TObjectIterator<UEnum> It; It; ++It)
 		{
 			ExportEnum(*It);
-		}
+		}*/
 
 		// ExportConsole();
 
 		ExportMemory(ObjectTemplate);
 
-		ExportMisc(ObjectTemplate);
+		//ExportMisc(ObjectTemplate);
 	}
 
 	~FJavascriptIsolateImplementation()

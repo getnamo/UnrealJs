@@ -604,7 +604,7 @@ public:
 
 		context_.Reset(isolate(), context);
 
-		ExposeGlobals();
+		//ExposeGlobals();
 
 		Paths = IV8::Get().GetGlobalScriptSearchPaths();
 	}

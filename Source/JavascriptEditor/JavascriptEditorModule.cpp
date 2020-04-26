@@ -143,7 +143,7 @@ void FJavascriptEditorModule::Bootstrap()
 		JavascriptContext->SetContextId(TEXT("Editor"));
 
 		Tick = NewObject<UJavascriptEditorTick>(JavascriptContext);
-		JavascriptContext->Expose(TEXT("Root"), Tick);
+		//JavascriptContext->Expose(TEXT("Root"), Tick);
 		Tick->AddToRoot();
 
 		FEditorScriptExecutionGuard ScriptGuard;
