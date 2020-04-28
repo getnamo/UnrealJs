@@ -18,8 +18,9 @@ UJavascriptIsolate::UJavascriptIsolate(const FObjectInitializer& ObjectInitializ
 {
 }
 
-void UJavascriptIsolate::Init(bool bIsEditor, TMap<FString, FString>& Features)
+void UJavascriptIsolate::Init(bool bIsEditor, TMap<FString, FString>& InFeatures)
 {
+	Features = InFeatures;
 	const bool bIsClassDefaultObject = IsTemplate(RF_ClassDefaultObject);
 	if (!bIsClassDefaultObject)
 	{
@@ -82,7 +83,7 @@ void UJavascriptIsolate::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-UJavascriptContext* UJavascriptIsolate::CreateContext(TMap<FString, FString>& Features)
+UJavascriptContext* UJavascriptIsolate::CreateContext()
 {
 	auto Context = NewObject<UJavascriptContext>(this);
 	Context->ExposeFeatures(Features);

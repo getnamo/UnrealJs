@@ -67,6 +67,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
 	bool bEnableFeatures;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	FString IsolateDomain;
+
+	//static TMap<FString, UJavascriptIsolate*> IsolateMap;
+
 	/** Root, Engine, World, UnrealClasses, FileSystem, Networking, etc, all expose features should be enumerated here */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
 	TMap<FString, FString> Features;

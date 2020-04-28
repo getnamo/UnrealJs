@@ -10,6 +10,8 @@
 
 DECLARE_CYCLE_STAT(TEXT("Javascript Component Tick Time"), STAT_JavascriptComponentTickTime, STATGROUP_Javascript);
 
+//IsolateMap = TMap<FString, UJavascriptIsolate*>();
+
 UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -19,6 +21,7 @@ UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectIniti
 	bWantsInitializeComponent = true;
 
 	JavascriptThread = EUJSThreadOption::USE_GAME_THREAD;
+	IsolateDomain = TEXT("default");
 
 	bEnableFeatures = true;
 	bCreateInspectorOnStartup = false;
@@ -56,6 +59,19 @@ void UJavascriptComponent::OnRegister()
 						Isolate = StaticGameData->Isolates.Pop();
 				}
 			}
+			if (Isolate) //&& IsolateMap.Contains(IsolateDomain) && IsolateMap[IsolateDomain] == Isolate)
+			{
+				//this is a subtle bug, but easy way to check (imperfectly) if the features are different
+				if (Isolate->Features.Num() != Features.Num())
+				{
+					Isolate = nullptr;
+				}
+				//Otherwise re-use isolate
+			}
+			else
+			{
+				Isolate = nullptr;
+			}
 
 			if (!Isolate)
 			{
@@ -64,7 +80,7 @@ void UJavascriptComponent::OnRegister()
 				Isolate->AddToRoot();
 			}
 
-			auto* Context = Isolate->CreateContext(Features);
+			auto* Context = Isolate->CreateContext();
 			JavascriptContext = Context;
 			JavascriptIsolate = Isolate;
 

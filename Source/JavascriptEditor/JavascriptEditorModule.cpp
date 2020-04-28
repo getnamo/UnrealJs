@@ -136,8 +136,8 @@ void FJavascriptEditorModule::Bootstrap()
 		auto Isolate = NewObject<UJavascriptIsolate>();
 		auto Features = UJavascriptIsolate::DefaultIsolateFeatures();
 		Isolate->Init(true, Features);
-		Features = UJavascriptIsolate::DefaultContextFeatures();
-		auto Context = Isolate->CreateContext(Features);
+		Isolate->Features.Append(UJavascriptIsolate::DefaultContextFeatures());
+		auto Context = Isolate->CreateContext();
 
 		JavascriptContext = Context;
 		JavascriptContext->AddToRoot();

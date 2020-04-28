@@ -112,12 +112,13 @@ public:
 	virtual void BeginDestroy() override;
 
 	TSharedPtr<FJavascriptIsolate> JavascriptIsolate;
+	TMap<FString, FString> Features;
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
-	void Init(bool bIsEditor, TMap<FString, FString>& Features);
+	void Init(bool bIsEditor, TMap<FString, FString>& InFeatures);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
-	UJavascriptContext* CreateContext(TMap<FString, FString>& Features);
+	UJavascriptContext* CreateContext();
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void GetHeapStatistics(FJavascriptHeapStatistics& Statistics);
