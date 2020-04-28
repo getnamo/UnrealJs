@@ -76,6 +76,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
 	bool bCreateInspectorOnStartup;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	int32 InspectorPort;
 	
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")

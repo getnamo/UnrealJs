@@ -22,6 +22,7 @@ UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectIniti
 
 	bEnableFeatures = true;
 	bCreateInspectorOnStartup = false;
+	InspectorPort = 9229;
 	
 	//Start with default isolate features
 	Features = UJavascriptIsolate::DefaultIsolateFeatures();
@@ -80,10 +81,9 @@ void UJavascriptComponent::OnRegister()
 				Context->Expose("GEngine", GEngine);
 			}
 
-			//we can't call this from javascript now so just run it?
 			if (bCreateInspectorOnStartup)
 			{
-				Context->CreateInspector(9229);
+				Context->CreateInspector(InspectorPort);
 			}
 		}
 	}
