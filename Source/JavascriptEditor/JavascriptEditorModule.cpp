@@ -134,13 +134,17 @@ void FJavascriptEditorModule::Bootstrap()
 		PatchReimportRule();
 
 		auto Isolate = NewObject<UJavascriptIsolate>();
-		Isolate->Init(true);
-		auto Context = Isolate->CreateContext();
+		auto Features = UJavascriptIsolate::DefaultIsolateFeatures();
+		Isolate->Init(true, Features);
+		Features = UJavascriptIsolate::DefaultContextFeatures();
+		auto Context = Isolate->CreateContext(Features);
 
 		JavascriptContext = Context;
 		JavascriptContext->AddToRoot();
 
 		JavascriptContext->SetContextId(TEXT("Editor"));
+
+		JavascriptContext->ExposeGlobals();
 
 		Tick = NewObject<UJavascriptEditorTick>(JavascriptContext);
 		//JavascriptContext->Expose(TEXT("Root"), Tick);

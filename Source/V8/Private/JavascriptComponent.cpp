@@ -17,8 +17,25 @@ UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectIniti
 	bTickInEditor = false;
 	bAutoActivate = true;
 	bWantsInitializeComponent = true;
-	bExposeDefaultObjects = true;
-	bExposeContextAndGlobals = true;
+
+	JavascriptThread = EUJSThreadOption::USE_GAME_THREAD;
+
+	bEnableFeatures = true;
+	bCreateInspectorOnStartup = false;
+	
+	//Start with default isolate features
+	Features = UJavascriptIsolate::DefaultIsolateFeatures();
+
+	//Add default context feature exposures
+	Features.Add(TEXT("Root"), TEXT("default"));
+	Features.Add(TEXT("World"), TEXT("default"));
+	Features.Add(TEXT("Engine"), TEXT("default"));
+
+	Features.Add(TEXT("Context"), TEXT("default"));
+
+	//Add external features, these don't exist yet!
+	//Features.Add(TEXT("FileSystem"), TEXT("default"));
+	//Features.Add(TEXT("Networking"), TEXT("default"));
 }
 
 void UJavascriptComponent::OnRegister()
@@ -42,23 +59,32 @@ void UJavascriptComponent::OnRegister()
 			if (!Isolate)
 			{
 				Isolate = NewObject<UJavascriptIsolate>();
-				Isolate->Init(false);
+				Isolate->Init(false, Features);
 				Isolate->AddToRoot();
 			}
 
-			auto* Context = Isolate->CreateContext();
+			auto* Context = Isolate->CreateContext(Features);
 			JavascriptContext = Context;
 			JavascriptIsolate = Isolate;
 
-			if (bExposeDefaultObjects)
+			if (Features.Contains(TEXT("Root")))
 			{
 				Context->Expose("Root", this);
+			}
+			if (Features.Contains(TEXT("World")))
+			{
 				Context->Expose("GWorld", GetWorld());
+			}
+			if (Features.Contains(TEXT("Engine")))
+			{
 				Context->Expose("GEngine", GEngine);
 			}
 
 			//we can't call this from javascript now so just run it?
-			Context->CreateInspector(9229);
+			if (bCreateInspectorOnStartup)
+			{
+				Context->CreateInspector(9229);
+			}
 		}
 	}
 

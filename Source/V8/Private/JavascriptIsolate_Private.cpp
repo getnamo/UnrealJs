@@ -357,14 +357,15 @@ public:
 
 		GenerateBlueprintFunctionLibraryMapping();
 
-		InitializeGlobalTemplate();
-
 		TickDelegate = FTickerDelegate::CreateRaw(this, &FJavascriptIsolateImplementation::HandleTicker);
 		TickHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate);
+
+		//InitializeGlobalTemplate is now called via SetAvailableFeatures
 	}
 
-	void InitializeGlobalTemplate()
+	void SetAvailableFeatures(TMap<FString, FString>& Features)
 	{
+		//InitializeGlobalTemplate
 		// Declares isolate/handle scope
 		Isolate::Scope isolate_scope(isolate_);
 		HandleScope handle_scope(isolate_);
@@ -378,30 +379,37 @@ public:
 		// Save it into the persistant handle
 		GlobalTemplate.Reset(isolate_, ObjectTemplate);
 
-		/*
-		// Export all structs
-		for (TObjectIterator<UScriptStruct> It; It; ++It)
-		{
-			ExportStruct(*It);
-		}
-
-		// Export all classes
-		for (TObjectIterator<UClass> It; It; ++It)
-		{
-			ExportUClass(*It);
-		}
-
-		// Export all enums
-		for (TObjectIterator<UEnum> It; It; ++It)
-		{
-			ExportEnum(*It);
-		}*/
-
 		// ExportConsole();
 
-		ExportMemory(ObjectTemplate);
+		if (Features.Contains(TEXT("UnrealClasses")))
+		{
+			// Export all structs
+			for (TObjectIterator<UScriptStruct> It; It; ++It)
+			{
+				ExportStruct(*It);
+			}
 
-		//ExportMisc(ObjectTemplate);
+			// Export all classes
+			for (TObjectIterator<UClass> It; It; ++It)
+			{
+				ExportUClass(*It);
+			}
+
+			// Export all enums
+			for (TObjectIterator<UEnum> It; It; ++It)
+			{
+				ExportEnum(*It);
+			}
+		}
+
+		if (Features.Contains(TEXT("UnrealMemory")))
+		{
+			ExportMemory(ObjectTemplate);
+		}
+		if (Features.Contains(TEXT("UnrealMisc")))
+		{
+			ExportMisc(ObjectTemplate);
+		}
 	}
 
 	~FJavascriptIsolateImplementation()

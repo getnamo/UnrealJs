@@ -41,6 +41,7 @@ struct FJavascriptContext : TSharedFromThis<FJavascriptContext>
 
 	virtual ~FJavascriptContext() {}
 	virtual void Expose(FString RootName, UObject* Object) = 0;
+	virtual void ExposeGlobals() = 0;
 	virtual FString GetScriptFileFullPath(const FString& Filename) = 0;
 	virtual FString ReadScriptFile(const FString& Filename) = 0;
 	virtual FString Public_RunScript(const FString& Script, bool bOutput = true) = 0;

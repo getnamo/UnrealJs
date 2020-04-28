@@ -74,6 +74,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void DestroyInspector();
 
+	//UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	void ExposeGlobals();
+
+	void ExposeFeatures(TMap<FString, FString>& Features);
+
 	bool HasProxyFunction(UObject* Holder, UFunction* Function);
 	bool CallProxyFunction(UObject* Holder, UObject* This, UFunction* Function, void* Parms);
 };

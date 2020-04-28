@@ -29,6 +29,15 @@ struct V8_API FJavascriptClassAsset
 	TSubclassOf<UObject> Class;
 };
 
+
+UENUM(BlueprintType)
+enum class EUJSThreadOption : uint8
+{
+	USE_DEFAULT,
+	USE_GAME_THREAD,
+	USE_NETWORK_THREAD
+};
+
 /**
  * 
  */
@@ -48,19 +57,25 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
 	bool bActiveWithinEditor;
 
-	/** Root, GEngine, GWorld */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
-	bool bExposeDefaultObjects;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
-	bool bExposeContextAndGlobals;
-
 	UPROPERTY(EditAnywhere, Category = "Javascript")
 	TArray<FJavascriptAsset> Assets;
 
 	UPROPERTY(EditAnywhere, Category = "Javascript")
 	TArray<FJavascriptClassAsset> ClassAssets;
 
+	/** If not, we have a clean v8 instance with only what we pass into it using expose */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	bool bEnableFeatures;
+
+	/** Root, Engine, World, UnrealClasses, FileSystem, Networking, etc, all expose features should be enumerated here */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	TMap<FString, FString> Features;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	EUJSThreadOption JavascriptThread;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	bool bCreateInspectorOnStartup;
 	
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")

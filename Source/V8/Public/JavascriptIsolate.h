@@ -114,10 +114,10 @@ public:
 	TSharedPtr<FJavascriptIsolate> JavascriptIsolate;
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
-	void Init(bool bIsEditor);
+	void Init(bool bIsEditor, TMap<FString, FString>& Features);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
-	UJavascriptContext* CreateContext();
+	UJavascriptContext* CreateContext(TMap<FString, FString>& Features);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void GetHeapStatistics(FJavascriptHeapStatistics& Statistics);
@@ -125,4 +125,10 @@ public:
 	// Begin UObject interface.
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// End UObject interface.
+
+	//Used to initialize isolate
+	static TMap<FString, FString> DefaultIsolateFeatures();
+	static TMap<FString, FString> MinimumIsolateFeatures();
+	static TMap<FString, FString> DefaultContextFeatures();
 };
+

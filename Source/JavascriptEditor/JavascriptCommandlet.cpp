@@ -16,8 +16,11 @@ int32 UJavascriptCommandlet::Main(const FString& Params)
 
 	{
 		auto JavascriptIsolate = NewObject<UJavascriptIsolate>();
-		JavascriptIsolate->Init(true);
-		auto JavascriptContext = JavascriptIsolate->CreateContext();
+		
+		auto Features = UJavascriptIsolate::DefaultIsolateFeatures();
+		JavascriptIsolate->Init(true, Features);
+		Features = UJavascriptIsolate::DefaultContextFeatures();
+		auto JavascriptContext = JavascriptIsolate->CreateContext(Features);
 
 		JavascriptContext->Expose(TEXT("Root"), this);
 				
