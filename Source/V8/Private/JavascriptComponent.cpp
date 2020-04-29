@@ -137,7 +137,7 @@ void UJavascriptComponent::Activate(bool bReset)
 					OnTick.ExecuteIfBound(0.001f);	//todo: feed in actual deltatime
 					FPlatformProcess::Sleep(0.001f);
 				}
-				OnEndPlay.ExecuteIfBound();
+				//OnEndPlay.ExecuteIfBound();
 
 				bIsRunning = false;
 			});
@@ -159,16 +159,18 @@ void UJavascriptComponent::Activate(bool bReset)
 
 void UJavascriptComponent::Deactivate()
 {
-	bShouldRun = false;
-	while (bIsRunning)
-	{
-		//10micron sleep while waiting
-		FPlatformProcess::Sleep(0.0001f);
-	}
-	
 	if (JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
 	{
 		OnEndPlay.ExecuteIfBound();
+	}
+	else
+	{
+		bShouldRun = false;
+		while (bIsRunning)
+		{
+			//10micron sleep while waiting
+			FPlatformProcess::Sleep(0.0001f);
+		}
 	}
 	Super::Deactivate();
 }
