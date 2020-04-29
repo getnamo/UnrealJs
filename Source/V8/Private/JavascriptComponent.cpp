@@ -4,6 +4,7 @@
 #include "JavascriptStats.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
+#include "Async/Async.h"
 #include "V8PCH.h"
 #include "IV8.h"
 
@@ -97,7 +98,7 @@ void UJavascriptComponent::OnRegister()
 				Context->Expose("GEngine", GEngine);
 			}
 
-			if (bCreateInspectorOnStartup)
+			if (bCreateInspectorOnStartup && JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
 			{
 				Context->CreateInspector(InspectorPort);
 			}
@@ -113,18 +114,62 @@ void UJavascriptComponent::Activate(bool bReset)
 
 	if (JavascriptContext)
 	{
-		JavascriptContext->RunFile(*ScriptSourceFile);
+		if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_THREAD ||
+			JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
+		{
+			EAsyncExecution ExecType = EAsyncExecution::Thread;
 
-		SetComponentTickEnabled(OnTick.IsBound());
+			if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
+			{
+				ExecType = EAsyncExecution::TaskGraph;
+			}
+			
+			Async(ExecType, [this]
+			{
+				bShouldRun = true;
+				bIsRunning = true;
+
+				OnBeginPlay.ExecuteIfBound();
+				JavascriptContext->RunFile(*ScriptSourceFile);
+
+				while (bShouldRun)
+				{
+					OnTick.ExecuteIfBound(0.001f);	//todo: feed in actual deltatime
+					FPlatformProcess::Sleep(0.001f);
+				}
+				OnEndPlay.ExecuteIfBound();
+
+				bIsRunning = false;
+			});
+			//don't bind a tick on background setup
+		}
+		else
+		{
+			JavascriptContext->RunFile(*ScriptSourceFile);
+			
+			SetComponentTickEnabled(OnTick.IsBound());
+		}
 	}
 
-	OnBeginPlay.ExecuteIfBound();
+	if (JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
+	{
+		OnBeginPlay.ExecuteIfBound();
+	}
 }
 
 void UJavascriptComponent::Deactivate()
 {
-	OnEndPlay.ExecuteIfBound();
-
+	bShouldRun = false;
+	while (bIsRunning)
+	{
+		//10micron sleep while waiting
+		FPlatformProcess::Sleep(0.0001f);
+	}
+	
+	if (JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
+	{
+		OnEndPlay.ExecuteIfBound();
+	}
 	Super::Deactivate();
 }
 
@@ -160,7 +205,10 @@ void UJavascriptComponent::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	OnTick.ExecuteIfBound(DeltaTime);
+	if (JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
+	{
+		OnTick.ExecuteIfBound(DeltaTime);
+	}
 }
 
 void UJavascriptComponent::ForceGC()

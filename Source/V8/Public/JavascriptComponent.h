@@ -3,6 +3,7 @@
 #include "Templates/SubclassOf.h"
 #include "Components/ActorComponent.h"
 #include "JavascriptContext.h"
+#include "HAL/ThreadSafeBool.h"
 #include "JavascriptComponent.generated.h"
 
 USTRUCT()
@@ -35,7 +36,8 @@ enum class EUJSThreadOption : uint8
 {
 	USE_DEFAULT,
 	USE_GAME_THREAD,
-	USE_NETWORK_THREAD
+	USE_BACKGROUND_THREAD,
+	USE_BACKGROUND_TASKGRAPH
 };
 
 /**
@@ -131,4 +133,9 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void BeginDestroy() override;
 	// Begin UActorComponent interface.	
+
+private:
+	//for background variant
+	FThreadSafeBool bShouldRun;
+	FThreadSafeBool bIsRunning;
 };
