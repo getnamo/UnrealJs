@@ -297,7 +297,7 @@ void UJavascriptComponent::RunOnBGThread(const FString& Function, const FString&
 
 	//todo: fetch fresh 'component', schedule run, and callback on calling component context
 
-	Async(EAsyncExecution::Thread, []()
+	Async(EAsyncExecution::Thread, [SafeFunction, SafeParams, SafeCallback]()
 	{
 		FString Result = TEXT("");
 	});
