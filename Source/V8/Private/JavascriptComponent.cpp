@@ -297,10 +297,9 @@ void UJavascriptComponent::RunOnBGThread(const FString& Function, const FString&
 
 	//todo: fetch fresh 'component', schedule run, and callback on calling component context
 
-	TUniqueFunction<FString>Task = Async(EAsyncExecution::Thread, []()
+	Async(EAsyncExecution::Thread, []()
 	{
 		FString Result = TEXT("");
-		return Result;
 	});
 
 	//We need a FStyle wrapper for Javascript component so we can maintain sub-isolates for this callback setup
