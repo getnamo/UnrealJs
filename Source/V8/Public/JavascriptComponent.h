@@ -95,6 +95,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
 	UClass* ResolveClass(FName Name);
 
+	/** TBC: wrapper of function caller for BG thread.*/
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void RunOnBGThread(const FString& Function, const FString& CaptureParams = TEXT(""), const FString& CallbackContext = TEXT(""));
 
 	//C++ only
 	UPROPERTY(transient)
