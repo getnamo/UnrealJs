@@ -53,25 +53,28 @@ void UJavascriptComponent::OnRegister()
 			UJavascriptIsolate* Isolate = nullptr;
 			if (!IsRunningCommandlet())
 			{
-				UJavascriptStaticCache* StaticGameData = Cast<UJavascriptStaticCache>(GEngine->GameSingleton);
-				if (StaticGameData)
+				//new isolate if using bg threads
+				if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_THREAD ||
+					JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
 				{
-					if (StaticGameData->Isolates.Num() > 0)
-						Isolate = StaticGameData->Isolates.Pop();
+					Isolate = nullptr;
+				}
+				else {
+					UJavascriptStaticCache* StaticGameData = Cast<UJavascriptStaticCache>(GEngine->GameSingleton);
+					if (StaticGameData)
+					{
+						if (StaticGameData->Isolates.Num() > 0)
+							Isolate = StaticGameData->Isolates.Pop();
+					}
 				}
 			}
-			if (Isolate) //&& IsolateMap.Contains(IsolateDomain) && IsolateMap[IsolateDomain] == Isolate)
+			//new isolate if features are different
+			if (Isolate)
 			{
-				//this is a subtle bug, but easy way to check (imperfectly) if the features are different
 				if (Isolate->Features.Num() != Features.Num())
 				{
 					Isolate = nullptr;
 				}
-				//Otherwise re-use isolate
-			}
-			else
-			{
-				Isolate = nullptr;
 			}
 
 			if (!Isolate)
@@ -84,6 +87,9 @@ void UJavascriptComponent::OnRegister()
 			auto* Context = Isolate->CreateContext();
 			JavascriptContext = Context;
 			JavascriptIsolate = Isolate;
+
+			//Ensure our context knows which thread it should be in
+			JavascriptContext->Thread = JavascriptThread;
 
 			if (Features.Contains(TEXT("Root")))
 			{
@@ -114,6 +120,7 @@ void UJavascriptComponent::Activate(bool bReset)
 
 	if (JavascriptContext)
 	{
+		//Background thread type javascript
 		if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_THREAD ||
 			JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
 		{
@@ -134,14 +141,24 @@ void UJavascriptComponent::Activate(bool bReset)
 
 				while (bShouldRun)
 				{
+					//Todo: check MT data in
+
 					OnTick.ExecuteIfBound(0.001f);	//todo: feed in actual deltatime
+					
+					//Todo: process MT data out
 					FPlatformProcess::Sleep(0.001f);
 				}
 				//OnEndPlay.ExecuteIfBound();
 
+				//request garbage collection on the same thread we're on
+				if (JavascriptContext)
+				{
+					JavascriptContext->RequestV8GarbageCollection();
+				}
+
 				bIsRunning = false;
 			});
-			//don't bind a tick on background setup
+			
 		}
 		else
 		{
@@ -164,13 +181,8 @@ void UJavascriptComponent::Deactivate()
 		OnEndPlay.ExecuteIfBound();
 	}
 	else
-	{
-		bShouldRun = false;
-		while (bIsRunning)
-		{
-			//10micron sleep while waiting
-			FPlatformProcess::Sleep(0.0001f);
-		}
+	{	
+		
 	}
 	Super::Deactivate();
 }
@@ -179,6 +191,19 @@ void UJavascriptComponent::BeginDestroy()
 {
 	if (IsValid(GEngine) && !IsRunningCommandlet())
 	{
+		if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_THREAD ||
+			JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
+		{
+			bShouldRun = false;
+			//OnTick.Clear();
+
+			while (bIsRunning)
+			{
+				//10micron sleep while waiting
+				FPlatformProcess::Sleep(0.0001f);
+			}
+		}
+
 		auto* StaticGameData = Cast<UJavascriptStaticCache>(GEngine->GameSingleton);
 		if (StaticGameData)
 		{

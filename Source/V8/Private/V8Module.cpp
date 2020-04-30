@@ -368,7 +368,12 @@ public:
 		for (TObjectIterator<UJavascriptContext> It; It; ++It)
 		{
 			UJavascriptContext* Context = *It;
-			Context->RequestV8GarbageCollection();
+
+			//Only clear garbage collection on game thread contexts
+			if (IsInGameThread() && Context->Thread == EUJSThreadOption::USE_GAME_THREAD)
+			{
+				Context->RequestV8GarbageCollection();
+			}
 		}
 	}
 };

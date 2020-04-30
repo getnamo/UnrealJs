@@ -31,15 +31,6 @@ struct V8_API FJavascriptClassAsset
 };
 
 
-UENUM(BlueprintType)
-enum class EUJSThreadOption : uint8
-{
-	USE_DEFAULT,
-	USE_GAME_THREAD,
-	USE_BACKGROUND_THREAD,
-	USE_BACKGROUND_TASKGRAPH
-};
-
 /**
  * 
  */

@@ -50,7 +50,7 @@ namespace v8
 
 		auto maybeValue = func->Call(context, This, argc, argv);
 
-		if (try_catch.HasCaught())
+		if (try_catch.HasCaught() && !maybeValue.IsEmpty())
 		{
 			FJavascriptContext::FromV8(context)->UncaughtException(FV8Exception::Report(isolate, try_catch));
 		}

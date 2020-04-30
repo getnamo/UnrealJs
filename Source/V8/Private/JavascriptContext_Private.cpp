@@ -1769,6 +1769,9 @@ public:
 
 	void RequestV8GarbageCollection()
 	{
+		//Isolate::Scope isolate_scope(isolate());
+		//Context::Scope context_scope(context());
+
 		// @todo: using 'ForTesting' function
 		isolate()->RequestGarbageCollectionForTesting(Isolate::kFullGarbageCollection);
 	}

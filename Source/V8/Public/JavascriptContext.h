@@ -17,6 +17,15 @@ struct V8_API FArrayBufferAccessor
 	static void Discard();
 };
 
+UENUM(BlueprintType)
+enum class EUJSThreadOption : uint8
+{
+	USE_DEFAULT,
+	USE_GAME_THREAD,
+	USE_BACKGROUND_THREAD,
+	USE_BACKGROUND_TASKGRAPH
+};
+
 UCLASS()
 class V8_API UJavascriptContext : public UObject
 {
@@ -73,6 +82,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void DestroyInspector();
+
+	UPROPERTY(BlueprintReadOnly, Category = "Scripting|Javascript")
+	EUJSThreadOption Thread;
 
 	//UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void ExposeGlobals();
