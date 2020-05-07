@@ -4,32 +4,8 @@
 #include "Components/ActorComponent.h"
 #include "JavascriptContext.h"
 #include "HAL/ThreadSafeBool.h"
+#include "JavascriptInstance.h"
 #include "JavascriptComponent.generated.h"
-
-USTRUCT()
-struct V8_API FJavascriptAsset
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, Category = "Javascript")
-	FName Name;
-
-	UPROPERTY(EditAnywhere, Category = "Javascript")
-	FStringAssetReference Asset;
-};
-
-USTRUCT()
-struct V8_API FJavascriptClassAsset
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, Category = "Javascript")
-	FName Name;
-
-	UPROPERTY(EditAnywhere, Category = "Javascript")
-	TSubclassOf<UObject> Class;
-};
-
 
 /**
  * 
