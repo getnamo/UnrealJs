@@ -357,7 +357,7 @@ public:
 
 		GenerateBlueprintFunctionLibraryMapping();
 
-		InitializeGlobalTemplate();
+		//InitializeGlobalTemplate(); is now called via SetAvailableFeatures
 
 		OnWorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FJavascriptIsolateImplementation::OnWorldCleanup);
 		TickDelegate = FTickerDelegate::CreateRaw(this, &FJavascriptIsolateImplementation::HandleTicker);
@@ -417,6 +417,55 @@ public:
 		ExportMemory(ObjectTemplate);
 
 		ExportMisc(ObjectTemplate);
+	}
+
+	void FJavascriptIsolate::SetAvailableFeatures(TMap<FString, FString>& Features)
+	{
+		//InitializeGlobalTemplate
+		// Declares isolate/handle scope
+		Isolate::Scope isolate_scope(isolate_);
+		HandleScope handle_scope(isolate_);
+
+		Handle<Context> context = Context::New(isolate_);
+		Context::Scope ContextScope(context);
+
+		// Create a new object template
+		auto ObjectTemplate = ObjectTemplate::New(isolate_);
+
+		// Save it into the persistant handle
+		GlobalTemplate.Reset(isolate_, ObjectTemplate);
+
+		// ExportConsole();
+
+		if (Features.Contains(TEXT("UnrealClasses")))
+		{
+			// Export all structs
+			for (TObjectIterator<UScriptStruct> It; It; ++It)
+			{
+				ExportStruct(*It);
+			}
+
+			// Export all classes
+			for (TObjectIterator<UClass> It; It; ++It)
+			{
+				ExportUClass(*It);
+			}
+
+			// Export all enums
+			for (TObjectIterator<UEnum> It; It; ++It)
+			{
+				ExportEnum(*It);
+			}
+		}
+
+		if (Features.Contains(TEXT("UnrealMemory")))
+		{
+			ExportMemory(ObjectTemplate);
+		}
+		if (Features.Contains(TEXT("UnrealMisc")))
+		{
+			ExportMisc(ObjectTemplate);
+		}
 	}
 
 	~FJavascriptIsolateImplementation()
@@ -3108,7 +3157,6 @@ Local<Value> FJavascriptIsolate::ExportStructInstance(Isolate* isolate, UScriptS
 {
 	return FJavascriptIsolateImplementation::GetSelf(isolate)->ExportStructInstance(Struct, Buffer, Owner);
 }
-
 
 template <typename CppType>
 bool TStructReader<CppType>::Read(Isolate* isolate, Local<Value> Value, CppType& Target) const
