@@ -359,7 +359,7 @@ public:
 
 		//InitializeGlobalTemplate(); is now called via SetAvailableFeatures
 
-		OnWorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FJavascriptIsolateImplementation::OnWorldCleanup);
+		//OnWorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FJavascriptIsolateImplementation::OnWorldCleanup);
 		TickDelegate = FTickerDelegate::CreateRaw(this, &FJavascriptIsolateImplementation::HandleTicker);
 		TickHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate);
 	}

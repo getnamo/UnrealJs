@@ -56,7 +56,7 @@
   ],
   "Plugins": [
 	{
-      "Name": "OnlineSubsystemUtils",
+    "Name": "OnlineSubsystemUtils",
 	  "Enabled": true
 	}
   ],
