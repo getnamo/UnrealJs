@@ -1,9 +1,9 @@
-{
+﻿{
   "FileVersion": 3,
   "FriendlyName": "Unreal.js - Javascript Runtime",
   "Version": 2,
   "VersionName": "0.4.0",
-  "EngineVersion": "4.24.0",
+  "EngineVersion": "4.25.0",
   "Description": "Javascript powered UnrealEngine",
   "Category": "Programming",
   "CreatedBy": "NCSOFT Corporation",
@@ -13,25 +13,25 @@
   "Modules": [
     {
       "Name": "V8",
-      "Type": "Runtime",
+      "Type": "Editor",
       "LoadingPhase": "PreDefault",
       "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "Linux", "Android", "IOS" ]
     },
     {
       "Name": "JavascriptUMG",
-      "Type": "Runtime",
+      "Type": "Editor",
       "LoadingPhase": "PreDefault",
       "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "Linux", "Android", "IOS" ]
     },
     {
       "Name": "JavascriptHttp",
-      "Type": "Runtime",
+      "Type": "Editor",
       "LoadingPhase": "PreDefault",
       "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "Linux", "Android", "IOS" ]
     },
     {
       "Name": "JavascriptWebSocket",
-      "Type": "Runtime",
+      "Type": "Editor",
       "LoadingPhase": "PreDefault",
       "WhitelistPlatforms": [ "Win64" ]
     },
