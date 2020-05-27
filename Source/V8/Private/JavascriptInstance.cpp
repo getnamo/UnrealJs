@@ -73,6 +73,7 @@ FJavascriptInstance::FJavascriptInstance(const FJavascriptFeatures& InFeatures, 
 	if (bIsolateIsUnique)
 	{
 		//Todo: manage the thread details for the isolate, since this instance is the creator of the isolate.
+		//move this to js instance manager
 	}
 }
 
