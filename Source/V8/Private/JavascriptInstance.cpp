@@ -30,19 +30,25 @@ void FJavascriptFeatures::ClearFeatures()
 	FeatureMap.Empty();
 }
 
-FJavascriptInstance::FJavascriptInstance(const FJavascriptFeatures& InFeatures, TSharedPtr<FJavascriptIsolate> TargetIsolate /*= nullptr*/, FString TargetDomain /*= TEXT("default")*/)
+bool FJavascriptFeatures::IsEmpty() const
+{
+	return FeatureMap.Num() == 0;
+}
+
+FJavascriptInstance::FJavascriptInstance(const FJSInstanceOptions& InOptions)
 {
 	//Todo: initialize on bg thread option
-	Features = InFeatures;
+	Features = InOptions.Features;
+	ThreadId = 0;
 
 	bIsolateIsUnique = true;
-	IsolateDomain = TargetDomain;
+	IsolateDomain = InOptions.IsolateDomain;
 	//todo use domain to fetch same isolates from stack
 
 	//Create Isolate unless passed in
-	if (TargetIsolate.IsValid())
+	if (InOptions.Isolate.IsValid())
 	{
-		Isolate = TargetIsolate;
+		Isolate = InOptions.Isolate;
 		bIsolateIsUnique = false;
 	}
 	else
@@ -69,12 +75,6 @@ FJavascriptInstance::FJavascriptInstance(const FJavascriptFeatures& InFeatures, 
 	}
 
 	//World and Root need to be expose in a UObject
-
-	if (bIsolateIsUnique)
-	{
-		//Todo: manage the thread details for the isolate, since this instance is the creator of the isolate.
-		//move this to js instance manager
-	}
 }
 
 FJavascriptInstance::~FJavascriptInstance()
@@ -91,3 +91,10 @@ TSharedPtr<FJavascriptIsolate> FJavascriptInstance::GetSharedIsolate()
 	return Isolate;
 }
 
+FJSInstanceOptions::FJSInstanceOptions()
+{
+	IsolateDomain = TEXT("default");
+	Isolate = nullptr;
+	ThreadOption = EUJSThreadOption::USE_DEFAULT;
+	Features = FJavascriptFeatures();	//no features is default
+}

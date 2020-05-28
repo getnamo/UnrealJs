@@ -43,6 +43,17 @@ struct V8_API FJavascriptFeatures
 	void AddDefaultIsolateFeatures();
 	void AddDefaultContextFeatures();
 	void ClearFeatures();
+	bool IsEmpty() const;
+};
+
+struct FJSInstanceOptions
+{
+	FString IsolateDomain;
+	TSharedPtr<FJavascriptIsolate> Isolate;
+	EUJSThreadOption ThreadOption;
+	FJavascriptFeatures Features;
+
+	FJSInstanceOptions();
 };
 
 /**
@@ -52,11 +63,13 @@ struct V8_API FJavascriptFeatures
 class V8_API FJavascriptInstance
 {
 public:
-	FJavascriptInstance(const FJavascriptFeatures& InFeatures, TSharedPtr<FJavascriptIsolate> TargetIsolate = nullptr, FString TargetDomain = TEXT("default"));
+	FJavascriptInstance(const FJSInstanceOptions& InOptions);
 	~FJavascriptInstance();
 
 	/** To re-use an isolated, grab a shared pointer and pass it into another instance */
 	TSharedPtr<FJavascriptIsolate> GetSharedIsolate();
+
+	FString IsolateDomain;
 
 protected:
 	/** This specifies the available exposures to the context */
@@ -64,8 +77,7 @@ protected:
 	bool bIsolateIsUnique;
 
 	//Thread/threadid?
-	//Should the isolates be thread managed here or a different class?
-	FString IsolateDomain;
+	int32 ThreadId;
 
 	TSharedPtr<FJavascriptIsolate> Isolate;
 	TSharedPtr<FJavascriptContext> Context;
