@@ -97,4 +97,8 @@ FJSInstanceOptions::FJSInstanceOptions()
 	Isolate = nullptr;
 	ThreadOption = EUJSThreadOption::USE_DEFAULT;
 	Features = FJavascriptFeatures();	//no features is default
+	
+	//Default isolate features
+	bUseUniqueIsolate = false;
+	bUseUniqueContext = true;	//should be non-unique if using same
 }

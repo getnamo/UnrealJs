@@ -31,13 +31,13 @@ FJavascriptInstanceHandler::~FJavascriptInstanceHandler()
 	InstanceThreadMap.Empty();
 }
 
-FJavascriptInstanceHandler* FJavascriptInstanceHandler::GetMainHandler()
+TWeakPtr<FJavascriptInstanceHandler> FJavascriptInstanceHandler::GetMainHandler()
 {
 	if (!MainHandler)
 	{
 		MainHandler = MakeShareable(new FJavascriptInstanceHandler());
 	}
-	return MainHandler.Get();
+	return MainHandler;
 }
 
 EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceOptions& InOptions, FJavascriptInstance*& OutInstance, TFunction<void(FJavascriptInstance*)> OnDelayedResult /*= nullptr*/)

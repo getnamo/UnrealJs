@@ -17,7 +17,7 @@ public:
 	FJavascriptInstanceHandler();
 	~FJavascriptInstanceHandler();
 
-	static FJavascriptInstanceHandler* GetMainHandler();
+	static TWeakPtr<FJavascriptInstanceHandler> GetMainHandler();
 
 	//Main way to get an instance, may be instant or delayed depending on whether instance is ready. Callback is on GT
 	EJSInstanceResult RequestInstance(const FJSInstanceOptions& InOptions, FJavascriptInstance*& OutInstance, TFunction<void(FJavascriptInstance*)> OnDelayedResult = nullptr);

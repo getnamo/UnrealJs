@@ -10,10 +10,10 @@ struct V8_API FJavascriptAsset
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, Category = "Javascript")
+	UPROPERTY(EditAnywhere, Category = "Javascript Asset")
 	FName Name;
 
-	UPROPERTY(EditAnywhere, Category = "Javascript")
+	UPROPERTY(EditAnywhere, Category = "Javascript Asset")
 	FStringAssetReference Asset;
 };
 
@@ -22,10 +22,10 @@ struct V8_API FJavascriptClassAsset
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, Category = "Javascript")
+	UPROPERTY(EditAnywhere, Category = "Javascript Class Asset")
 	FName Name;
 
-	UPROPERTY(EditAnywhere, Category = "Javascript")
+	UPROPERTY(EditAnywhere, Category = "Javascript Class Asset")
 	TSubclassOf<UObject> Class;
 };
 
@@ -34,7 +34,7 @@ struct V8_API FJavascriptFeatures
 {
 	GENERATED_USTRUCT_BODY();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Features")
 	TMap<FString, FString> FeatureMap;
 
 	FJavascriptFeatures();
@@ -46,12 +46,33 @@ struct V8_API FJavascriptFeatures
 	bool IsEmpty() const;
 };
 
-struct FJSInstanceOptions
+USTRUCT(BlueprintType)
+struct V8_API FJSInstanceOptions
 {
+	GENERATED_USTRUCT_BODY();
+
+	//Will determine isolate/context domains if non-unique option is set
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
 	FString IsolateDomain;
-	TSharedPtr<FJavascriptIsolate> Isolate;
+
+	//If using non-default/non-gamethread keep in mind that most features have to be off
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
 	EUJSThreadOption ThreadOption;
+
+	//Exposed feature map
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
 	FJavascriptFeatures Features;
+
+	//If false: same domain will re-use isolate
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	bool bUseUniqueIsolate;
+
+	//If false: same domain will re-use context
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	bool bUseUniqueContext;
+
+	//This part is not exposed to blueprint
+	TSharedPtr<FJavascriptIsolate> Isolate;
 
 	FJSInstanceOptions();
 };
