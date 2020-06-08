@@ -35,43 +35,40 @@ bool FJavascriptFeatures::IsEmpty() const
 	return FeatureMap.Num() == 0;
 }
 
-FJavascriptInstance::FJavascriptInstance(const FJSInstanceOptions& InOptions)
+FJavascriptInstance::FJavascriptInstance(const FJSInstanceOptions& InOptions, const FJSInstanceContextSettings& InContextSettings)
 {
-	//Todo: initialize on bg thread option
-	Features = InOptions.Features;
-	ThreadId = 0;
+	Options = InOptions;
+	ContextSettings = InContextSettings;
 
-	bIsolateIsUnique = true;
 	IsolateDomain = InOptions.IsolateDomain;
 	//todo use domain to fetch same isolates from stack
 
 	//Create Isolate unless passed in
-	if (InOptions.Isolate.IsValid())
+	if (Options.bUseUniqueIsolate && ContextSettings.Isolate.IsValid())
 	{
-		Isolate = InOptions.Isolate;
-		bIsolateIsUnique = false;
+	
 	}
 	else
 	{
-		Isolate = TSharedPtr<FJavascriptIsolate>(FJavascriptIsolate::Create(false));
-		Isolate->SetAvailableFeatures(Features.FeatureMap);
+		ContextSettings.Isolate = TSharedPtr<FJavascriptIsolate>(FJavascriptIsolate::Create(false));
+		ContextSettings.Isolate->SetAvailableFeatures(Options.Features.FeatureMap);
 	}
 
 	//Create context on Isolate
-	Context = TSharedPtr<FJavascriptContext>(FJavascriptContext::Create(Isolate, Paths));
-	if (Features.FeatureMap.Contains(TEXT("Context")))
+	ContextSettings.Context = TSharedPtr<FJavascriptContext>(FJavascriptContext::Create(ContextSettings.Isolate, Paths));
+	if (Options.Features.FeatureMap.Contains(TEXT("Context")))
 	{
 		//Can't be exposed in instance variant
 		//Context->Expose("Context", this);
 	}
 
-	if (Features.FeatureMap.Contains(TEXT("UnrealGlobals")))
+	if (Options.Features.FeatureMap.Contains(TEXT("UnrealGlobals")))
 	{
-		Context->ExposeGlobals();
+		ContextSettings.Context->ExposeGlobals();
 	}
-	if (Features.FeatureMap.Contains(TEXT("Engine")))
+	if (Options.Features.FeatureMap.Contains(TEXT("Engine")))
 	{
-		Context->Expose("GEngine", GEngine);
+		ContextSettings.Context->Expose("GEngine", GEngine);
 	}
 
 	//World and Root need to be expose in a UObject
@@ -79,26 +76,32 @@ FJavascriptInstance::FJavascriptInstance(const FJSInstanceOptions& InOptions)
 
 FJavascriptInstance::~FJavascriptInstance()
 {
-	Context.Reset();
-	if (bIsolateIsUnique)
+	ContextSettings.Context.Reset();
+	if (Options.bUseUniqueIsolate)
 	{
-		Isolate.Reset();
+		ContextSettings.Isolate.Reset();
 	}
 }
 
 TSharedPtr<FJavascriptIsolate> FJavascriptInstance::GetSharedIsolate()
 {
-	return Isolate;
+	return ContextSettings.Isolate;
 }
 
 FJSInstanceOptions::FJSInstanceOptions()
 {
 	IsolateDomain = TEXT("default");
-	Isolate = nullptr;
 	ThreadOption = EUJSThreadOption::USE_DEFAULT;
 	Features = FJavascriptFeatures();	//no features is default
 	
 	//Default isolate features
 	bUseUniqueIsolate = false;
 	bUseUniqueContext = true;	//should be non-unique if using same
+}
+
+FJSInstanceContextSettings::FJSInstanceContextSettings()
+{
+	Isolate = nullptr;
+	Context = nullptr;
+	ThreadId = 0;
 }

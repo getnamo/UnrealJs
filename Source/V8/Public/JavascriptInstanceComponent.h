@@ -23,5 +23,6 @@ public:
 	// Begin UActorComponent interface.	
 
 protected:
-	TWeakPtr<FJavascriptInstanceHandler> MainHandler;
+	TSharedPtr<FJavascriptInstanceHandler> MainHandler;
+	TSharedPtr<FJavascriptInstance> Instance;
 };

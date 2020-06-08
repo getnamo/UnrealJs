@@ -20,8 +20,8 @@ public:
 	static TWeakPtr<FJavascriptInstanceHandler> GetMainHandler();
 
 	//Main way to get an instance, may be instant or delayed depending on whether instance is ready. Callback is on GT
-	EJSInstanceResult RequestInstance(const FJSInstanceOptions& InOptions, FJavascriptInstance*& OutInstance, TFunction<void(FJavascriptInstance*)> OnDelayedResult = nullptr);
-	void ReleaseInstance(FJavascriptInstance*);
+	EJSInstanceResult RequestInstance(const FJSInstanceOptions& InOptions, TFunction<void(TSharedPtr<FJavascriptInstance>)> OnDelayedResult = nullptr);
+	void ReleaseInstance(TSharedPtr<FJavascriptInstance> Instance);
 
 	//Utility
 	bool IsInGameThread();

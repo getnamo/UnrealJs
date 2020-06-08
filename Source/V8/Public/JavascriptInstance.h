@@ -71,10 +71,16 @@ struct V8_API FJSInstanceOptions
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
 	bool bUseUniqueContext;
 
-	//This part is not exposed to blueprint
-	TSharedPtr<FJavascriptIsolate> Isolate;
-
 	FJSInstanceOptions();
+};
+
+struct FJSInstanceContextSettings
+{
+	TSharedPtr<FJavascriptIsolate> Isolate;
+	TSharedPtr<FJavascriptContext> Context;
+	int32 ThreadId;
+
+	FJSInstanceContextSettings();
 };
 
 /**
@@ -84,7 +90,8 @@ struct V8_API FJSInstanceOptions
 class V8_API FJavascriptInstance
 {
 public:
-	FJavascriptInstance(const FJSInstanceOptions& InOptions);
+	//Settings have to be set by handler
+	FJavascriptInstance(const FJSInstanceOptions& InOptions, const FJSInstanceContextSettings& DerivedSettings);
 	~FJavascriptInstance();
 
 	/** To re-use an isolated, grab a shared pointer and pass it into another instance */
@@ -92,16 +99,13 @@ public:
 
 	FString IsolateDomain;
 
+	//Encompasses Features, thread ids etc
+	FJSInstanceOptions Options;
+	FJSInstanceContextSettings ContextSettings;
+
 protected:
-	/** This specifies the available exposures to the context */
-	FJavascriptFeatures Features;
-	bool bIsolateIsUnique;
 
 	//Thread/threadid?
-	int32 ThreadId;
-
-	TSharedPtr<FJavascriptIsolate> Isolate;
-	TSharedPtr<FJavascriptContext> Context;
 	TArray<FString> Paths;
 	TSharedPtr<FString> ContextId;
 };

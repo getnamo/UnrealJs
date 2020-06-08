@@ -23,7 +23,7 @@ FJavascriptInstanceHandler::~FJavascriptInstanceHandler()
 
 		for (auto& Instance : Instances)
 		{
-			ReleaseInstance(Instance.Get());
+			ReleaseInstance(Instance);
 		}
 		
 	}
@@ -40,7 +40,7 @@ TWeakPtr<FJavascriptInstanceHandler> FJavascriptInstanceHandler::GetMainHandler(
 	return MainHandler;
 }
 
-EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceOptions& InOptions, FJavascriptInstance*& OutInstance, TFunction<void(FJavascriptInstance*)> OnDelayedResult /*= nullptr*/)
+EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceOptions& InOptions, TFunction<void(TSharedPtr<FJavascriptInstance>)> OnDelayedResult /*= nullptr*/)
 {
 	//Check requesting thread
 	//int32 RequestingThread = FPlatformTLS::GetCurrentThreadId();
@@ -57,11 +57,11 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 	}
 
 	//Requesting an instance in GameThread
-	int32 TargetThreadId = 0;
+	FJSInstanceContextSettings ContextSettings;
 
 	if (InOptions.ThreadOption == EUJSThreadOption::USE_DEFAULT || InOptions.ThreadOption == EUJSThreadOption::USE_GAME_THREAD)
 	{
-		TargetThreadId = GGameThreadId;
+		ContextSettings.ThreadId = GGameThreadId;
 	}
 	else
 	{
@@ -69,15 +69,15 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 	}
 
 	//Check for array
-	if (!InstanceThreadMap.Contains(TargetThreadId))
+	if (!InstanceThreadMap.Contains(ContextSettings.ThreadId))
 	{
 		TArray<TSharedPtr<FJavascriptInstance>> ThreadArray;
 
-		InstanceThreadMap.Add(TargetThreadId, ThreadArray);
+		InstanceThreadMap.Add(ContextSettings.ThreadId, ThreadArray);
 	}
 
 	//Load array
-	TArray<TSharedPtr<FJavascriptInstance>>& ThreadArray = InstanceThreadMap[TargetThreadId];
+	TArray<TSharedPtr<FJavascriptInstance>>& ThreadArray = InstanceThreadMap[ContextSettings.ThreadId];
 	
 	//Find instance with same isolate domain
 	for (auto Instance : ThreadArray)
@@ -86,9 +86,8 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 
 		if (OnDelayedResult)
 		{
-			OnDelayedResult(Instance.Get());
+			OnDelayedResult(Instance);
 		}
-		OutInstance = Instance.Get();
 		return EJSInstanceResult::RESULT_INSTANT;
 	}
 
@@ -96,19 +95,21 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 	if (InOptions.Features.IsEmpty() && bAllocateEmptyIsolatesOnBgThread)
 	{
 		const FJSInstanceOptions OptionsCopy = InOptions;
-		Async(EAsyncExecution::ThreadPool, [OptionsCopy, TargetThreadId, OnDelayedResult, this]()
+		int32 TargetThreadId = ContextSettings.ThreadId;
+		
+		Async(EAsyncExecution::ThreadPool, [OptionsCopy, ContextSettings, OnDelayedResult, this]()
 		{
 			//Allocate and callback
-			TSharedPtr<FJavascriptInstance> NewInstance = MakeShareable(new FJavascriptInstance(OptionsCopy));
+			TSharedPtr<FJavascriptInstance> NewInstance = MakeShareable(new FJavascriptInstance(OptionsCopy, ContextSettings));
 
 			//add the result to array on game thread
-			Async(EAsyncExecution::TaskGraphMainThread, [NewInstance, TargetThreadId, OnDelayedResult, this]()
+			Async(EAsyncExecution::TaskGraphMainThread, [NewInstance, ContextSettings, OnDelayedResult, this]()
 			{
-				TArray<TSharedPtr<FJavascriptInstance>>& ThreadArray = InstanceThreadMap[TargetThreadId];
+				TArray<TSharedPtr<FJavascriptInstance>>& ThreadArray = InstanceThreadMap[ContextSettings.ThreadId];
 				ThreadArray.AddUnique(NewInstance);
 				if (OnDelayedResult)
 				{
-					OnDelayedResult(NewInstance.Get());
+					OnDelayedResult(NewInstance);
 				}
 			});
 		});
@@ -118,21 +119,47 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 	else
 	{
 		//Didn't find a matching instance, make one and return it
-		TSharedPtr<FJavascriptInstance> NewInstance = MakeShareable(new FJavascriptInstance(InOptions));
+		TSharedPtr<FJavascriptInstance> NewInstance = MakeShareable(new FJavascriptInstance(InOptions, ContextSettings));
 		ThreadArray.AddUnique(NewInstance);
 
 		if (OnDelayedResult)
 		{
-			OnDelayedResult(NewInstance.Get());
+			OnDelayedResult(NewInstance);
 		}
-		OutInstance = NewInstance.Get();
 		return EJSInstanceResult::RESULT_INSTANT;
 	}
 }
 
-void FJavascriptInstanceHandler::ReleaseInstance(FJavascriptInstance*)
+/*void FJavascriptInstanceHandler::ReleaseInstance(FJavascriptInstance* Instance)
 {
+	if (InstanceThreadMap.Contains(Instance->ContextSettings.ThreadId))
+	{
+		TArray<TSharedPtr<FJavascriptInstance>>& ThreadArray = InstanceThreadMap[Instance->ContextSettings.ThreadId];
 
+		//Because we use shared ptrs we need to use a loop for removal
+		int32 RemoveIndex = 0;
+		for (int i=0; i<ThreadArray.Num();i++)
+		{
+			TSharedPtr<FJavascriptInstance>& Comparator = ThreadArray[i];
+
+			if (Comparator.Get() == Instance)
+			{
+				RemoveIndex = i;
+				break;
+			}
+		}
+
+		ThreadArray.RemoveAt(RemoveIndex);
+	}
+}*/
+
+void FJavascriptInstanceHandler::ReleaseInstance(TSharedPtr<FJavascriptInstance> Instance)
+{
+	if (InstanceThreadMap.Contains(Instance->ContextSettings.ThreadId))
+	{
+		TArray<TSharedPtr<FJavascriptInstance>>& ThreadArray = InstanceThreadMap[Instance->ContextSettings.ThreadId];
+		ThreadArray.Remove(Instance);
+	}
 }
 
 bool FJavascriptInstanceHandler::IsInGameThread()

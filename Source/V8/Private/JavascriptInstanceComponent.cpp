@@ -5,7 +5,8 @@ UJavascriptInstanceComponent::UJavascriptInstanceComponent(const FObjectInitiali
 {
 	PrimaryComponentTick.bCanEverTick = false;
 
-	MainHandler = FJavascriptInstanceHandler::GetMainHandler();
+	Instance = nullptr;
+	MainHandler = FJavascriptInstanceHandler::GetMainHandler().Pin();
 }
 
 void UJavascriptInstanceComponent::InitializeComponent()
@@ -20,12 +21,18 @@ void UJavascriptInstanceComponent::InitializeComponent()
 			return;
 		}
 
-		//initialize
+		//Initialize, happens on a callback due to possible delay
+		EJSInstanceResult Result = MainHandler->RequestInstance(InstanceOptions, [this](TSharedPtr<FJavascriptInstance> NewInstance)
+		{
+			Instance = NewInstance;
+		});
 	}
 }
 
 void UJavascriptInstanceComponent::UninitializeComponent()
 {
+	MainHandler->ReleaseInstance(Instance);
+	Instance = nullptr;
 	Super::UninitializeComponent();
 }
 
