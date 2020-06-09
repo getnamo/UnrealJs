@@ -447,7 +447,7 @@ public:
 
 			TryCatch try_catch(isolate_);
 
-			auto source = TEXT("'log error warn info void assert'.split(' ').forEach(x => { let o = console[x].bind(console); let y = $console[x].bind($console); console['$'+x] = o; console[x] = function () { y(...arguments); return o(...arguments); }})");
+			auto source = TEXT("'log error warn info void assert'.split(' ').forEach(x => { let o = console[x].bind(console); /*let y = $console[x].bind($console);*/ console['$'+x] = o; console[x] = function () { /*y(...arguments);*/ return o(...arguments); }})");
 			auto script = v8::Script::Compile(context(), I.String(source)).ToLocalChecked();
 			auto result = script->Run(context());
 		}
