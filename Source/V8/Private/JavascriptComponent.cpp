@@ -46,6 +46,13 @@ UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectIniti
 void UJavascriptComponent::OnRegister()
 {
 	auto ContextOwner = GetOuter();
+
+	//Set default threading option
+	if (JavascriptThread == EUJSThreadOption::USE_DEFAULT)
+	{
+		JavascriptThread = EUJSThreadOption::USE_GAME_THREAD;
+	}
+
 	if (ContextOwner && !HasAnyFlags(RF_ClassDefaultObject) && !ContextOwner->HasAnyFlags(RF_ClassDefaultObject))
 	{
 		if (GetWorld() && ((GetWorld()->IsGameWorld() && !GetWorld()->IsPreviewWorld()) || bActiveWithinEditor))
@@ -136,8 +143,8 @@ void UJavascriptComponent::Activate(bool bReset)
 				bShouldRun = true;
 				bIsRunning = true;
 
-				OnBeginPlay.ExecuteIfBound();
 				JavascriptContext->RunFile(*ScriptSourceFile);
+				OnBeginPlay.ExecuteIfBound();
 
 				while (bShouldRun)
 				{

@@ -88,6 +88,11 @@ TSharedPtr<FJavascriptIsolate> FJavascriptInstance::GetSharedIsolate()
 	return ContextSettings.Isolate;
 }
 
+bool FJSInstanceOptions::UsesGameThread() const
+{
+	return ThreadOption == EUJSThreadOption::USE_DEFAULT || ThreadOption == EUJSThreadOption::USE_GAME_THREAD;
+}
+
 FJSInstanceOptions::FJSInstanceOptions()
 {
 	IsolateDomain = TEXT("default");
@@ -97,6 +102,8 @@ FJSInstanceOptions::FJSInstanceOptions()
 	//Default isolate features
 	bUseUniqueIsolate = false;
 	bUseUniqueContext = true;	//should be non-unique if using same
+	bAttachToTick = true;
+	//bAttachInspector = false;
 }
 
 FJSInstanceContextSettings::FJSInstanceContextSettings()

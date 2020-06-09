@@ -71,6 +71,15 @@ struct V8_API FJSInstanceOptions
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
 	bool bUseUniqueContext;
 
+	//if true this will receive tick events
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	bool bAttachToTick;
+
+	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	//bool bAttachInspector;
+
+	bool UsesGameThread() const;
+
 	FJSInstanceOptions();
 };
 
