@@ -1,6 +1,7 @@
-#include "JavascriptInstance.h"
-#include "Async/Async.h"
 #include "JavascriptInstanceComponent.h"
+#include "JavascriptInstance.h"
+#include "JavascriptLambda.h"
+#include "Async/Async.h"
 
 UJavascriptInstanceComponent::UJavascriptInstanceComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -36,6 +37,7 @@ void UJavascriptInstanceComponent::InitializeComponent()
 		{
 			Instance = NewInstance;
 
+			//Safe to expose some basics
 			if (InstanceOptions.Features.FeatureMap.Contains("Context"))
 			{
 				Expose(TEXT("Context"), this);
@@ -44,6 +46,12 @@ void UJavascriptInstanceComponent::InitializeComponent()
 			{
 				Expose(TEXT("Root"), GetOwner());
 			}
+			if (InstanceOptions.Features.FeatureMap.Contains("Lambda"))
+			{
+				UJavascriptLambda* Lambda = NewObject<UJavascriptLambda>(this);
+				Expose(TEXT("Lambda"), Lambda);
+			}
+
 			TFunction<void()> RunDefaultScript = [this]
 			{
 				OnInstanceReady.Broadcast();

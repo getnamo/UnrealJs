@@ -68,4 +68,5 @@ protected:
 	FThreadSafeBool bShouldScriptRun;
 	FThreadSafeBool bIsThreadRunning;
 	bool bIsScriptRunning;
+
 };
