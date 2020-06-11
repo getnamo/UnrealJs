@@ -1,4 +1,5 @@
 #include "JavascriptLambda.h"
+#include "Async/Async.h"
 #include "JavascriptInstance.h"
 #include "JavascriptInstanceHandler.h"
 
@@ -22,7 +23,10 @@ int32 UJavascriptLambda::AsyncRun(const FString& Script)
 	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript](TSharedPtr<FJavascriptInstance> NewInstance)
 	{
 		//run script
-		NewInstance->ContextSettings.Context->Public_RunScript(SafeScript);
+		Async(EAsyncExecution::ThreadPool, [NewInstance, SafeScript]()
+		{
+			NewInstance->ContextSettings.Context->Public_RunScript(SafeScript);
+		});
 	});
 
 	//todo: return some valid monotonically increasing id
