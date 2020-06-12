@@ -370,7 +370,7 @@ public:
 			UJavascriptContext* Context = *It;
 
 			//Only clear garbage collection on game thread contexts
-			if (IsInGameThread() && Context->Thread == EUJSThreadOption::USE_GAME_THREAD)
+			if (IsInGameThread() && Context->Thread == EJavascriptAsyncOption::TaskGraphMainThread)
 			{
 				Context->RequestV8GarbageCollection();
 			}

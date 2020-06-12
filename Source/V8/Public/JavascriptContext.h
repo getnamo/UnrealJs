@@ -6,6 +6,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "UObject/ScriptMacros.h"
 #include "JavascriptIsolate.h"
+#include "JavascriptAsyncData.h"
 #include "JavascriptContext.generated.h"
 
 struct FJavascriptContext;
@@ -17,15 +18,6 @@ struct V8_API FArrayBufferAccessor
 	static int32 GetSize();
 	static void* GetData();
 	static void Discard();
-};
-
-UENUM(BlueprintType)
-enum class EUJSThreadOption : uint8
-{
-	USE_DEFAULT,
-	USE_GAME_THREAD,
-	USE_BACKGROUND_THREAD,
-	USE_BACKGROUND_TASKGRAPH
 };
 
 UCLASS()
@@ -107,7 +99,7 @@ public:
 	void DestroyInspector();
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scripting|Javascript")
-	EUJSThreadOption Thread;
+	EJavascriptAsyncOption Thread;
 
 	//UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void ExposeGlobals();

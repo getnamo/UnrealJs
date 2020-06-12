@@ -21,7 +21,7 @@ UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectIniti
 	bAutoActivate = true;
 	bWantsInitializeComponent = true;
 
-	JavascriptThread = EUJSThreadOption::USE_GAME_THREAD;
+	JavascriptThread = EJavascriptAsyncOption::TaskGraphMainThread;
 	IsolateDomain = TEXT("default");
 
 	bEnableFeatures = true;
@@ -47,12 +47,6 @@ void UJavascriptComponent::OnRegister()
 {
 	auto ContextOwner = GetOuter();
 
-	//Set default threading option
-	if (JavascriptThread == EUJSThreadOption::USE_DEFAULT)
-	{
-		JavascriptThread = EUJSThreadOption::USE_GAME_THREAD;
-	}
-
 	if (ContextOwner && !HasAnyFlags(RF_ClassDefaultObject) && !ContextOwner->HasAnyFlags(RF_ClassDefaultObject))
 	{
 		if (GetWorld() && ((GetWorld()->IsGameWorld() && !GetWorld()->IsPreviewWorld()) || bActiveWithinEditor))
@@ -61,8 +55,7 @@ void UJavascriptComponent::OnRegister()
 			if (!IsRunningCommandlet())
 			{
 				//new isolate if using bg threads
-				if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_THREAD ||
-					JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
+				if (FJavascriptAsyncUtil::IsBgThread(JavascriptThread))
 				{
 					Isolate = nullptr;
 				}
@@ -111,7 +104,7 @@ void UJavascriptComponent::OnRegister()
 				Context->Expose("GEngine", GEngine);
 			}
 
-			if (bCreateInspectorOnStartup && JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
+			if (bCreateInspectorOnStartup && JavascriptThread == EJavascriptAsyncOption::TaskGraphMainThread)
 			{
 				Context->CreateInspector(InspectorPort);
 			}
@@ -128,15 +121,10 @@ void UJavascriptComponent::Activate(bool bReset)
 	if (JavascriptContext)
 	{
 		//Background thread type javascript
-		if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_THREAD ||
-			JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
+		if (FJavascriptAsyncUtil::IsBgThread(JavascriptThread))
 		{
-			EAsyncExecution ExecType = EAsyncExecution::Thread;
-
-			if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
-			{
-				ExecType = EAsyncExecution::TaskGraph;
-			}
+			
+			EAsyncExecution ExecType = FJavascriptAsyncUtil::ToAsyncExecution(JavascriptThread);
 			
 			Async(ExecType, [this]
 			{
@@ -175,7 +163,7 @@ void UJavascriptComponent::Activate(bool bReset)
 		}
 	}
 
-	if (JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
+	if (JavascriptThread == EJavascriptAsyncOption::TaskGraphMainThread)
 	{
 		OnBeginPlay.ExecuteIfBound();
 	}
@@ -183,7 +171,7 @@ void UJavascriptComponent::Activate(bool bReset)
 
 void UJavascriptComponent::Deactivate()
 {
-	if (JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
+	if (JavascriptThread == EJavascriptAsyncOption::TaskGraphMainThread)
 	{
 		OnEndPlay.ExecuteIfBound();
 	}
@@ -198,8 +186,7 @@ void UJavascriptComponent::BeginDestroy()
 {
 	if (IsValid(GEngine) && !IsRunningCommandlet())
 	{
-		if (JavascriptThread == EUJSThreadOption::USE_BACKGROUND_THREAD ||
-			JavascriptThread == EUJSThreadOption::USE_BACKGROUND_TASKGRAPH)
+		if (FJavascriptAsyncUtil::IsBgThread(JavascriptThread))
 		{
 			bShouldRun = false;
 			//OnTick.Clear();
@@ -239,7 +226,7 @@ void UJavascriptComponent::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (JavascriptThread == EUJSThreadOption::USE_GAME_THREAD)
+	if (JavascriptThread == EJavascriptAsyncOption::TaskGraphMainThread)
 	{
 		OnTick.ExecuteIfBound(DeltaTime);
 	}

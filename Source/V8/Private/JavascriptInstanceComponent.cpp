@@ -1,7 +1,8 @@
 #include "JavascriptInstanceComponent.h"
 #include "JavascriptInstance.h"
-#include "JavascriptLambda.h"
 #include "Async/Async.h"
+#include "JavascriptAsync.h"
+
 
 UJavascriptInstanceComponent::UJavascriptInstanceComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -46,10 +47,13 @@ void UJavascriptInstanceComponent::InitializeComponent()
 			{
 				Expose(TEXT("Root"), GetOwner());
 			}
-			if (InstanceOptions.Features.FeatureMap.Contains("Lambda"))
+			if (InstanceOptions.Features.FeatureMap.Contains("Async"))
 			{
-				UJavascriptLambda* Lambda = NewObject<UJavascriptLambda>(this);
-				Expose(TEXT("Lambda"), Lambda);
+				Expose(TEXT("Async"), NewObject<UJavascriptAsync>(this));
+				//Run javascript wrapping code for this exposure. Allows raw function passing
+				FString Content = Instance->ContextSettings.Context->ReadScriptFile(TEXT("async.js"));
+				Instance->ContextSettings.Context->Public_RunScript(Content);
+				//Instance->ContextSettings.Context->Public_RunFile(TEXT("async.js"));
 			}
 
 			TFunction<void()> RunDefaultScript = [this]
@@ -79,7 +83,8 @@ void UJavascriptInstanceComponent::InitializeComponent()
 			}
 			else
 			{
-				Async(EAsyncExecution::ThreadPool, [this, RunDefaultScript]()
+				EAsyncExecution Execution = FJavascriptAsyncUtil::ToAsyncExecution(InstanceOptions.ThreadOption);
+				Async(Execution, [this, RunDefaultScript]()
 				{
 					RunDefaultScript();
 

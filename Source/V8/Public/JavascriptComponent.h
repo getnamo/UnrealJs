@@ -46,7 +46,7 @@ public:
 	TMap<FString, FString> Features;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
-	EUJSThreadOption JavascriptThread;
+	EJavascriptAsyncOption JavascriptThread;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript")
 	bool bCreateInspectorOnStartup;

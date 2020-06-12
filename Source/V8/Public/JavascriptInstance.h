@@ -57,7 +57,7 @@ struct V8_API FJSInstanceOptions
 
 	//If using non-default/non-gamethread keep in mind that most features have to be off
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
-	EUJSThreadOption ThreadOption;
+	EJavascriptAsyncOption ThreadOption;
 
 	//Exposed feature map
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")

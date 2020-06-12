@@ -90,13 +90,13 @@ TSharedPtr<FJavascriptIsolate> FJavascriptInstance::GetSharedIsolate()
 
 bool FJSInstanceOptions::UsesGameThread() const
 {
-	return ThreadOption == EUJSThreadOption::USE_DEFAULT || ThreadOption == EUJSThreadOption::USE_GAME_THREAD;
+	return !FJavascriptAsyncUtil::IsBgThread(ThreadOption);
 }
 
 FJSInstanceOptions::FJSInstanceOptions()
 {
 	IsolateDomain = TEXT("default");
-	ThreadOption = EUJSThreadOption::USE_DEFAULT;
+	ThreadOption = EJavascriptAsyncOption::TaskGraphMainThread;
 	Features = FJavascriptFeatures();	//no features is default
 	
 	//Default isolate features

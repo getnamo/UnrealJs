@@ -65,7 +65,7 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 	}
 	else
 	{
-		//Set a bg thread id e.g. 0
+		//BG thread Id is 0 for now
 	}
 
 	//Check for array
