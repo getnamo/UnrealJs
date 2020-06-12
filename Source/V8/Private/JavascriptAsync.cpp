@@ -22,17 +22,17 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 {
 	FJSInstanceOptions InstanceOptions;
 	InstanceOptions.ThreadOption = ExecutionContext;
-	const EAsyncExecution SafeAsyncExecutionContext = FJavascriptAsyncUtil::ToAsyncExecution(ExecutionContext);
-
-	//if(FJavascriptAsyncUtil::IsBgThread(Sa)
 
 	const FString SafeScript = Script;
-	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript, SafeAsyncExecutionContext](TSharedPtr<FJavascriptInstance> NewInstance)
+	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript](TSharedPtr<FJavascriptInstance> NewInstance)
 	{
 		//run script
-		Async(SafeAsyncExecutionContext, [NewInstance, SafeScript]()
+		const EAsyncExecution AsyncExecutionContext = FJavascriptAsyncUtil::ToAsyncExecution(NewInstance->Options.ThreadOption);
+
+		Async(AsyncExecutionContext, [NewInstance, SafeScript]()
 		{
-			NewInstance->ContextSettings.Context->Public_RunScript(SafeScript);
+			auto ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(SafeScript);
+			//Todo: get return value from script run an trigger event
 		});
 	});
 
