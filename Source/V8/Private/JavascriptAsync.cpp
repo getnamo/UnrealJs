@@ -15,27 +15,38 @@ UJavascriptAsync::UJavascriptAsync(class FObjectInitializer const& ObjectInitial
 
 UJavascriptAsync* UJavascriptAsync::StaticInstance(UObject* Owner)
 {
-	return NewObject<UJavascriptAsync>(Owner);
+	if (Owner == nullptr)
+	{
+		auto Instance = NewObject<UJavascriptAsync>();
+		Instance->AddToRoot();
+		return Instance;
+	}
+	else
+	{
+		return NewObject<UJavascriptAsync>(Owner);
+	}
 }
 
 int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext)
 {
 	FJSInstanceOptions InstanceOptions;
 	InstanceOptions.ThreadOption = ExecutionContext;
+	const int32 LambdaId = ++IdCounter;
+
+	
 
 	const FString SafeScript = Script;
-	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript](TSharedPtr<FJavascriptInstance> NewInstance)
+	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript, LambdaId, this](TSharedPtr<FJavascriptInstance> NewInstance)
 	{
 		//run script
 		const EAsyncExecution AsyncExecutionContext = FJavascriptAsyncUtil::ToAsyncExecution(NewInstance->Options.ThreadOption);
 
-		Async(AsyncExecutionContext, [NewInstance, SafeScript]()
+		Async(AsyncExecutionContext, [NewInstance, SafeScript, LambdaId, this]()
 		{
-			auto ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(SafeScript);
-			//Todo: get return value from script run an trigger event
+			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(SafeScript);
+			OnLambdaComplete.ExecuteIfBound(ReturnValue, LambdaId);
 		});
 	});
 
-	IdCounter++;
-	return IdCounter;
+	return LambdaId;
 }

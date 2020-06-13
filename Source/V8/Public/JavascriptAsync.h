@@ -5,6 +5,7 @@
 #include "JavascriptAsync.generated.h"
 
 DECLARE_DYNAMIC_DELEGATE(FJsLambdaNoParamSignature);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FJsLambdaIdSignature, int32, LambdaId);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FJsLambdaMessageSignature, FString, Message, int32, LambdaId);
 
 UCLASS(BlueprintType, ClassGroup = Script, Blueprintable)
@@ -13,17 +14,18 @@ class V8_API UJavascriptAsync : public UObject
 	GENERATED_UCLASS_BODY()
 public:
 
+	UFUNCTION(BlueprintCallable)
 	static UJavascriptAsync* StaticInstance(UObject* Owner = nullptr);
 
 	UPROPERTY()
-	FJsLambdaNoParamSignature OnLambdaComplete;
+	FJsLambdaMessageSignature OnLambdaComplete;
 
 	UPROPERTY()
 	FJsLambdaMessageSignature OnMessage;
 
 	/** Run script on background thread, returns unique id for this run*/
 	UFUNCTION(BlueprintCallable)
-	static int32 RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext = EJavascriptAsyncOption::ThreadPool);
+	int32 RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext = EJavascriptAsyncOption::ThreadPool);
 
 	/**
 	To allow raw function passing we will load in a script that 
