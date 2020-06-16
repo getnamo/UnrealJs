@@ -47,6 +47,10 @@ class CallbackHandler {
 
 		Async.instance.CallScriptFunction(this.lambdaId, 'exports.' + functionName, JSON.stringify(args), localCallbackId);
 	}
+
+	stop(){
+		Async.instance.StopLambda(this.lambdaId);
+	}
 };
 
 Async.instance.OnLambdaComplete = (result, lambdaId, callbackId /*not used for completion*/) => {
