@@ -21,7 +21,8 @@ class CallbackHandler {
 	addBridge(name, bridgeFunction){
 		this.bridges[name] = ()=>{
 
-			
+			//Expose function in capture
+
 			//todo: make bridge, need a way to call this function on bg thread work.
 			//likely needs a modification in runscript?
 			//to call 
@@ -91,20 +92,26 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 			if(typeof(capture[key]) === 'function'){
 				//Async.DevLog(`found key ${key}`);
 				handler.addBridge(key, capture[key]);
-				didFindFunctions = true;
+				didFindFunctions = true;	//pinning should only happen if we export?
 			}
 		}
 
 		//stringification and parsing will end up with the object value of the capture
 		captureString = "let capture = JSON.parse('"+ JSON.stringify(capture) + "');\n";
 	}
-	handler.pinned = didFindFunctions;
 	
 	//function JSON stringifies any result
 	const wrappedFunctionString = '\nJSON.stringify(('+ rawFunction.toString() + ')());';
 	const finalScript = "var exports = {}; {\n" + captureString + wrappedFunctionString + '\n}';
+
+	//look for exported functions (rough method)
+	if(finalScript.includes('exports.')){
+		didFindFunctions = true;
+		//Async.DevLog('found functions');
+	}
+	handler.pinned = didFindFunctions;
 	
-	Async.DevLog(finalScript);
+	//Async.DevLog(finalScript);
 
 	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions);
 
