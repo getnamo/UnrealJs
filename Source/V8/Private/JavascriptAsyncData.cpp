@@ -31,3 +31,26 @@ EAsyncExecution FJavascriptAsyncUtil::ToAsyncExecution(EJavascriptAsyncOption Op
 		return EAsyncExecution::ThreadPool;
 	}
 }
+
+FJavascriptAsyncLambdaPinData& FJavascriptAsyncLambdaMapData::DataForId(int32 LambdaId)
+{
+	if (!PinData.Contains(LambdaId))
+	{
+		FJavascriptAsyncLambdaPinData NewPinData;
+		NewPinData.MessageQueue = MakeShareable(new TQueue<FJavascriptRemoteFunctionData>());
+		PinData.Add(LambdaId, NewPinData);
+	}
+	return PinData[LambdaId];
+}
+
+TQueue<FJavascriptRemoteFunctionData>* FJavascriptAsyncLambdaMapData::MessageQueue(int32 LambdaId)
+{
+	return DataForId(LambdaId).MessageQueue.Get();
+}
+
+TArray<int32> FJavascriptAsyncLambdaMapData::LambdaIds()
+{
+	TArray<int32> Keys;
+	PinData.GetKeys(Keys);
+	return Keys;
+}

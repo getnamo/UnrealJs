@@ -8,13 +8,17 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FJsInstBPNoParamDelegate);
 
 DECLARE_DYNAMIC_DELEGATE(FJsInstNoParamDelegate);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FJsInstTickSignature, float, DeltaSeconds);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FJsInstMessageSignature, FString, Name, FString, Message);
 
-UCLASS(BlueprintType, ClassGroup = Script, Blueprintable, hideCategories = (ComponentReplication), meta = (BlueprintSpawnableComponent))
+//A javascript instance may re-use isolates and gives greater control over expose vs classical javascript component.
+UCLASS(BlueprintType, ClassGroup = Script, meta = (BlueprintSpawnableComponent))
 class V8_API UJavascriptInstanceComponent : public UActorComponent
 {
 	GENERATED_UCLASS_BODY()
 
 public:
+
+
 
 	//Blueprint notifications
 	//Called before script start
@@ -39,8 +43,12 @@ public:
 	UPROPERTY()
 	FJsInstNoParamDelegate OnEndPlay;
 
+	//Linked with EmitToJs
+	UPROPERTY()
+	FJsInstMessageSignature OnMessage;
+
 	//Specify common domain/uniqueness etc of instance
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Javascript Instance Component")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category= "Javascript Instance Component")
 	FJSInstanceOptions InstanceOptions;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Javascript Instance Component")
@@ -53,8 +61,11 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Javascript Instance Inspector")
 	int32 InspectorPort;
 
+	UFUNCTION(BlueprintCallable, Category = "Js Functions")
 	void Expose(const FString& JsName, UObject* ObjectToExpose);
 
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void Emit(const FString& Name, const FString& Message);
 
 	// Begin UActorComponent interface.
 	virtual void InitializeComponent() override;
@@ -70,3 +81,5 @@ protected:
 	bool bIsScriptRunning;
 
 };
+
+//hideCategories = (ComponentReplication) Blueprintable

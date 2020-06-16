@@ -13,7 +13,7 @@
   "Modules": [
     {
       "Name": "V8",
-      "Type": "Editor",
+      "Type": "Runtime",
       "LoadingPhase": "PreDefault",
       "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "Linux", "Android", "IOS" ]
     },

@@ -21,6 +21,11 @@ void UJavascriptInstanceComponent::Expose(const FString& JsName, UObject* Object
 	Instance->ContextSettings.Context->Expose(JsName, ObjectToExpose);
 }
 
+void UJavascriptInstanceComponent::Emit(const FString& Name, const FString& Message)
+{
+	OnMessage.ExecuteIfBound(Name, Message);
+}
+
 void UJavascriptInstanceComponent::InitializeComponent()
 {
 	Super::InitializeComponent();

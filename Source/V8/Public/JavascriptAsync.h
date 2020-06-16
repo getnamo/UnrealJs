@@ -6,7 +6,7 @@
 
 DECLARE_DYNAMIC_DELEGATE(FJsLambdaNoParamSignature);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FJsLambdaIdSignature, int32, LambdaId);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FJsLambdaMessageSignature, FString, Message, int32, LambdaId);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FJsLambdaMessageSignature, FString, Message, int32, LambdaId, int32, CallbackId);
 
 UCLASS(BlueprintType, ClassGroup = Script, Blueprintable)
 class V8_API UJavascriptAsync : public UObject
@@ -25,12 +25,22 @@ public:
 
 	/** Run script on background thread, returns unique id for this run*/
 	UFUNCTION(BlueprintCallable)
-	int32 RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext = EJavascriptAsyncOption::ThreadPool);
+	int32 RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext = EJavascriptAsyncOption::ThreadPool, bool bPinAfterRun = false);
+
+	/** calls function on remote thread and gives result in 'OnMessage' */
+	UFUNCTION(BlueprintCallable)
+	void CallScriptFunction(int32 InLambdaId, const FString& FunctionName, const FString& Args, int32 CallbackId = 0);
+
+	/** if this lambda is pinned, it will unpin it*/
+	UFUNCTION(BlueprintCallable)
+	void StopLambda(int32 InLambdaId);
 
 	/**
 	To allow raw function passing we will load in a script that 
 	wraps functions with the necessary
 	*/
+
+	virtual void BeginDestroy() override;
 
 protected:
 	static EAsyncExecution ToAsyncExecution(EJavascriptAsyncOption ExecutionContext);
@@ -38,4 +48,6 @@ protected:
 	static int32 IdCounter;
 	static TSharedPtr<FJavascriptInstanceHandler> MainHandler;
 	TSharedPtr<FJavascriptInstance> LambdaInstance;
+
+	FJavascriptAsyncLambdaMapData LambdaMapData;
 };
