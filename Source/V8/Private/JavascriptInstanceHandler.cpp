@@ -79,16 +79,20 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 	//Load array
 	TArray<TSharedPtr<FJavascriptInstance>>& ThreadArray = InstanceThreadMap[ContextSettings.ThreadId];
 	
-	//Find instance with same isolate domain
-	for (auto Instance : ThreadArray)
+	//Temp limit to gt only
+	if (InOptions.UsesGameThread())
 	{
-		Instance->IsolateDomain == InOptions.IsolateDomain;
-
-		if (OnDelayedResult)
+		//Find instance with same isolate domain
+		for (auto Instance : ThreadArray)
 		{
-			OnDelayedResult(Instance);
+			Instance->IsolateDomain == InOptions.IsolateDomain;
+
+			if (OnDelayedResult)
+			{
+				OnDelayedResult(Instance);
+			}
+			return EJSInstanceResult::RESULT_INSTANT;
 		}
-		return EJSInstanceResult::RESULT_INSTANT;
 	}
 
 	//Instance not found, allocate instance on BG thread if empty

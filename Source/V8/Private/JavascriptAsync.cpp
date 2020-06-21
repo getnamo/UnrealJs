@@ -76,7 +76,7 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 						FJavascriptRemoteFunctionData MessageFunctionData;
 						PinData.MessageQueue->Dequeue(MessageFunctionData);
 
-						FString RemoteFunctionScript = FString::Printf(TEXT("%s(JSON.parse('%s'));"), *MessageFunctionData.Name, *MessageFunctionData.Args);
+						FString RemoteFunctionScript = FString::Printf(TEXT("%s?%s(JSON.parse('%s')):undefined;"), *MessageFunctionData.Name, *MessageFunctionData.Name, *MessageFunctionData.Args);
 						FString MessageReturn = NewInstance->ContextSettings.Context->Public_RunScript(RemoteFunctionScript);
 
 						int32 CallbackId = MessageFunctionData.CallbackId;
@@ -85,7 +85,7 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 							//We call back on gamethread always
 							Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] {
 								OnMessage.ExecuteIfBound(MessageReturn, LambdaId, CallbackId);
-								});
+							});
 						}
 					}
 					//1ms sleep
@@ -137,10 +137,9 @@ UJavascriptCallableWrapper::UJavascriptCallableWrapper(class FObjectInitializer 
 
 void UJavascriptCallableWrapper::CallFunction(FString FunctionName, FString Args, int32 LambdaId)
 {
-	UE_LOG(LogTemp, Log, TEXT("Received %s, %s"), *FunctionName, *Args);
+	//UE_LOG(LogTemp, Log, TEXT("Received %s, %s"), *FunctionName, *Args);
 	Async(EAsyncExecution::TaskGraphMainThread, [this, FunctionName, Args, LambdaId] {
 		LambdaLink->OnAsyncCall.ExecuteIfBound(FunctionName, Args, LambdaId);
-
-		//todo handle return...
+		//Return handled in javascript
 	});
 }

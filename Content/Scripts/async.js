@@ -17,16 +17,24 @@ class CallbackHandler {
 		this.callbackId = 0;
 	}
 
-	//Todo: hide addBridge/setReturn or split class
-	addBridge(name, bridgeFunction){
-		this.bridges[name] = (args, resultId)=>{
-			Async.DevLog(`Received BT call ${name}, with ${args}`);
+	_addBridge(name, bridgeFunction){
+		this.bridges[name] = (args)=>{
+			if(args == undefined){
+			}
+			else if(args == ''){
+			}
+			else{
+				//assume json for everything else
+				args = JSON.parse(args);
+			}
+
+			const result = bridgeFunction(args);
+
+			//Async.DevLog(`Received BT call ${name}, with ${args}`);
 			
 			//Async.DevLog(bridgeFunction.toString());
-			const result = bridgeFunction(JSON.parse(args));
 
-			Async.DevLog(`GT result: ${result}, converting this for callback`);
-
+			//If we received any result
 			if(result != undefined){
 				//callback result to BT without expecting receipt
 				Async.instance.CallScriptFunction(this.lambdaId, `_GTCallable.Callbacks['${name}']`, JSON.stringify(result), -1);
@@ -34,12 +42,12 @@ class CallbackHandler {
 		}
 
 		//Wrap the necessary js callback function
-		return `const ${name} = (_GTArgs, _callback)=>{` +
-				`_GTCallable.Callbacks['${name}'] = _callback;\n` + 
-				`_GTCallable.CallFunction('${name}', JSON.stringify(_GTArgs), ${this.lambdaId});` + 
+		return `const ${name} = (_GTArgs, _resultCallback)=>{` +
+				`_GTCallable.Callbacks['${name}'] = _resultCallback;\n` + 
+				`_GTCallable.CallFunction('${name}', _GTArgs ? JSON.stringify(_GTArgs) : '', ${this.lambdaId});` + 
 				`}\n`;
 	}
-	setReturn(returnCallback){
+	_setReturn(returnCallback){
 		this.return = (jsonValue)=>{
 			returnCallback(JSON.parse(jsonValue));
 		};
@@ -94,6 +102,8 @@ Async.instance.OnAsyncCall = (name, args, lambdaId) => {
 
 	if(handler != undefined){
 		if(handler.bridges[name] != undefined){
+			Async.DevLog(`name: ${name} args:${args} id: ${lambdaId}`);
+			//Async.DevLog(handler.bridges[name].toString());
 			handler.bridges[name](args);
 		}
 	}
@@ -117,8 +127,8 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 		//find all function passes
 		for(let key in capture) {
 			if(typeof(capture[key]) === 'function'){
-				Async.DevLog(`found function ${key}`);
-				captureString += handler.addBridge(key, capture[key]);
+				//Async.DevLog(`found function ${key}`);
+				captureString += handler._addBridge(key, capture[key]);
 
 				//captureString += 'console.log("Global: " + JSON.stringify(globalThis));\n';
 				didFindFunctions = true;	//pinning should only happen if we export?
@@ -143,14 +153,14 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	}
 	handler.pinned = didFindFunctions;
 	
-	Async.DevLog(finalScript);
-
+	//Debug log final script
+	//Async.DevLog(finalScript);
 	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions);
 
 	handler.lambdaId = lambdaId;
-	handler.setReturn(callback);
+	handler._setReturn(callback);
 
-	Async.DevLog(`handler: ${JSON.stringify(handler)}`);
+	//Async.DevLog(`handler: ${JSON.stringify(handler)}`);
 
 	//wrap the callback with a JSON.parse so the return value is in object form
 	Async.instance.Callbacks[lambdaId] = handler;
