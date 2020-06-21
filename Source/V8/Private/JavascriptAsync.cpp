@@ -11,6 +11,8 @@ UJavascriptAsync::UJavascriptAsync(class FObjectInitializer const& ObjectInitial
 {
 	MainHandler = FJavascriptInstanceHandler::GetMainHandler().Pin();
 	IdCounter = 0;
+	CallableWrapper = ObjectInitializer.CreateDefaultSubobject<UJavascriptCallableWrapper>(this, TEXT("CallableWrapper"));
+	CallableWrapper->SetLambdaLink(this);
 }
 
 UJavascriptAsync* UJavascriptAsync::StaticInstance(UObject* Owner)
@@ -25,6 +27,11 @@ UJavascriptAsync* UJavascriptAsync::StaticInstance(UObject* Owner)
 	{
 		return NewObject<UJavascriptAsync>(Owner);
 	}
+}
+
+int32 UJavascriptAsync::NextLambdaId()
+{
+	return IdCounter + 1;
 }
 
 int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext, bool bPinAfterRun)
@@ -45,11 +52,16 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 			LambdaMapData.DataForId(LambdaId).bShouldPin = true;
 		}
 
+		//Expose function callback feature
 		FJavascriptAsyncLambdaPinData& PinData = LambdaMapData.DataForId(LambdaId);
 
 		Async(AsyncExecutionContext, [NewInstance, SafeScript, LambdaId, bPinAfterRun, &PinData, this]()
 		{
-			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(SafeScript);
+			//Expose async callbacks
+			NewInstance->ContextSettings.Context->Expose(TEXT("_GTCallable"), CallableWrapper);
+			
+			//run the main lambda script
+			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(TEXT("_GTCallable.Callbacks = {};") + SafeScript);
 			OnLambdaComplete.ExecuteIfBound(ReturnValue, LambdaId, 0);
 
 			if (bPinAfterRun)
@@ -68,10 +80,13 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 						FString MessageReturn = NewInstance->ContextSettings.Context->Public_RunScript(RemoteFunctionScript);
 
 						int32 CallbackId = MessageFunctionData.CallbackId;
-						//We call back on gamethread always
-						Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] {
-							OnMessage.ExecuteIfBound(MessageReturn, LambdaId, CallbackId);
-						});
+
+						if (CallbackId != -1) {
+							//We call back on gamethread always
+							Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] {
+								OnMessage.ExecuteIfBound(MessageReturn, LambdaId, CallbackId);
+								});
+						}
 					}
 					//1ms sleep
 					FPlatformProcess::Sleep(0.001f);
@@ -112,4 +127,20 @@ void UJavascriptAsync::BeginDestroy()
 	}
 
 	Super::BeginDestroy();
+}
+
+UJavascriptCallableWrapper::UJavascriptCallableWrapper(class FObjectInitializer const& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+
+}
+
+void UJavascriptCallableWrapper::CallFunction(FString FunctionName, FString Args, int32 LambdaId)
+{
+	UE_LOG(LogTemp, Log, TEXT("Received %s, %s"), *FunctionName, *Args);
+	Async(EAsyncExecution::TaskGraphMainThread, [this, FunctionName, Args, LambdaId] {
+		LambdaLink->OnAsyncCall.ExecuteIfBound(FunctionName, Args, LambdaId);
+
+		//todo handle return...
+	});
 }

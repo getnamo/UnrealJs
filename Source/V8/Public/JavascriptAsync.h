@@ -7,6 +7,26 @@
 DECLARE_DYNAMIC_DELEGATE(FJsLambdaNoParamSignature);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FJsLambdaIdSignature, int32, LambdaId);
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FJsLambdaMessageSignature, FString, Message, int32, LambdaId, int32, CallbackId);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FJsLambdaAsyncFuncSignature, FString, Name, FString, Args, int32, LambdaId);
+
+class UJavascriptAsync;
+
+/** used in Js to call functions on game thread */
+UCLASS(BlueprintType, ClassGroup = Script, Blueprintable)
+class UJavascriptCallableWrapper : public UObject
+{
+	GENERATED_UCLASS_BODY()
+public:
+	UFUNCTION(BlueprintCallable)
+	void CallFunction(FString FunctionName, FString Args, int32 LambdaId);
+
+	//Set
+	void SetLambdaLink(UJavascriptAsync* Link) { LambdaLink = Link;};
+
+protected:
+	UJavascriptAsync* LambdaLink;
+};
+
 
 UCLASS(BlueprintType, ClassGroup = Script, Blueprintable)
 class V8_API UJavascriptAsync : public UObject
@@ -20,8 +40,17 @@ public:
 	UPROPERTY()
 	FJsLambdaMessageSignature OnLambdaComplete;
 
+	/** Lambda callback*/
 	UPROPERTY()
 	FJsLambdaMessageSignature OnMessage;
+
+	/** Js Async calls from background thread*/
+	UPROPERTY()
+	FJsLambdaAsyncFuncSignature OnAsyncCall;
+
+	/** sometimes we need the next lambda early */
+	UFUNCTION(BlueprintCallable)
+	int32 NextLambdaId();
 
 	/** Run script on background thread, returns unique id for this run*/
 	UFUNCTION(BlueprintCallable)
@@ -48,6 +77,8 @@ protected:
 	static int32 IdCounter;
 	static TSharedPtr<FJavascriptInstanceHandler> MainHandler;
 	TSharedPtr<FJavascriptInstance> LambdaInstance;
+
+	UJavascriptCallableWrapper* CallableWrapper;
 
 	FJavascriptAsyncLambdaMapData LambdaMapData;
 };
