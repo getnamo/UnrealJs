@@ -115,6 +115,8 @@ void UJavascriptAsync::CallScriptFunction(int32 InLambdaId, const FString& Funct
 void UJavascriptAsync::StopLambda(int32 InLambdaId)
 {
 	LambdaMapData.DataForId(InLambdaId).bShouldPin = false;
+
+	//todo: signal lazy cleanup of isolate, otherwise handler will cleanup later
 }
 
 void UJavascriptAsync::BeginDestroy()
