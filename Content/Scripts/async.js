@@ -70,6 +70,7 @@ class CallbackHandler {
 		Async.instance.StopLambda(this.lambdaId);
 
 		//todo: cleanup handler data
+		delete Async.instance.Callbacks[this.lambdaId];
 	}
 };
 
