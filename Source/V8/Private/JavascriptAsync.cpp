@@ -58,10 +58,11 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 		Async(AsyncExecutionContext, [NewInstance, SafeScript, LambdaId, bPinAfterRun, &PinData, this]()
 		{
 			//Expose async callbacks
-			NewInstance->ContextSettings.Context->Expose(TEXT("_GTCallable"), CallableWrapper);
+			NewInstance->ContextSettings.Context->Expose(TEXT("_asyncUtil"), CallableWrapper);
+			const FString ExposeAdditional = TEXT("_asyncUtil.Callbacks = {}; _asyncUtil.CallbackIndex = 0;");
 			
 			//run the main lambda script
-			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(TEXT("_GTCallable.Callbacks = {};") + SafeScript);
+			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(ExposeAdditional + SafeScript);
 			OnLambdaComplete.ExecuteIfBound(ReturnValue, LambdaId, 0);
 
 			if (bPinAfterRun)
@@ -76,16 +77,27 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 						FJavascriptRemoteFunctionData MessageFunctionData;
 						PinData.MessageQueue->Dequeue(MessageFunctionData);
 
-						FString RemoteFunctionScript = FString::Printf(TEXT("%s?%s(JSON.parse('%s')):undefined;"), *MessageFunctionData.Name, *MessageFunctionData.Name, *MessageFunctionData.Args);
-						FString MessageReturn = NewInstance->ContextSettings.Context->Public_RunScript(RemoteFunctionScript);
+						if (MessageFunctionData.bIsFunctionCall)
+						{
+							FString RemoteFunctionScript = FString::Printf(TEXT("%s?%s(_asyncUtil.parseArgs('%s')):undefined;"),
+								*MessageFunctionData.Event,
+								*MessageFunctionData.Event,
+								*MessageFunctionData.Args);
+							FString MessageReturn = NewInstance->ContextSettings.Context->Public_RunScript(RemoteFunctionScript);
 
-						int32 CallbackId = MessageFunctionData.CallbackId;
+							int32 CallbackId = MessageFunctionData.CallbackId;
 
-						if (CallbackId != -1) {
-							//We call back on gamethread always
-							Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] {
-								OnMessage.ExecuteIfBound(MessageReturn, LambdaId, CallbackId);
-							});
+							if (CallbackId != -1) {
+								//We call back on gamethread always
+								Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] {
+									OnMessage.ExecuteIfBound(MessageReturn, LambdaId, CallbackId);
+									});
+							}
+						}
+						else
+						{
+							//The message wanted to run some raw script without return
+							NewInstance->ContextSettings.Context->Public_RunScript(MessageFunctionData.Event);
 						}
 					}
 					//1ms sleep
@@ -104,12 +116,22 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 void UJavascriptAsync::CallScriptFunction(int32 InLambdaId, const FString& FunctionName, const FString& Args, int32 CallbackId)
 {
 	FJavascriptRemoteFunctionData FunctionData;
-	FunctionData.Name = FunctionName;
+	FunctionData.Event = FunctionName;
 	FunctionData.Args = Args;
 	FunctionData.CallbackId = CallbackId;
+	FunctionData.bIsFunctionCall = true;
 
 	//Queue up the function to be pulled on next poll by the pinned lambda
 	LambdaMapData.DataForId(InLambdaId).MessageQueue->Enqueue(FunctionData);
+}
+
+void UJavascriptAsync::RunScriptInLambda(int32 InLambdaId, const FString& Script)
+{
+	FJavascriptRemoteFunctionData MessageData;
+	MessageData.Event = Script;
+	MessageData.bIsFunctionCall = false;
+
+	LambdaMapData.DataForId(InLambdaId).MessageQueue->Enqueue(MessageData);
 }
 
 void UJavascriptAsync::StopLambda(int32 InLambdaId)
@@ -137,11 +159,11 @@ UJavascriptCallableWrapper::UJavascriptCallableWrapper(class FObjectInitializer 
 
 }
 
-void UJavascriptCallableWrapper::CallFunction(FString FunctionName, FString Args, int32 LambdaId)
+void UJavascriptCallableWrapper::CallFunction(FString FunctionName, FString Args, int32 LambdaId, int32 CallbackId)
 {
 	//UE_LOG(LogTemp, Log, TEXT("Received %s, %s"), *FunctionName, *Args);
-	Async(EAsyncExecution::TaskGraphMainThread, [this, FunctionName, Args, LambdaId] {
-		LambdaLink->OnAsyncCall.ExecuteIfBound(FunctionName, Args, LambdaId);
+	Async(EAsyncExecution::TaskGraphMainThread, [this, FunctionName, Args, LambdaId, CallbackId] {
+		LambdaLink->OnAsyncCall.ExecuteIfBound(FunctionName, Args, LambdaId, CallbackId);
 		//Return handled in javascript
 	});
 }

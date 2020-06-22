@@ -5,6 +5,20 @@ Async.instance = Async.StaticInstance();
 Async.instance.Callbacks = {};
 Async.DevLog = console.log;
 
+//Safe way of handling json parsing
+Async.ParseArgs = (args)=>{
+    try {
+        return JSON.parse(args);
+    } catch (e) {
+    	if(typeof(args) === 'string'){
+    		return args;
+    	}
+    	else{
+        	return null;
+    	}
+    }
+}
+
 class CallbackHandler {
 	constructor(lambdaId){
 		this.return = ()=>{};
@@ -17,43 +31,50 @@ class CallbackHandler {
 		this.callbackId = 0;
 	}
 
+	//called per exposed GT function
 	_addBridge(name, bridgeFunction){
-		this.bridges[name] = (args)=>{
-			if(args == undefined){
-			}
-			else if(args == ''){
-			}
-			else{
-				//assume json for everything else
-				args = JSON.parse(args);
-			}
 
+		//Wrap the necessary js callback function, this will actually call the bridge function in OnAsyncCall
+		let exposeDefinition = 
+				`const ${name} = (_GTArgs, _resultCallback)=>{\n` +
+				`_asyncUtil.CallbackIndex++;\n` +
+				`_asyncUtil.Callbacks['${name}-'+_asyncUtil.CallbackIndex] = _resultCallback;\n` +
+				//`if(_resultCallback != undefined){ _asyncUtil.Callbacks['${name}-'+_asyncUtil.CallbackIndex] = _resultCallback;}\n` + 
+				`_asyncUtil.CallFunction('${name}', _GTArgs ? JSON.stringify(_GTArgs) : '', ${this.lambdaId}, _asyncUtil.CallbackIndex);\n` + 
+				`}\n`;
+
+		//store the GT bridge function with a parse and result callback wrapper. OnAsyncCall call this bridge
+		this.bridges[name] = (args, callbackId)=>{
+			//parse args if necessary
+			args = Async.ParseArgs(args);
+
+			//run bridge function
 			const result = bridgeFunction(args);
 
 			//Async.DevLog(`Received BT call ${name}, with ${args}`);
-			
 			//Async.DevLog(bridgeFunction.toString());
 
-			//If we received any result
+			//did the function produce a result?
 			if(result != undefined){
-				//callback result to BT without expecting receipt
-				Async.instance.CallScriptFunction(this.lambdaId, `_GTCallable.Callbacks['${name}']`, JSON.stringify(result), -1);
+				//callback to BT with result without expecting receipt (-1)
+				Async.instance.CallScriptFunction(this.lambdaId, `_asyncUtil.Callbacks['${name}-${callbackId}']`, JSON.stringify(result), -1);
 			}
-		}
 
-		//Wrap the necessary js callback function
-		return `const ${name} = (_GTArgs, _resultCallback)=>{` +
-				`_GTCallable.Callbacks['${name}'] = _resultCallback;\n` + 
-				`_GTCallable.CallFunction('${name}', _GTArgs ? JSON.stringify(_GTArgs) : '', ${this.lambdaId});` + 
-				`}\n`;
+			//cleanup callback
+			Async.instance.RunScriptInLambda(this.lambdaId, `if (_asyncUtil.Callbacks['${name}-${callbackId}']) {delete _asyncUtil.Callbacks['${name}-${callbackId}']};`);
+		}
+		
+		return exposeDefinition;
 	}
+
+	//lambda return callback
 	_setReturn(returnCallback){
 		this.return = (jsonValue)=>{
 			returnCallback(JSON.parse(jsonValue));
 		};
 	}
 
-	//function used to run remote thread function
+	//PUBLIC API: Function used to run remote thread function on GT
 	call(functionName, args, callback){
 
 		let localCallbackId = 0;
@@ -66,6 +87,7 @@ class CallbackHandler {
 		Async.instance.CallScriptFunction(this.lambdaId, 'exports.' + functionName, JSON.stringify(args), localCallbackId);
 	}
 
+	//PUBLIC API: stop the lambda and cleanup
 	stop(){
 		Async.instance.StopLambda(this.lambdaId);
 
@@ -98,14 +120,14 @@ Async.instance.OnMessage = (message, lambdaId, callbackId) => {
 	}
 };
 
-Async.instance.OnAsyncCall = (name, args, lambdaId) => {
+Async.instance.OnAsyncCall = (name, args, lambdaId, callbackId) => {
 	const handler = Async.instance.Callbacks[lambdaId];
 
 	if(handler != undefined){
 		if(handler.bridges[name] != undefined){
-			Async.DevLog(`name: ${name} args:${args} id: ${lambdaId}`);
+			//Async.DevLog(`name: ${name} args:${args} id: ${lambdaId}`);
 			//Async.DevLog(handler.bridges[name].toString());
-			handler.bridges[name](args);
+			handler.bridges[name](args, callbackId);
 		}
 	}
 };
@@ -135,7 +157,7 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 				didFindFunctions = true;	//pinning should only happen if we export?
 			}
 			else{
-				captureString += `let ${key} = JSON.parse(${JSON.stringify(capture[key])});\n`;
+				captureString += `let ${key} = _asyncUtil.parseArgs(${JSON.stringify(capture[key])});\n`;
 			}
 		}
 
@@ -145,7 +167,12 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	
 	//function JSON stringifies any result
 	const wrappedFunctionString = '\nJSON.stringify(('+ rawFunction.toString() + ')());';
-	const finalScript = "var exports = {}; {\n" + captureString + wrappedFunctionString + '\n}';
+	const finalScript = "var exports = {}; {\n" + 
+						'_asyncUtil.parseArgs = ' + Async.ParseArgs.toString() + ';\n' + 
+						captureString + 
+						wrappedFunctionString + 
+						'\n}';
+
 
 	//look for exported functions (rough method)
 	if(finalScript.includes('exports.')){
@@ -155,7 +182,7 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	handler.pinned = didFindFunctions;
 	
 	//Debug log final script
-	//Async.DevLog(finalScript);
+	Async.DevLog(finalScript);
 	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions);
 
 	handler.lambdaId = lambdaId;

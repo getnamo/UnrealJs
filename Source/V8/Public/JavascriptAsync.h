@@ -7,7 +7,7 @@
 DECLARE_DYNAMIC_DELEGATE(FJsLambdaNoParamSignature);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FJsLambdaIdSignature, int32, LambdaId);
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FJsLambdaMessageSignature, FString, Message, int32, LambdaId, int32, CallbackId);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FJsLambdaAsyncFuncSignature, FString, Name, FString, Args, int32, LambdaId);
+DECLARE_DYNAMIC_DELEGATE_FourParams(FJsLambdaAsyncFuncSignature, FString, Name, FString, Args, int32, LambdaId, int32, CallbackId);
 
 class UJavascriptAsync;
 
@@ -18,7 +18,7 @@ class UJavascriptCallableWrapper : public UObject
 	GENERATED_UCLASS_BODY()
 public:
 	UFUNCTION(BlueprintCallable)
-	void CallFunction(FString FunctionName, FString Args, int32 LambdaId);
+	void CallFunction(FString FunctionName, FString Args, int32 LambdaId, int32 CallbackId = -1);
 
 	//Set
 	void SetLambdaLink(UJavascriptAsync* Link) { LambdaLink = Link;};
@@ -59,6 +59,10 @@ public:
 	/** calls function on remote thread and gives result in 'OnMessage' */
 	UFUNCTION(BlueprintCallable)
 	void CallScriptFunction(int32 InLambdaId, const FString& FunctionName, const FString& Args, int32 CallbackId = 0);
+
+	/** runs script on remote thread. ignores any result */
+	UFUNCTION(BlueprintCallable)
+	void RunScriptInLambda(int32 InLambdaId, const FString& Script);
 
 	/** if this lambda is pinned, it will unpin it*/
 	UFUNCTION(BlueprintCallable)

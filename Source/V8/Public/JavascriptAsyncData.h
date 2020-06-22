@@ -26,13 +26,19 @@ struct FJavascriptRemoteFunctionData
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FString Name;
+	FString Event;
 
 	UPROPERTY()
 	FString Args;
 
 	UPROPERTY()
 	int32 CallbackId;
+
+	//If false assume Event == script
+	UPROPERTY()
+	bool bIsFunctionCall;
+
+	FJavascriptRemoteFunctionData() { bIsFunctionCall = true; }
 };
 
 struct FJavascriptAsyncLambdaPinData
