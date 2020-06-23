@@ -62,8 +62,12 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 			const FString ExposeAdditional = TEXT("_asyncUtil.Callbacks = {}; _asyncUtil.CallbackIndex = 0;");
 			
 			//run the main lambda script
-			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(ExposeAdditional + SafeScript);
-			OnLambdaComplete.ExecuteIfBound(ReturnValue, LambdaId, 0);
+			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(ExposeAdditional + SafeScript, false);
+			
+			Async(EAsyncExecution::TaskGraphMainThread, [this, ReturnValue, LambdaId]
+			{
+				OnLambdaComplete.ExecuteIfBound(ReturnValue, LambdaId, -1);
+			});
 
 			if (bPinAfterRun)
 			{
@@ -83,21 +87,22 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 								*MessageFunctionData.Event,
 								*MessageFunctionData.Event,
 								*MessageFunctionData.Args);
-							FString MessageReturn = NewInstance->ContextSettings.Context->Public_RunScript(RemoteFunctionScript);
+							FString MessageReturn = NewInstance->ContextSettings.Context->Public_RunScript(RemoteFunctionScript, false);
 
 							int32 CallbackId = MessageFunctionData.CallbackId;
 
 							if (CallbackId != -1) {
 								//We call back on gamethread always
-								Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] {
+								Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] 
+								{
 									OnMessage.ExecuteIfBound(MessageReturn, LambdaId, CallbackId);
-									});
+								});
 							}
 						}
 						else
 						{
 							//The message wanted to run some raw script without return
-							NewInstance->ContextSettings.Context->Public_RunScript(MessageFunctionData.Event);
+							NewInstance->ContextSettings.Context->Public_RunScript(MessageFunctionData.Event, false);
 						}
 					}
 					//1ms sleep

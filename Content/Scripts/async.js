@@ -29,6 +29,7 @@ class CallbackHandler {
 		this.onMessage = (event, data)=>{};
 		this.messageCallbacks = {};
 		this.callbackId = 0;
+		this.exports = {};	//todo potentially: support transparent export links so we could do lambda.exports.functionName();
 	}
 
 	//called per exposed GT function
@@ -70,7 +71,7 @@ class CallbackHandler {
 	//lambda return callback
 	_setReturn(returnCallback){
 		this.return = (jsonValue)=>{
-			returnCallback(JSON.parse(jsonValue));
+			returnCallback(jsonValue, this);
 		};
 	}
 
@@ -96,11 +97,24 @@ class CallbackHandler {
 	}
 };
 
-Async.instance.OnLambdaComplete = (result, lambdaId, callbackId /*not used for completion*/) => {
+Async.instance.OnLambdaComplete = (resultString, lambdaId, callbackId /*not used for completion*/) => {
+	const result = Async.ParseArgs(resultString);
 	const handler = Async.instance.Callbacks[lambdaId];
 
 	if(handler != undefined){
-		handler.return(result);
+		//first: fill the returned exports
+		if(handler.pinned){
+			result.exports.forEach(functionName => {
+				handler.exports[functionName] = (args, callback)=>{
+					handler.call(functionName, args, callback);
+				}
+			});
+		}
+		
+		//call the return callback
+		handler.return(result.result);
+
+		//cleanup if not pinned
 		if(!handler.pinned){
 			Async.DevLog('Lambda cleaned up');
 			delete Async.instance.Callbacks[lambdaId];
@@ -166,9 +180,9 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	}
 	
 	//function JSON stringifies any result
-	const wrappedFunctionString = '\nJSON.stringify(('+ rawFunction.toString() + ')());';
+	const wrappedFunctionString = `\nJSON.stringify({result:(${rawFunction.toString()})(), exports:Object.getOwnPropertyNames(exports)});\n`;
 	const finalScript = "var exports = {}; {\n" + 
-						'_asyncUtil.parseArgs = ' + Async.ParseArgs.toString() + ';\n' + 
+						`_asyncUtil.parseArgs = ${Async.ParseArgs.toString()}\n` + 
 						captureString + 
 						wrappedFunctionString + 
 						'\n}';
@@ -182,7 +196,7 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	handler.pinned = didFindFunctions;
 	
 	//Debug log final script
-	Async.DevLog(finalScript);
+	//Async.DevLog(finalScript);
 	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions);
 
 	handler.lambdaId = lambdaId;
