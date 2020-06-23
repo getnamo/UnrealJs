@@ -101,9 +101,11 @@ Async.instance.OnLambdaComplete = (resultString, lambdaId, callbackId /*not used
 	const result = Async.ParseArgs(resultString);
 	const handler = Async.instance.Callbacks[lambdaId];
 
+	//Async.DevLog(`OnLambdaComplete: ${resultString}, ${lambdaId}, ${callbackId}, ${JSON.stringify(handler)}`)
+
 	if(handler != undefined){
 		//first: fill the returned exports
-		if(handler.pinned){
+		if(handler.pinned && handler.return){
 			result.exports.forEach(functionName => {
 				handler.exports[functionName] = (args, callback)=>{
 					handler.call(functionName, args, callback);
@@ -112,7 +114,12 @@ Async.instance.OnLambdaComplete = (resultString, lambdaId, callbackId /*not used
 		}
 		
 		//call the return callback
-		handler.return(result.result);
+		try{
+			handler.return(result.result);
+		}
+		catch(e){
+			Async.DevLog(e.stack);	
+		}
 
 		//cleanup if not pinned
 		if(!handler.pinned){
@@ -180,9 +187,10 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	}
 	
 	//function JSON stringifies any result
-	const wrappedFunctionString = `\nJSON.stringify({result:(${rawFunction.toString()})(), exports:Object.getOwnPropertyNames(exports)});\n`;
-	const finalScript = "var exports = {}; {\n" + 
+	const wrappedFunctionString = `\nJSON.stringify({result:lambda(), exports:Object.getOwnPropertyNames(exports)});\n`;
+	const finalScript = `globalThis.exports = {}; globalThis.lambda = undefined; {\n` + 
 						`_asyncUtil.parseArgs = ${Async.ParseArgs.toString()}\n` + 
+						`lambda = ${rawFunction.toString()};` +
 						captureString + 
 						wrappedFunctionString + 
 						'\n}';
@@ -196,7 +204,7 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	handler.pinned = didFindFunctions;
 	
 	//Debug log final script
-	//Async.DevLog(finalScript);
+	Async.DevLog(`Script: <${finalScript}>, found functions: ${didFindFunctions}`);
 	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions);
 
 	handler.lambdaId = lambdaId;
