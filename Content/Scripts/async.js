@@ -75,8 +75,13 @@ class CallbackHandler {
 		};
 	}
 
-	//PUBLIC API: Function used to run remote thread function on GT
+	//PUBLIC API: Function used to run remote thread function from GT
 	call(functionName, args, callback){
+		//no param case
+		if(typeof(args) === 'function'){
+			callback = args;
+			args = null;
+		}
 
 		let localCallbackId = 0;
 		if(callback){
@@ -141,6 +146,7 @@ Async.instance.OnMessage = (message, lambdaId, callbackId) => {
 	}
 };
 
+//Call from BT to GT functions
 Async.instance.OnAsyncCall = (name, args, lambdaId, callbackId) => {
 	const handler = Async.instance.Callbacks[lambdaId];
 
@@ -204,7 +210,7 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	handler.pinned = didFindFunctions;
 	
 	//Debug log final script
-	Async.DevLog(`Script: <${finalScript}>, found functions: ${didFindFunctions}`);
+	//Async.DevLog(`Script: <${finalScript}>, found functions: ${didFindFunctions}`);
 	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions);
 
 	handler.lambdaId = lambdaId;
