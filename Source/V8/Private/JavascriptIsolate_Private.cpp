@@ -762,7 +762,9 @@ public:
 		}
 		else if (auto p = CastField<FEnumProperty>(Property))
 		{
-			int32 Value = p->GetUnderlyingProperty()->GetValueTypeHash(Buffer);
+			//int32 Value = p->GetUnderlyingProperty()->GetValueTypeHash(Buffer);
+			//return I.Keyword(p->GetEnum()->GetNameStringByIndex(Value));
+			int32 Value = p->GetUnderlyingProperty()->GetValueTypeHash(Buffer + p->GetOffset_ForInternal());
 			return I.Keyword(p->GetEnum()->GetNameStringByIndex(Value));
 		}
 		else if (auto p = CastField<FSetProperty>(Property))
