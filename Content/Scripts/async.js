@@ -10,6 +10,12 @@ Async.ParseArgs = (args)=>{
     try {
         return JSON.parse(args);
     } catch (e) {
+    	//arrays may get passed straight through and identify as objects
+    	if(typeof(args) === 'object'){
+    		return args;
+    	}
+    	//console.log(e)
+
     	if(typeof(args) === 'string'){
     		return args;
     	}
