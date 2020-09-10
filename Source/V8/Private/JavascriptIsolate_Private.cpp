@@ -419,7 +419,7 @@ public:
 		ExportMisc(ObjectTemplate);
 	}
 
-	void FJavascriptIsolate::SetAvailableFeatures(TMap<FString, FString>& Features)
+	void SetAvailableFeatures(TMap<FString, FString>& Features)
 	{
 		//InitializeGlobalTemplate
 		// Declares isolate/handle scope

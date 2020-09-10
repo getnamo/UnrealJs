@@ -85,7 +85,7 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 		//Find instance with same isolate domain
 		for (auto Instance : ThreadArray)
 		{
-			Instance->IsolateDomain == InOptions.IsolateDomain;
+			Instance->IsolateDomain = InOptions.IsolateDomain;
 
 			if (OnDelayedResult)
 			{
