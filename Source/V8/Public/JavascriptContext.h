@@ -6,6 +6,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "UObject/ScriptMacros.h"
 #include "JavascriptIsolate.h"
+#include "JavascriptAsyncData.h"
 #include "JavascriptContext.generated.h"
 
 struct FJavascriptContext;
