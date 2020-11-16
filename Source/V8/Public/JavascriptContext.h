@@ -97,6 +97,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void DestroyInspector();
 
+	UPROPERTY(BlueprintReadOnly, Category = "Scripting|Javascript")
+	EJavascriptAsyncOption Thread;
+
+	//UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	void ExposeGlobals();
+
+	void ExposeUModule();
+
+	void ExposeFeatures(TMap<FString, FString>& Features);
+
 	bool RemoveObjectInJavacontext(UObject* TargetObj);
 
 	bool HasProxyFunction(UObject* Holder, UFunction* Function);

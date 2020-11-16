@@ -228,6 +228,22 @@ void UJavascriptContext::DestroyInspector()
 	}	
 }
 
+void UJavascriptContext::ExposeGlobals()
+{
+	if (JavascriptContext.IsValid())
+	{
+		JavascriptContext->ExposeGlobals();
+	}
+}
+
+void UJavascriptContext::ExposeUModule()
+{
+	if (JavascriptContext.IsValid())
+	{
+		JavascriptContext->ExposeUModule();
+	}
+}
+
 bool UJavascriptContext::IsDebugContext() const
 {
 	if (JavascriptContext.IsValid())
