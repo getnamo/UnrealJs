@@ -112,9 +112,10 @@ public:
 	virtual void BeginDestroy() override;
 
 	TSharedPtr<FJavascriptIsolate> JavascriptIsolate;
+	TMap<FString, FString> Features;
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
-	void Init(bool bIsEditor);
+	void Init(bool bIsEditor, TMap<FString, FString>& InFeatures);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	UJavascriptContext* CreateContext();
@@ -125,4 +126,10 @@ public:
 	// Begin UObject interface.
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// End UObject interface.
+
+	//Used to initialize isolate
+	static TMap<FString, FString> DefaultIsolateFeatures();
+	static TMap<FString, FString> MinimumIsolateFeatures();
+	static TMap<FString, FString> DefaultContextFeatures();
 };
+

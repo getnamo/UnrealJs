@@ -4,11 +4,14 @@
 #include "JavascriptStats.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
+#include "Async/Async.h"
 #include "V8PCH.h"
 #include "IV8.h"
 
 
 DECLARE_CYCLE_STAT(TEXT("Javascript Component Tick Time"), STAT_JavascriptComponentTickTime, STATGROUP_Javascript);
+
+//IsolateMap = TMap<FString, UJavascriptIsolate*>();
 
 UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -17,11 +20,33 @@ UJavascriptComponent::UJavascriptComponent(const FObjectInitializer& ObjectIniti
 	bTickInEditor = false;
 	bAutoActivate = true;
 	bWantsInitializeComponent = true;
+
+	JavascriptThread = EJavascriptAsyncOption::TaskGraphMainThread;
+	IsolateDomain = TEXT("default");
+
+	bEnableFeatures = true;
+	bCreateInspectorOnStartup = false;
+	InspectorPort = 9229;
+	
+	//Start with default isolate features
+	Features = UJavascriptIsolate::DefaultIsolateFeatures();
+
+	//Add default context feature exposures
+	Features.Add(TEXT("Root"), TEXT("default"));
+	Features.Add(TEXT("World"), TEXT("default"));
+	Features.Add(TEXT("Engine"), TEXT("default"));
+
+	Features.Add(TEXT("Context"), TEXT("default"));
+
+	//Add external features, these don't exist yet!
+	//Features.Add(TEXT("FileSystem"), TEXT("default"));
+	//Features.Add(TEXT("Networking"), TEXT("default"));
 }
 
 void UJavascriptComponent::OnRegister()
 {
 	auto ContextOwner = GetOuter();
+
 	if (ContextOwner && !HasAnyFlags(RF_ClassDefaultObject) && !ContextOwner->HasAnyFlags(RF_ClassDefaultObject))
 	{
 		if (GetWorld() && ((GetWorld()->IsGameWorld() && !GetWorld()->IsPreviewWorld()) || bActiveWithinEditor))
@@ -29,18 +54,33 @@ void UJavascriptComponent::OnRegister()
 			UJavascriptIsolate* Isolate = nullptr;
 			if (!IsRunningCommandlet())
 			{
-				UJavascriptStaticCache* StaticGameData = Cast<UJavascriptStaticCache>(GEngine->GameSingleton);
-				if (StaticGameData)
+				//new isolate if using bg threads
+				if (FJavascriptAsyncUtil::IsBgThread(JavascriptThread))
 				{
-					if (StaticGameData->Isolates.Num() > 0)
-						Isolate = StaticGameData->Isolates.Pop();
+					Isolate = nullptr;
+				}
+				else {
+					UJavascriptStaticCache* StaticGameData = Cast<UJavascriptStaticCache>(GEngine->GameSingleton);
+					if (StaticGameData)
+					{
+						if (StaticGameData->Isolates.Num() > 0)
+							Isolate = StaticGameData->Isolates.Pop();
+					}
+				}
+			}
+			//new isolate if features are different
+			if (Isolate)
+			{
+				if (Isolate->Features.Num() != Features.Num())
+				{
+					Isolate = nullptr;
 				}
 			}
 
 			if (!Isolate)
 			{
 				Isolate = NewObject<UJavascriptIsolate>();
-				Isolate->Init(false);
+				Isolate->Init(false, Features);
 				Isolate->AddToRoot();
 			}
 
@@ -48,9 +88,26 @@ void UJavascriptComponent::OnRegister()
 			JavascriptContext = Context;
 			JavascriptIsolate = Isolate;
 
-			Context->Expose("Root", this);
-			Context->Expose("GWorld", GetWorld());
-			Context->Expose("GEngine", GEngine);
+			//Ensure our context knows which thread it should be in
+			JavascriptContext->Thread = JavascriptThread;
+
+			if (Features.Contains(TEXT("Root")))
+			{
+				Context->Expose("Root", this);
+			}
+			if (Features.Contains(TEXT("World")))
+			{
+				Context->Expose("GWorld", GetWorld());
+			}
+			if (Features.Contains(TEXT("Engine")))
+			{
+				Context->Expose("GEngine", GEngine);
+			}
+
+			if (bCreateInspectorOnStartup && JavascriptThread == EJavascriptAsyncOption::TaskGraphMainThread)
+			{
+				Context->CreateInspector(InspectorPort);
+			}
 		}
 	}
 
@@ -63,18 +120,65 @@ void UJavascriptComponent::Activate(bool bReset)
 
 	if (JavascriptContext)
 	{
-		JavascriptContext->RunFile(*ScriptSourceFile);
+		//Background thread type javascript
+		if (FJavascriptAsyncUtil::IsBgThread(JavascriptThread))
+		{
+			
+			EAsyncExecution ExecType = FJavascriptAsyncUtil::ToAsyncExecution(JavascriptThread);
+			
+			Async(ExecType, [this]
+			{
+				bShouldRun = true;
+				bIsRunning = true;
 
-		SetComponentTickEnabled(OnTick.IsBound());
+				JavascriptContext->RunFile(*ScriptSourceFile);
+				OnBeginPlay.ExecuteIfBound();
+
+				while (bShouldRun)
+				{
+					//Todo: check MT data in
+
+					OnTick.ExecuteIfBound(0.001f);	//todo: feed in actual deltatime
+					
+					//Todo: process MT data out
+					FPlatformProcess::Sleep(0.001f);
+				}
+				//OnEndPlay.ExecuteIfBound();
+
+				//request garbage collection on the same thread we're on
+				if (JavascriptContext)
+				{
+					JavascriptContext->RequestV8GarbageCollection();
+				}
+
+				bIsRunning = false;
+			});
+			
+		}
+		else
+		{
+			JavascriptContext->RunFile(*ScriptSourceFile);
+			
+			SetComponentTickEnabled(OnTick.IsBound());
+		}
 	}
 
-	OnBeginPlay.ExecuteIfBound();
+	if (JavascriptThread == EJavascriptAsyncOption::TaskGraphMainThread)
+	{
+		OnBeginPlay.ExecuteIfBound();
+	}
 }
 
 void UJavascriptComponent::Deactivate()
 {
-	OnEndPlay.ExecuteIfBound();
-
+	if (JavascriptThread == EJavascriptAsyncOption::TaskGraphMainThread)
+	{
+		OnEndPlay.ExecuteIfBound();
+	}
+	else
+	{	
+		
+	}
 	Super::Deactivate();
 }
 
@@ -82,6 +186,18 @@ void UJavascriptComponent::BeginDestroy()
 {
 	if (IsValid(GEngine) && !IsRunningCommandlet())
 	{
+		if (FJavascriptAsyncUtil::IsBgThread(JavascriptThread))
+		{
+			bShouldRun = false;
+			//OnTick.Clear();
+
+			while (bIsRunning)
+			{
+				//10micron sleep while waiting
+				FPlatformProcess::Sleep(0.0001f);
+			}
+		}
+
 		auto* StaticGameData = Cast<UJavascriptStaticCache>(GEngine->GameSingleton);
 		if (StaticGameData)
 		{
@@ -110,7 +226,10 @@ void UJavascriptComponent::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	OnTick.ExecuteIfBound(DeltaTime);
+	if (JavascriptThread == EJavascriptAsyncOption::TaskGraphMainThread)
+	{
+		OnTick.ExecuteIfBound(DeltaTime);
+	}
 }
 
 void UJavascriptComponent::ForceGC()
@@ -162,5 +281,21 @@ UClass* UJavascriptComponent::ResolveClass(FName Name)
 	}
 
 	return nullptr;
+}
+
+void UJavascriptComponent::RunOnBGThread(const FString& Function, const FString& CaptureParams /*= TEXT("")*/, const FString& CallbackContext /*= TEXT("")*/)
+{
+	const FString SafeFunction = Function;
+	const FString SafeParams = CaptureParams;
+	const FString SafeCallback = CallbackContext;
+
+	//todo: fetch fresh 'component', schedule run, and callback on calling component context
+
+	Async(EAsyncExecution::Thread, [SafeFunction, SafeParams, SafeCallback]()
+	{
+		FString Result = TEXT("");
+	});
+
+	//We need a FStyle wrapper for Javascript component so we can maintain sub-isolates for this callback setup
 }
 

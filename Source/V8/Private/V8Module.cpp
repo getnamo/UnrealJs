@@ -183,6 +183,8 @@ public:
 		Paths.Add(GetPluginScriptsDirectory2());
 		Paths.Add(GetPluginScriptsDirectory3());
 		Paths.Add(GetPluginScriptsDirectory4());
+		Paths.Add(GetPluginScriptsDirectory5());
+		Paths.Add(GetPluginScriptsDirectory6());
 		Paths.Add(GetPakPluginScriptsDirectory());
 
 		const UJavascriptSettings& Settings = *GetDefault<UJavascriptSettings>();
@@ -227,6 +229,18 @@ public:
 	static FString GetPluginScriptsDirectory4()
 	{
 		return FPaths::ProjectPluginsDir() / "UnrealJS/Content/Scripts/";
+	}
+
+	//git clones project plugin
+	static FString GetPluginScriptsDirectory5()
+	{
+		return FPaths::ProjectPluginsDir() / "Unreal.js-core/Content/Scripts/";
+	}
+
+	//Packaged with plugin scripts copied to project for e.g. android
+	static FString GetPluginScriptsDirectory6()
+	{
+		return FPaths::ProjectDir() / "/Content/Scripts/UnrealJSPlugin/";
 	}
 
 	static FString GetPakPluginScriptsDirectory()
@@ -354,7 +368,12 @@ public:
 		for (TObjectIterator<UJavascriptContext> It; It; ++It)
 		{
 			UJavascriptContext* Context = *It;
-			Context->RequestV8GarbageCollection();
+
+			//Only clear garbage collection on game thread contexts
+			if (IsInGameThread() && Context->Thread == EJavascriptAsyncOption::TaskGraphMainThread)
+			{
+				Context->RequestV8GarbageCollection();
+			}
 		}
 	}
 };

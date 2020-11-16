@@ -56,6 +56,7 @@ public:
 	virtual v8::Local<v8::Value> ExportStructInstance(UScriptStruct* Struct, uint8* Buffer, const IPropertyOwner& Owner) = 0;
 	virtual void PublicExportUClass(UClass* ClassToExport) = 0;
 	virtual void PublicExportStruct(UScriptStruct* StructToExport) = 0;
+	virtual void SetAvailableFeatures(TMap<FString, FString>& Features) = 0;
 	virtual int IsExcludeGCUClassTarget(UClass* TargetUClass) { return INDEX_NONE; }
 	virtual ~FJavascriptIsolate() {}
 };
