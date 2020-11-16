@@ -14,18 +14,47 @@ using namespace v8;
 DEFINE_LOG_CATEGORY(Javascript);
 
 UJavascriptIsolate::UJavascriptIsolate(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 
-void UJavascriptIsolate::Init(bool bIsEditor)
+void UJavascriptIsolate::Init(bool bIsEditor, TMap<FString, FString>& InFeatures)
 {
+	Features = InFeatures;
 	const bool bIsClassDefaultObject = IsTemplate(RF_ClassDefaultObject);
 	if (!bIsClassDefaultObject)
 	{
 		JavascriptIsolate = TSharedPtr<FJavascriptIsolate>(FJavascriptIsolate::Create(bIsEditor));
+		JavascriptIsolate->SetAvailableFeatures(Features);
 	}
 }
+
+TMap<FString, FString> UJavascriptIsolate::DefaultIsolateFeatures()
+{
+	TMap<FString, FString> Features;
+	//For a default UnrealJs isolate we want to access all classes (trusted mode)
+	Features.Add(TEXT("UnrealClasses"), TEXT("default"));
+	Features.Add(TEXT("UnrealMemory"), TEXT("default"));
+	Features.Add(TEXT("UnrealGlobals"), TEXT("default"));
+	Features.Add(TEXT("UnrealMisc"), TEXT("default"));
+	return Features;
+}
+
+TMap<FString, FString> UJavascriptIsolate::MinimumIsolateFeatures()
+{
+	TMap<FString, FString> Features;
+	Features.Add(TEXT("UnrealMemory"), TEXT("default"));
+	return Features;
+}
+
+TMap<FString, FString> UJavascriptIsolate::DefaultContextFeatures()
+{
+	TMap<FString, FString> Features;
+	Features.Add(TEXT("UnrealGlobals"), TEXT("default"));
+	Features.Add(TEXT("Context"), TEXT("default"));
+	return Features;
+}
+
 
 void UJavascriptIsolate::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {
@@ -34,12 +63,12 @@ void UJavascriptIsolate::AddReferencedObjects(UObject* InThis, FReferenceCollect
 	if (This->JavascriptIsolate.IsValid())
 	{
 		Collector.AllowEliminatingReferences(false);
-		
-		This->JavascriptIsolate->AddReferencedObjects(This, Collector);		
+
+		This->JavascriptIsolate->AddReferencedObjects(This, Collector);
 
 		Collector.AllowEliminatingReferences(true);
-	}		
-	
+	}
+
 	Super::AddReferencedObjects(This, Collector);
 }
 
@@ -56,7 +85,9 @@ void UJavascriptIsolate::BeginDestroy()
 
 UJavascriptContext* UJavascriptIsolate::CreateContext()
 {
-	return NewObject<UJavascriptContext>(this);
+	auto Context = NewObject<UJavascriptContext>(this);
+	Context->ExposeFeatures(Features);
+	return Context;
 }
 
 void UJavascriptIsolate::GetHeapStatistics(FJavascriptHeapStatistics& Statistics)
@@ -79,18 +110,32 @@ void UJavascriptIsolate::GetHeapStatistics(FJavascriptHeapStatistics& Statistics
 }
 
 UJavascriptContext::UJavascriptContext(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	const bool bIsClassDefaultObject = IsTemplate(RF_ClassDefaultObject);
 	if (!bIsClassDefaultObject)
 	{
 		auto Isolate = Cast<UJavascriptIsolate>(GetOuter());
-		JavascriptContext = TSharedPtr<FJavascriptContext>(FJavascriptContext::Create(Isolate->JavascriptIsolate,Paths));
+		JavascriptContext = TSharedPtr<FJavascriptContext>(FJavascriptContext::Create(Isolate->JavascriptIsolate, Paths));
 
-		Expose("Context", this);
+		//This gets exposed by the javascript component, not automatically
+		//Expose("Context", this);
 
 		SetContextId(GetName());
-	}	
+	}
+}
+
+void UJavascriptContext::ExposeFeatures(TMap<FString, FString>& Features)
+{
+	if (Features.Contains(TEXT("Context")))
+	{
+		JavascriptContext->Expose("Context", this);
+	}
+
+	if (Features.Contains(TEXT("UnrealGlobals")))
+	{
+		JavascriptContext->ExposeGlobals();
+	}
 }
 
 void UJavascriptContext::SetContextId(FString Name)
@@ -225,7 +270,7 @@ void UJavascriptContext::DestroyInspector()
 	if (JavascriptContext.IsValid())
 	{
 		JavascriptContext->DestroyInspector();
-	}	
+	}
 }
 
 void UJavascriptContext::ExposeGlobals()
@@ -235,7 +280,6 @@ void UJavascriptContext::ExposeGlobals()
 		JavascriptContext->ExposeGlobals();
 	}
 }
-
 void UJavascriptContext::ExposeUModule()
 {
 	if (JavascriptContext.IsValid())
