@@ -218,7 +218,7 @@ public:
 				// only one delegate
 				else if (!value->IsNull())
 				{
-					Handle<Value> args[] = { value };
+					Handle<Value> args[] = {value};
 					(void)add_fn->Call(context, ProxyObject, 1, args);
 				}
 			};
@@ -336,11 +336,11 @@ public:
 	{
 		isolate_->AddGCEpilogueCallback([](Isolate* isolate, GCType type, GCCallbackFlags flags) {
 			GetSelf(isolate)->OnGCEvent(false, type, flags);
-			});
+		});
 
 		isolate_->AddGCPrologueCallback([](Isolate* isolate, GCType type, GCCallbackFlags flags) {
 			GetSelf(isolate)->OnGCEvent(true, type, flags);
-			});
+		});
 	}
 #endif
 
@@ -419,7 +419,7 @@ public:
 		ExportMisc(ObjectTemplate);
 	}
 
-	void FJavascriptIsolate::SetAvailableFeatures(TMap<FString, FString>& Features)
+	void SetAvailableFeatures(TMap<FString, FString>& Features)
 	{
 		//InitializeGlobalTemplate
 		// Declares isolate/handle scope
@@ -484,7 +484,7 @@ public:
 	bool HandleTicker(float DeltaTime)
 	{
 		auto platform = reinterpret_cast<v8::Platform*>(IV8::Get().GetV8Platform());
-		v8::platform::PumpMessageLoop(platform, isolate_);
+		v8::platform::PumpMessageLoop(platform,isolate_);
 		return true;
 	}
 
@@ -610,7 +610,7 @@ public:
 
 					TArray<FString> EnumStrings;
 
-					for (int32 i = 0; i < EnumCount - 1; ++i)
+					for (int32 i = 0; i < EnumCount-1; ++i)
 					{
 						if (Value & BitmaskEnum->GetValueByIndex(i))
 						{
@@ -635,7 +635,7 @@ public:
 		}
 		else if (auto p = CastField<FBoolProperty>(Property))
 		{
-			return v8::Boolean::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
+            return v8::Boolean::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
 		}
 		else if (auto p = CastField<FNameProperty>(Property))
 		{
@@ -739,9 +739,9 @@ public:
 // 			}
 // 			else
 // 			{
-			auto Value = p->GetPropertyValue_InContainer(Buffer);
-			return V8_String(isolate_, Value.ToString());
-			// 			}
+				auto Value = p->GetPropertyValue_InContainer(Buffer);
+				return V8_String(isolate_, Value.ToString());
+// 			}
 		}
 		else if (auto p = CastField<FObjectPropertyBase>(Property))
 		{
@@ -762,7 +762,9 @@ public:
 		}
 		else if (auto p = CastField<FEnumProperty>(Property))
 		{
-			int32 Value = p->GetUnderlyingProperty()->GetValueTypeHash(Buffer);
+			//int32 Value = p->GetUnderlyingProperty()->GetValueTypeHash(Buffer);
+			//return I.Keyword(p->GetEnum()->GetNameStringByIndex(Value));
+			int32 Value = p->GetUnderlyingProperty()->GetValueTypeHash(Buffer + p->GetOffset_ForInternal());
 			return I.Keyword(p->GetEnum()->GetNameStringByIndex(Value));
 		}
 		else if (auto p = CastField<FSetProperty>(Property))
@@ -1269,8 +1271,8 @@ public:
 
 		auto fileManagerCwd = [](const FunctionCallbackInfo<Value>& info)
 		{
-			info.GetReturnValue().Set(V8_String(info.GetIsolate(), IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead((const TCHAR*)L"."))); // FPaths::ProjectDir()
-		};
+			info.GetReturnValue().Set(V8_String(info.GetIsolate(), IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead((const TCHAR *)L"."))); // FPaths::ProjectDir()
+        };
 		global_templ->Set(I.Keyword("$cwd"), I.FunctionTemplate(FV8Exception::GuardLambda(fileManagerCwd)));
 
 #if WITH_EDITOR
@@ -1346,179 +1348,179 @@ public:
 
 		auto add_fn = [&](const char* name, FunctionCallback fn) {
 			Template->PrototypeTemplate()->Set(I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn)));
-		};
+		};		
 
 		add_fn("access", [](const FunctionCallbackInfo<Value>& info)
+		{
+			auto isolate = info.GetIsolate();
+
+			FIsolateHelper I(isolate);
+
+			if (info.Length() == 1)
 			{
-				auto isolate = info.GetIsolate();
+				auto context = isolate->GetCurrentContext();
+				auto Source = Cast<UJavascriptMemoryObject>(UObjectFromV8(context, info[0]));
 
-				FIsolateHelper I(isolate);
-
-				if (info.Length() == 1)
+				if (Source)
 				{
-					auto context = isolate->GetCurrentContext();
-					auto Source = Cast<UJavascriptMemoryObject>(UObjectFromV8(context, info[0]));
-
-					if (Source)
-					{
-						auto ab = ArrayBuffer::New(isolate, Source->GetMemory(), Source->GetSize());
-						(void)ab->Set(context, I.Keyword("$source"), info[0]);
-						info.GetReturnValue().Set(ab);
-						return;
-					}
+					auto ab = ArrayBuffer::New(isolate, Source->GetMemory(), Source->GetSize());
+					(void)ab->Set(context, I.Keyword("$source"), info[0]);
+					info.GetReturnValue().Set(ab);
+					return;
 				}
+			}
 
-				I.Throw(TEXT("memory.fork requires JavascriptMemoryObject"));
-			});
+			I.Throw(TEXT("memory.fork requires JavascriptMemoryObject"));
+		});
 
 		add_fn("exec", [](const FunctionCallbackInfo<Value>& info)
+		{
+			auto isolate = info.GetIsolate();
+			FIsolateHelper I(isolate);
+
+			if (info.Length() == 2 && info[0]->IsArrayBuffer() && info[1]->IsFunction())
 			{
-				auto isolate = info.GetIsolate();
-				FIsolateHelper I(isolate);
+				auto arr = info[0].As<ArrayBuffer>();
+				auto function = info[1].As<Function>();
 
-				if (info.Length() == 2 && info[0]->IsArrayBuffer() && info[1]->IsFunction())
-				{
-					auto arr = info[0].As<ArrayBuffer>();
-					auto function = info[1].As<Function>();
+				GCurrentContents = arr->GetContents();
 
-					GCurrentContents = arr->GetContents();
+				Handle<Value> argv[1];
+				argv[0] = arr;
+				(void)function->Call(isolate->GetCurrentContext(), info.This(), 1, argv);
 
-					Handle<Value> argv[1];
-					argv[0] = arr;
-					(void)function->Call(isolate->GetCurrentContext(), info.This(), 1, argv);
+				GCurrentContents = v8::ArrayBuffer::Contents();
+			}
+			else
+			{
+				GCurrentContents = v8::ArrayBuffer::Contents();
+			}
 
-					GCurrentContents = v8::ArrayBuffer::Contents();
-				}
-				else
-				{
-					GCurrentContents = v8::ArrayBuffer::Contents();
-				}
-
-				info.GetReturnValue().Set(info.Holder());
-			});
+			info.GetReturnValue().Set(info.Holder());
+		});
 
 		// memory.bind
 		add_fn("bind", [](const FunctionCallbackInfo<Value>& info)
+		{
+			UE_LOG(Javascript, Warning, TEXT("memory.bind is deprecated. use memory.exec(ab,fn) instead."));
+			FIsolateHelper I(info.GetIsolate());
+
+			if (info.Length() == 1 && info[0]->IsArrayBuffer())
 			{
-				UE_LOG(Javascript, Warning, TEXT("memory.bind is deprecated. use memory.exec(ab,fn) instead."));
-				FIsolateHelper I(info.GetIsolate());
+				auto arr = info[0].As<ArrayBuffer>();
 
-				if (info.Length() == 1 && info[0]->IsArrayBuffer())
-				{
-					auto arr = info[0].As<ArrayBuffer>();
+				GCurrentContents = arr->Externalize();
+			}
+			else
+			{
+				GCurrentContents = v8::ArrayBuffer::Contents();
+			}
 
-					GCurrentContents = arr->Externalize();
-				}
-				else
-				{
-					GCurrentContents = v8::ArrayBuffer::Contents();
-				}
-
-				info.GetReturnValue().Set(info.Holder());
-			});
+			info.GetReturnValue().Set(info.Holder());
+		});
 
 		// memory.unbind
 		add_fn("unbind", [](const FunctionCallbackInfo<Value>& info)
+		{
+			FIsolateHelper I(info.GetIsolate());
+
+			if (info.Length() == 1 && info[0]->IsArrayBuffer())
 			{
-				FIsolateHelper I(info.GetIsolate());
+				auto arr = info[0].As<ArrayBuffer>();
 
-				if (info.Length() == 1 && info[0]->IsArrayBuffer())
+				if (arr->IsNeuterable())
 				{
-					auto arr = info[0].As<ArrayBuffer>();
+					arr->Neuter();
 
-					if (arr->IsNeuterable())
-					{
-						arr->Neuter();
-
-						GCurrentContents = v8::ArrayBuffer::Contents();
-					}
-					else
-					{
-						I.Throw(TEXT("ArrayBuffer is not neuterable"));
-					}
+					GCurrentContents = v8::ArrayBuffer::Contents();
 				}
+				else
+				{
+					I.Throw(TEXT("ArrayBuffer is not neuterable"));
+				}
+			}
 
-				info.GetReturnValue().Set(info.Holder());
-			});
+			info.GetReturnValue().Set(info.Holder());
+		});
 
 		// console.void
 		add_fn("write", [](const FunctionCallbackInfo<Value>& info)
+		{
+			auto isolate = info.GetIsolate();
+			FIsolateHelper I(isolate);
+
+			if (info.Length() == 2)
 			{
-				auto isolate = info.GetIsolate();
-				FIsolateHelper I(isolate);
+				auto filename = info[0];
+				auto data = info[1];
 
-				if (info.Length() == 2)
+				FArchive* Ar = IFileManager::Get().CreateFileWriter(*StringFromV8(isolate, info[0]), 0);
+				if (Ar)
 				{
-					auto filename = info[0];
-					auto data = info[1];
-
-					FArchive* Ar = IFileManager::Get().CreateFileWriter(*StringFromV8(isolate, info[0]), 0);
-					if (Ar)
+					if (data->IsArrayBuffer())
 					{
-						if (data->IsArrayBuffer())
-						{
-							auto arr = data.As<ArrayBuffer>();
-							auto Contents = arr->Externalize();
+						auto arr = data.As<ArrayBuffer>();
+						auto Contents = arr->Externalize();
 
-							Ar->Serialize(Contents.Data(), Contents.ByteLength());
-						}
-
-						delete Ar;
+						Ar->Serialize(Contents.Data(), Contents.ByteLength());
 					}
-				}
-				else
-				{
-					I.Throw(TEXT("Two arguments needed"));
-				}
 
-				info.GetReturnValue().Set(info.Holder());
-			});
+					delete Ar;
+				}
+			}
+			else
+			{
+				I.Throw(TEXT("Two arguments needed"));
+			}
+
+			info.GetReturnValue().Set(info.Holder());
+		});
 
 		add_fn("takeSnapshot", [](const FunctionCallbackInfo<Value>& info)
+		{
+			auto isolate = info.GetIsolate();
+			FIsolateHelper I(isolate);
+			class FileOutputStream : public OutputStream
 			{
-				auto isolate = info.GetIsolate();
-				FIsolateHelper I(isolate);
-				class FileOutputStream : public OutputStream
-				{
-				public:
-					FileOutputStream(FArchive* ar) : ar_(ar) {}
+			public:
+				FileOutputStream(FArchive* ar) : ar_(ar) {}
 
-					virtual int GetChunkSize() {
-						return 65536;  // big chunks == faster
-					}
-
-					virtual void EndOfStream() {}
-
-					virtual WriteResult WriteAsciiChunk(char* data, int size) {
-						ar_->Serialize(data, size);
-						return ar_->IsError() ? kAbort : kContinue;
-					}
-
-				private:
-					FArchive* ar_;
-				};
-
-				if (info.Length() == 1)
-				{
-					const HeapSnapshot* const snap = info.GetIsolate()->GetHeapProfiler()->TakeHeapSnapshot();
-					FArchive* Ar = IFileManager::Get().CreateFileWriter(*StringFromV8(isolate, info[0]), 0);
-					if (Ar)
-					{
-						FileOutputStream stream(Ar);
-						snap->Serialize(&stream, HeapSnapshot::kJSON);
-						delete Ar;
-					}
-
-					// Work around a deficiency in the API.  The HeapSnapshot object is const
-					// but we cannot call HeapProfiler::DeleteAllHeapSnapshots() because that
-					// invalidates _all_ snapshots, including those created by other tools.
-					const_cast<HeapSnapshot*>(snap)->Delete();
+				virtual int GetChunkSize() {
+					return 65536;  // big chunks == faster
 				}
-				else
-				{
-					I.Throw(TEXT("One argument needed"));
+
+				virtual void EndOfStream() {}
+
+				virtual WriteResult WriteAsciiChunk(char* data, int size) {
+					ar_->Serialize(data, size);
+					return ar_->IsError() ? kAbort : kContinue;
 				}
-			});
+
+			private:
+				FArchive* ar_;
+			};
+
+			if (info.Length() == 1)
+			{
+				const HeapSnapshot* const snap = info.GetIsolate()->GetHeapProfiler()->TakeHeapSnapshot();
+				FArchive* Ar = IFileManager::Get().CreateFileWriter(*StringFromV8(isolate, info[0]), 0);
+				if (Ar)
+				{
+					FileOutputStream stream(Ar);
+					snap->Serialize(&stream, HeapSnapshot::kJSON);
+					delete Ar;
+				}
+
+				// Work around a deficiency in the API.  The HeapSnapshot object is const
+				// but we cannot call HeapProfiler::DeleteAllHeapSnapshots() because that
+				// invalidates _all_ snapshots, including those created by other tools.
+				const_cast<HeapSnapshot*>(snap)->Delete();
+			}
+			else
+			{
+				I.Throw(TEXT("One argument needed"));
+			}
+		});
 
 		global_templ->Set(
 			I.Keyword("memory"),
@@ -1637,7 +1639,7 @@ public:
 							I.Keyword("$"),
 							// property value
 							value
-						);
+							);
 					}
 				}
 				// rejects 'const T&' and pass 'T&' as its name
@@ -1652,7 +1654,7 @@ public:
 							I.Keyword(Param->GetName()),
 							// property value
 							value
-						);
+							);
 					}
 				}
 			}
@@ -1716,7 +1718,7 @@ public:
 					{
 						return v8::Undefined(isolate);
 					}
-					})
+				})
 			);
 		};
 
@@ -1767,13 +1769,13 @@ public:
 					{
 						return v8::Undefined(isolate);
 					}
-					})
+				})
 			);
 		};
 
 		auto function_name = I.Keyword(FunctionToExport->GetName());
 		auto function = I.FunctionTemplate(FV8Exception::GuardLambda(FunctionBody), FunctionToExport);
-
+		
 		// Register the function to prototype template
 		Template->PrototypeTemplate()->Set(function_name, function);
 	}
@@ -1808,7 +1810,7 @@ public:
 					{
 						return v8::Undefined(isolate);
 					}
-					})
+				})
 			);
 		};
 
@@ -1883,7 +1885,7 @@ public:
 			auto data = info.Data();
 			check(data->IsExternal())
 
-				auto Flags = FPropertyAccessorFlags();
+			auto Flags = FPropertyAccessorFlags();
 			Flags.Alternative = StringFromV8(isolate, property)[0] == '$';
 			auto Property = reinterpret_cast<FProperty*>((Local<External>::Cast(data))->Value());
 			PropertyAccessors::Set(isolate, info.This(), Property, value, Flags);
@@ -1953,7 +1955,7 @@ public:
 		};
 
 		Template->Set(I.Keyword("GetClassObject"), I.FunctionTemplate(FV8Exception::GuardLambda(fn), ClassToExport));
-	}
+	}	
 
 	void AddMemberFunction_Class_SetDefaultSubobjectClass(Local<FunctionTemplate> Template, UStruct* ClassToExport)
 	{
@@ -2171,7 +2173,7 @@ public:
 
 			if (info.Length() == 1)
 			{
-				info.GetReturnValue().Set(GetSelf(isolate)->C_Operator(StructToExport, info[0]));
+				info.GetReturnValue().Set(GetSelf(isolate)->C_Operator(StructToExport,info[0]));
 			}
 		};
 
@@ -2467,7 +2469,7 @@ public:
 				{
 					FScriptArrayHelper_InContainer helper(p, Instance);
 
-					if (FV8Config::CanExportProperty(Class, Property) && MatchPropertyName(Property, PropertyNameToAccess))
+					if (FV8Config::CanExportProperty(Class, Property) && MatchPropertyName(Property,PropertyNameToAccess))
 					{
 						Handle<Value> argv[1];
 
@@ -2978,7 +2980,7 @@ public:
 			}
 			else if (auto Struct = Cast<UScriptStruct>(Object))
 			{
-				auto maybe_value = ExportStruct(Struct)->GetFunction(isolate_->GetCurrentContext());
+				auto maybe_value= ExportStruct(Struct)->GetFunction(isolate_->GetCurrentContext());
 				if (maybe_value.IsEmpty())
 				{
 					return v8::Undefined(isolate_);
@@ -3032,10 +3034,10 @@ public:
 
 			auto Context = Parameter->Key;
 			auto Self = static_cast<FJavascriptIsolateImplementation*>(Context->Environment.Get());
-			Self->OnGarbageCollectedByV8(Context, Parameter->Value);
+			Self->OnGarbageCollectedByV8(Context,Parameter->Value);
 
 			delete Parameter;
-			});
+		});
 #else
 		Handle.template SetWeak<WeakData>(new WeakData(InitializerType(GetContext(), GarbageCollectedObject)), [](const WeakCallbackInfo<WeakData>& data) {
 			auto Parameter = data.GetParameter();
@@ -3045,7 +3047,7 @@ public:
 			Self->OnGarbageCollectedByV8(Context, Parameter->Value);
 
 			delete Parameter;
-			}, WeakCallbackType::kParameter);
+		}, WeakCallbackType::kParameter);
 #endif
 	}
 

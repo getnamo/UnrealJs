@@ -11,6 +11,8 @@ UJavascriptAsync::UJavascriptAsync(class FObjectInitializer const& ObjectInitial
 {
 	MainHandler = FJavascriptInstanceHandler::GetMainHandler().Pin();
 	IdCounter = 0;
+	CallableWrapper = ObjectInitializer.CreateDefaultSubobject<UJavascriptCallableWrapper>(this, TEXT("CallableWrapper"));
+	CallableWrapper->SetLambdaLink(this);
 }
 
 UJavascriptAsync* UJavascriptAsync::StaticInstance(UObject* Owner)
@@ -25,6 +27,11 @@ UJavascriptAsync* UJavascriptAsync::StaticInstance(UObject* Owner)
 	{
 		return NewObject<UJavascriptAsync>(Owner);
 	}
+}
+
+int32 UJavascriptAsync::NextLambdaId()
+{
+	return IdCounter + 1;
 }
 
 int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext, bool bPinAfterRun)
@@ -45,12 +52,22 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 			LambdaMapData.DataForId(LambdaId).bShouldPin = true;
 		}
 
+		//Expose function callback feature
 		FJavascriptAsyncLambdaPinData& PinData = LambdaMapData.DataForId(LambdaId);
 
 		Async(AsyncExecutionContext, [NewInstance, SafeScript, LambdaId, bPinAfterRun, &PinData, this]()
 		{
-			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(SafeScript);
-			OnLambdaComplete.ExecuteIfBound(ReturnValue, LambdaId, 0);
+			//Expose async callbacks
+			NewInstance->ContextSettings.Context->Expose(TEXT("_asyncUtil"), CallableWrapper);
+			const FString ExposeAdditional = TEXT("_asyncUtil.Callbacks = {}; _asyncUtil.CallbackIndex = 0;");
+			
+			//run the main lambda script
+			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(ExposeAdditional + SafeScript, false);
+			
+			Async(EAsyncExecution::TaskGraphMainThread, [this, ReturnValue, LambdaId]
+			{
+				OnLambdaComplete.ExecuteIfBound(ReturnValue, LambdaId, -1);
+			});
 
 			if (bPinAfterRun)
 			{
@@ -64,14 +81,29 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 						FJavascriptRemoteFunctionData MessageFunctionData;
 						PinData.MessageQueue->Dequeue(MessageFunctionData);
 
-						FString RemoteFunctionScript = FString::Printf(TEXT("%s(JSON.parse('%s'));"), *MessageFunctionData.Name, *MessageFunctionData.Args);
-						FString MessageReturn = NewInstance->ContextSettings.Context->Public_RunScript(RemoteFunctionScript);
+						if (MessageFunctionData.bIsFunctionCall)
+						{
+							FString RemoteFunctionScript = FString::Printf(TEXT("%s?%s(_asyncUtil.parseArgs('%s')):undefined;"),
+								*MessageFunctionData.Event,
+								*MessageFunctionData.Event,
+								*MessageFunctionData.Args);
+							FString MessageReturn = NewInstance->ContextSettings.Context->Public_RunScript(RemoteFunctionScript, false);
 
-						int32 CallbackId = MessageFunctionData.CallbackId;
-						//We call back on gamethread always
-						Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] {
-							OnMessage.ExecuteIfBound(MessageReturn, LambdaId, CallbackId);
-						});
+							int32 CallbackId = MessageFunctionData.CallbackId;
+
+							if (CallbackId != -1) {
+								//We call back on gamethread always
+								Async(EAsyncExecution::TaskGraphMainThread, [this, MessageReturn, LambdaId, CallbackId] 
+								{
+									OnMessage.ExecuteIfBound(MessageReturn, LambdaId, CallbackId);
+								});
+							}
+						}
+						else
+						{
+							//The message wanted to run some raw script without return
+							NewInstance->ContextSettings.Context->Public_RunScript(MessageFunctionData.Event, false);
+						}
 					}
 					//1ms sleep
 					FPlatformProcess::Sleep(0.001f);
@@ -89,17 +121,29 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 void UJavascriptAsync::CallScriptFunction(int32 InLambdaId, const FString& FunctionName, const FString& Args, int32 CallbackId)
 {
 	FJavascriptRemoteFunctionData FunctionData;
-	FunctionData.Name = FunctionName;
+	FunctionData.Event = FunctionName;
 	FunctionData.Args = Args;
 	FunctionData.CallbackId = CallbackId;
+	FunctionData.bIsFunctionCall = true;
 
 	//Queue up the function to be pulled on next poll by the pinned lambda
 	LambdaMapData.DataForId(InLambdaId).MessageQueue->Enqueue(FunctionData);
 }
 
+void UJavascriptAsync::RunScriptInLambda(int32 InLambdaId, const FString& Script)
+{
+	FJavascriptRemoteFunctionData MessageData;
+	MessageData.Event = Script;
+	MessageData.bIsFunctionCall = false;
+
+	LambdaMapData.DataForId(InLambdaId).MessageQueue->Enqueue(MessageData);
+}
+
 void UJavascriptAsync::StopLambda(int32 InLambdaId)
 {
 	LambdaMapData.DataForId(InLambdaId).bShouldPin = false;
+
+	//todo: signal lazy cleanup of isolate, otherwise handler will cleanup later
 }
 
 void UJavascriptAsync::BeginDestroy()
@@ -112,4 +156,19 @@ void UJavascriptAsync::BeginDestroy()
 	}
 
 	Super::BeginDestroy();
+}
+
+UJavascriptCallableWrapper::UJavascriptCallableWrapper(class FObjectInitializer const& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+
+}
+
+void UJavascriptCallableWrapper::CallFunction(FString FunctionName, FString Args, int32 LambdaId, int32 CallbackId)
+{
+	//UE_LOG(LogTemp, Log, TEXT("Received %s, %s"), *FunctionName, *Args);
+	Async(EAsyncExecution::TaskGraphMainThread, [this, FunctionName, Args, LambdaId, CallbackId] {
+		LambdaLink->OnAsyncCall.ExecuteIfBound(FunctionName, Args, LambdaId, CallbackId);
+		//Return handled in javascript
+	});
 }
