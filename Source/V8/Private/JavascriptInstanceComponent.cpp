@@ -63,19 +63,12 @@ void UJavascriptInstanceComponent::InitializeComponent()
 			}
 			if (InstanceOptions.Features.FeatureMap.Contains("UModule"))
 			{
-				/*
-				This should not be uobject based like Async, but similar to exposerequire in context private
-
-				it forms the basis of all other imports (and their encapsulation). 
-
-				Take a bit of time to get it right.
-				*/
-
 				Instance->ContextSettings.Context->ExposeUModule();
-
-				//TODO: add require-like functionality exposed as uModule(x)
-				//FString Content = Instance->ContextSettings.Context->ReadScriptFile(TEXT("async.js"));
-				//Instance->ContextSettings.Context->Public_RunScript(Content);
+			}
+			if (InstanceOptions.Features.FeatureMap.Contains("Http"))
+			{
+				//TODO: expose class not instance...
+				//Expose(TEXT("Async"), NewObject<UJavascriptHttpRequest>(this));
 			}
 
 			TFunction<void()> RunDefaultScript = [this]

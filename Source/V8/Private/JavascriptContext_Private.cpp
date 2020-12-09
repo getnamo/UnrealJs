@@ -1596,6 +1596,9 @@ public:
 		HandleScope handle_scope(isolate());
 		Context::Scope context_scope(context());
 
+		//Temporary to see if we can include e.g. request via umodule by also exposing require by default
+		ExposeRequire();
+
 		//largely copied from ExposeRequire, but will have some additional logic
 		auto fn = [](const FunctionCallbackInfo<Value>& info) {
 			auto isolate = info.GetIsolate();
