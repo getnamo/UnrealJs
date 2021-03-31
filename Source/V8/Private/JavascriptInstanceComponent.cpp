@@ -27,6 +27,11 @@ void UJavascriptInstanceComponent::Emit(const FString& Name, const FString& Mess
 	OnMessage.ExecuteIfBound(Name, Message);
 }
 
+void UJavascriptInstanceComponent::EmitBytes(const FString& Name, const TArray<uint8>& Bytes)
+{
+	OnBytesMessage.ExecuteIfBound(Name, Bytes);
+}
+
 void UJavascriptInstanceComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
