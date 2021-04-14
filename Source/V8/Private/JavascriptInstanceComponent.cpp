@@ -96,7 +96,7 @@ void UJavascriptInstanceComponent::StartupInstanceAndRun()
 				if (InstanceOptions.Features.FeatureMap.Contains("Http"))
 				{
 					//TODO: expose class not instance...
-					//Expose(TEXT("Async"), NewObject<UJavascriptHttpRequest>(this));
+					//Expose(TEXT("Http"), NewObject<UJavascriptHttpRequest>(this));
 				}
 				if (InstanceOptions.Features.FeatureMap.Contains(TEXT("World")))
 				{
