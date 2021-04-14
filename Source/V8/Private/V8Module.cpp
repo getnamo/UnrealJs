@@ -12,6 +12,7 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "Misc/Paths.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/UObjectGlobals.h"
+#include "HAL/FileManagerGeneric.h"
 
 DEFINE_STAT(STAT_V8IdleTask);
 DEFINE_STAT(STAT_JavascriptDelegate);
@@ -179,12 +180,19 @@ public:
 	{
 		Paths.Add(GetGameScriptsDirectory());
 		//@HACK : Dirty hacks
+		
+		//project plugins
+		AddAllPluginContentScriptPaths(Paths);
+		//old
+		//Paths.Add(GetPluginScriptsDirectory4());
+		//Paths.Add(GetPluginScriptsDirectory5());
+		//Paths.Add(GetPluginScriptsDirectory6());
+
+		//engine unreal.js plugin
 		Paths.Add(GetPluginScriptsDirectory());
 		Paths.Add(GetPluginScriptsDirectory2());
 		Paths.Add(GetPluginScriptsDirectory3());
-		Paths.Add(GetPluginScriptsDirectory4());
-		Paths.Add(GetPluginScriptsDirectory5());
-		Paths.Add(GetPluginScriptsDirectory6());
+		
 		Paths.Add(GetPakPluginScriptsDirectory());
 
 		const UJavascriptSettings& Settings = *GetDefault<UJavascriptSettings>();
@@ -241,6 +249,39 @@ public:
 	static FString GetPluginScriptsDirectory6()
 	{
 		return FPaths::ProjectDir() / "/Content/Scripts/UnrealJSPlugin/";
+	}
+
+	static TArray<FString>SubPaths(const FString& Directory)
+	{
+		TArray<FString> FoundFolders;
+		if (FPaths::DirectoryExists(Directory))
+		{
+			FFileManagerGeneric::Get().FindFilesRecursive(FoundFolders, *Directory, TEXT("*"), false, true, true);
+		}
+		return FoundFolders;
+	}
+
+	static TArray<FString> ValidSubPaths(const FString& Directory) 
+	{
+		TArray<FString> AllSubFolders = SubPaths(Directory);
+		TArray<FString> ValidFolders;
+		for (int i = 0; i < AllSubFolders.Num(); i++)
+		{
+			if (AllSubFolders[i].EndsWith(TEXT("Content/Scripts")))
+			{
+				ValidFolders.Add(AllSubFolders[i]);
+				UE_LOG(LogTemp, Warning, TEXT("Found Folder: %s"), *AllSubFolders[i]);
+			}
+		}
+		return ValidFolders;
+	}
+
+	//optional variant of 5
+	static void AddAllPluginContentScriptPaths(TArray<FString>& InOutPaths)
+	{
+		TArray<FString> NewPaths = ValidSubPaths(FPaths::ProjectPluginsDir());
+
+		InOutPaths.Append(NewPaths);
 	}
 
 	static FString GetPakPluginScriptsDirectory()
