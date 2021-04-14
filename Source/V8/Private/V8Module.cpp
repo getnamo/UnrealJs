@@ -178,17 +178,14 @@ public:
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override
 	{
+		//Game folder should tak precedence
 		Paths.Add(GetGameScriptsDirectory());
 		//@HACK : Dirty hacks
 		
 		//project plugins
 		AddAllPluginContentScriptPaths(Paths);
-		//old
-		//Paths.Add(GetPluginScriptsDirectory4());
-		//Paths.Add(GetPluginScriptsDirectory5());
-		//Paths.Add(GetPluginScriptsDirectory6());
 
-		//engine unreal.js plugin
+		//engine unreal.js possible plugin locations
 		Paths.Add(GetPluginScriptsDirectory());
 		Paths.Add(GetPluginScriptsDirectory2());
 		Paths.Add(GetPluginScriptsDirectory3());
