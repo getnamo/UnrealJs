@@ -1,5 +1,9 @@
 //Js wrapper to enable raw function passing
 
+/*
+NB: PoC, the wrapping logic is not currently secure. The instance is directly exposed.
+Todo: securely wrap each js module to keep private parts fairly private. 
+*/
 //We should only use one instance to handle all lambda logic
 Async.instance = Async.StaticInstance();
 Async.instance.Callbacks = {};

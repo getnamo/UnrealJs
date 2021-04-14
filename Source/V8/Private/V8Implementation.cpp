@@ -14,7 +14,7 @@ using namespace v8;
 DEFINE_LOG_CATEGORY(Javascript);
 
 UJavascriptIsolate::UJavascriptIsolate(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 }
 
@@ -63,12 +63,12 @@ void UJavascriptIsolate::AddReferencedObjects(UObject* InThis, FReferenceCollect
 	if (This->JavascriptIsolate.IsValid())
 	{
 		Collector.AllowEliminatingReferences(false);
-		
-		This->JavascriptIsolate->AddReferencedObjects(This, Collector);		
+
+		This->JavascriptIsolate->AddReferencedObjects(This, Collector);
 
 		Collector.AllowEliminatingReferences(true);
-	}		
-	
+	}
+
 	Super::AddReferencedObjects(This, Collector);
 }
 
@@ -110,7 +110,7 @@ void UJavascriptIsolate::GetHeapStatistics(FJavascriptHeapStatistics& Statistics
 }
 
 UJavascriptContext::UJavascriptContext(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	const bool bIsClassDefaultObject = IsTemplate(RF_ClassDefaultObject);
 	if (!bIsClassDefaultObject)
@@ -122,7 +122,7 @@ UJavascriptContext::UJavascriptContext(const FObjectInitializer& ObjectInitializ
 		//Expose("Context", this);
 
 		SetContextId(GetName());
-	}	
+	}
 }
 
 void UJavascriptContext::ExposeFeatures(TMap<FString, FString>& Features)
@@ -270,7 +270,7 @@ void UJavascriptContext::DestroyInspector()
 	if (JavascriptContext.IsValid())
 	{
 		JavascriptContext->DestroyInspector();
-	}	
+	}
 }
 
 void UJavascriptContext::ExposeGlobals()
@@ -278,6 +278,13 @@ void UJavascriptContext::ExposeGlobals()
 	if (JavascriptContext.IsValid())
 	{
 		JavascriptContext->ExposeGlobals();
+	}
+}
+void UJavascriptContext::ExposeUModule()
+{
+	if (JavascriptContext.IsValid())
+	{
+		JavascriptContext->ExposeUModule();
 	}
 }
 

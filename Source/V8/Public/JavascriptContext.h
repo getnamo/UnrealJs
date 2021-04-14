@@ -104,6 +104,8 @@ public:
 	//UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void ExposeGlobals();
 
+	void ExposeUModule();
+
 	void ExposeFeatures(TMap<FString, FString>& Features);
 
 	bool RemoveObjectInJavacontext(UObject* TargetObj);

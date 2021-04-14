@@ -9,6 +9,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FJsInstBPNoParamDelegate);
 DECLARE_DYNAMIC_DELEGATE(FJsInstNoParamDelegate);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FJsInstTickSignature, float, DeltaSeconds);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FJsInstMessageSignature, FString, Name, FString, Message);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FJsInstBytesMessageSignature, FString, Name, const TArray<uint8>&, Bytes);
 
 //A javascript instance may re-use isolates and gives greater control over expose vs classical javascript component.
 UCLASS(BlueprintType, ClassGroup = Script, meta = (BlueprintSpawnableComponent))
@@ -47,6 +48,9 @@ public:
 	UPROPERTY()
 	FJsInstMessageSignature OnMessage;
 
+	UPROPERTY()
+	FJsInstBytesMessageSignature OnBytesMessage;
+
 	//Specify common domain/uniqueness etc of instance
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category= "Javascript Instance Component")
 	FJSInstanceOptions InstanceOptions;
@@ -67,6 +71,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
 	void Emit(const FString& Name, const FString& Message);
 
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void EmitBytes(const FString& Name, const TArray<uint8>& Bytes);
+
+	//Slower version of instant update
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void Reload();
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void RunFile(const FString& FilePath);
+
+	/** Used to load a soft referenced class in Js for extension */
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	UClass* ClassByName(const FString& ClassName);
+
 	// Begin UActorComponent interface.
 	virtual void InitializeComponent() override;
 	virtual void UninitializeComponent() override;
@@ -74,6 +92,10 @@ public:
 	// Begin UActorComponent interface.	
 
 protected:
+
+	void StartupInstanceAndRun();
+	void ShutDownInstance();
+
 	TSharedPtr<FJavascriptInstanceHandler> MainHandler;
 	TSharedPtr<FJavascriptInstance> Instance;
 	FThreadSafeBool bShouldScriptRun;
