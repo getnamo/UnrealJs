@@ -18,7 +18,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDirectoryWatcherCallback);
 
-UCLASS()
+UCLASS(BlueprintType)
 class V8_API UDirectoryWatcher : public UObject
 {
 	GENERATED_BODY()

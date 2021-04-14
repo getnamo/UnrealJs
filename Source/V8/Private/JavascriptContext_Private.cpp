@@ -768,14 +768,14 @@ public:
 
 					CallClassConstructor(Class->GetSuperClass(), ObjectInitializer);
 
-					// move to javascriptgeneratedclass_*
-// 					{
-// 						auto func = proxy->ToObject(context).ToLocalChecked()->Get(context, I.Keyword("ctor")).ToLocalChecked();
-// 						if (func->IsFunction())
-// 						{
-// 							CallJavascriptFunction(context, This, nullptr, Local<Function>::Cast(func), nullptr);
-// 						}
-// 					}
+					// move to javascriptgeneratedclass_* <- undo this
+ 					{
+ 						auto func = proxy->ToObject(context).ToLocalChecked()->Get(context, I.Keyword("ctor")).ToLocalChecked();
+ 						if (func->IsFunction())
+ 						{
+ 							CallJavascriptFunction(context, This, nullptr, Local<Function>::Cast(func), nullptr);
+ 						}
+				}
 
 					Context->ObjectInitializerStack.RemoveAt(Context->ObjectInitializerStack.Num() - 1, 1);
 				}

@@ -52,7 +52,7 @@ public:
 	FJsInstBytesMessageSignature OnBytesMessage;
 
 	//Specify common domain/uniqueness etc of instance
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Javascript Instance Component")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category= "Javascript Instance Component")
 	FJSInstanceOptions InstanceOptions;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Javascript Instance Component")
@@ -72,7 +72,18 @@ public:
 	void Emit(const FString& Name, const FString& Message);
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void EmitBytes(const FString& Name, const TArray<uint8>& Data);
+	void EmitBytes(const FString& Name, const TArray<uint8>& Bytes);
+
+	//Slower version of instant update
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void Reload();
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void RunFile(const FString& FilePath);
+
+	/** Used to load a soft referenced class in Js for extension */
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	UClass* ClassByName(const FString& ClassName);
 
 	// Begin UActorComponent interface.
 	virtual void InitializeComponent() override;
@@ -81,6 +92,10 @@ public:
 	// Begin UActorComponent interface.	
 
 protected:
+
+	void StartupInstanceAndRun();
+	void ShutDownInstance();
+
 	TSharedPtr<FJavascriptInstanceHandler> MainHandler;
 	TSharedPtr<FJavascriptInstance> Instance;
 	FThreadSafeBool bShouldScriptRun;
