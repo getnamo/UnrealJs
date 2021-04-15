@@ -692,7 +692,7 @@ public:
 				Class = Klass;
 
 				// This flag is necessary for proper initialization
-				Class->ClassFlags |= CLASS_Native;
+				Class->ClassFlags |= (CLASS_Native | CLASS_CompiledFromBlueprint);
 			}
 
 			// Create a blueprint
