@@ -29,6 +29,15 @@ void UJavascriptIsolate::Init(bool bIsEditor, TMap<FString, FString>& InFeatures
 	}
 }
 
+void UJavascriptIsolate::Init(TSharedPtr<FJavascriptIsolate> PremadeIsolate)
+{
+	const bool bIsClassDefaultObject = IsTemplate(RF_ClassDefaultObject);
+	if (!bIsClassDefaultObject)
+	{
+		JavascriptIsolate = PremadeIsolate;
+	}
+}
+
 TMap<FString, FString> UJavascriptIsolate::DefaultIsolateFeatures()
 {
 	TMap<FString, FString> Features;
@@ -86,6 +95,7 @@ void UJavascriptIsolate::BeginDestroy()
 UJavascriptContext* UJavascriptIsolate::CreateContext()
 {
 	auto Context = NewObject<UJavascriptContext>(this);
+	Context->Init();
 	Context->ExposeFeatures(Features);
 	return Context;
 }
@@ -117,6 +127,36 @@ UJavascriptContext::UJavascriptContext(const FObjectInitializer& ObjectInitializ
 	{
 		auto Isolate = Cast<UJavascriptIsolate>(GetOuter());
 		JavascriptContext = TSharedPtr<FJavascriptContext>(FJavascriptContext::Create(Isolate->JavascriptIsolate, Paths));
+
+		//This gets exposed by the javascript component, not automatically
+		//Expose("Context", this);
+
+		SetContextId(GetName());
+	}
+}
+
+void UJavascriptContext::Init()
+{
+	const bool bIsClassDefaultObject = IsTemplate(RF_ClassDefaultObject);
+	if (!bIsClassDefaultObject)
+	{
+		auto Isolate = Cast<UJavascriptIsolate>(GetOuter());
+		JavascriptContext = TSharedPtr<FJavascriptContext>(FJavascriptContext::Create(Isolate->JavascriptIsolate, Paths));
+
+		//This gets exposed by the javascript component, not automatically
+		//Expose("Context", this);
+
+		SetContextId(GetName());
+	}
+}
+
+void UJavascriptContext::Init(TSharedPtr<FJavascriptContext> InPremadeContext)
+{
+	const bool bIsClassDefaultObject = IsTemplate(RF_ClassDefaultObject);
+	if (!bIsClassDefaultObject)
+	{
+		auto Isolate = Cast<UJavascriptIsolate>(GetOuter());
+		JavascriptContext = InPremadeContext;
 
 		//This gets exposed by the javascript component, not automatically
 		//Expose("Context", this);

@@ -11,6 +11,14 @@ enum EJSInstanceResult
 	RESULT_DELAYED
 };
 
+UENUM()
+enum EJSInstanceResultType
+{
+	RESULT_NONE_ERROR = 0,
+	RESULT_NEW,
+	RESULT_REUSE
+};
+
 class FJavascriptInstanceHandler
 {
 public:
@@ -20,7 +28,7 @@ public:
 	static TWeakPtr<FJavascriptInstanceHandler> GetMainHandler();
 
 	//Main way to get an instance, may be instant or delayed depending on whether instance is ready. Callback is on GT
-	EJSInstanceResult RequestInstance(const FJSInstanceOptions& InOptions, TFunction<void(TSharedPtr<FJavascriptInstance>)> OnDelayedResult = nullptr);
+	EJSInstanceResult RequestInstance(const FJSInstanceOptions& InOptions, TFunction<void(TSharedPtr<FJavascriptInstance>, EJSInstanceResultType)> OnDelayedResult = nullptr);
 	void ReleaseInstance(TSharedPtr<FJavascriptInstance> Instance);
 
 	//Utility

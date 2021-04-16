@@ -41,7 +41,7 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 	const int32 LambdaId = ++IdCounter;
 
 	const FString SafeScript = Script;
-	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript, LambdaId, bPinAfterRun, this](TSharedPtr<FJavascriptInstance> NewInstance)
+	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript, LambdaId, bPinAfterRun, this](TSharedPtr<FJavascriptInstance> NewInstance, EJSInstanceResultType ResultType)
 	{
 		//Convert context
 		const EAsyncExecution AsyncExecutionContext = FJavascriptAsyncUtil::ToAsyncExecution(NewInstance->Options.ThreadOption);

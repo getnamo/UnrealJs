@@ -117,6 +117,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void Init(bool bIsEditor, TMap<FString, FString>& InFeatures);
 
+	//reflection variant for js components
+	void Init(TSharedPtr<FJavascriptIsolate> PremadeIsolate);
+
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	UJavascriptContext* CreateContext();
 

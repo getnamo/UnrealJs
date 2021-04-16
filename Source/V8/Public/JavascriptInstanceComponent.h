@@ -102,6 +102,9 @@ protected:
 	FThreadSafeBool bIsThreadRunning;
 	bool bIsScriptRunning;
 
+	UJavascriptIsolate* IsolateReflection;
+	UJavascriptContext* ContextReflection;	//only used for console
+
 };
 
 //hideCategories = (ComponentReplication) Blueprintable

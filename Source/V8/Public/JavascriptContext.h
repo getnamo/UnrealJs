@@ -31,6 +31,10 @@ public:
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// End UObject interface.
 
+	//needed to create clean variants
+	void Init();
+	void Init(TSharedPtr<FJavascriptContext> InPremadeContext);
+
 	TSharedPtr<FJavascriptContext> JavascriptContext;
 	TSharedPtr<FString> ContextId;
 

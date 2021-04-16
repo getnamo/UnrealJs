@@ -40,7 +40,7 @@ TWeakPtr<FJavascriptInstanceHandler> FJavascriptInstanceHandler::GetMainHandler(
 	return MainHandler;
 }
 
-EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceOptions& InOptions, TFunction<void(TSharedPtr<FJavascriptInstance>)> OnDelayedResult /*= nullptr*/)
+EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceOptions& InOptions, TFunction<void(TSharedPtr<FJavascriptInstance>, EJSInstanceResultType)> OnDelayedResult /*= nullptr*/)
 {
 	//Check requesting thread
 	//int32 RequestingThread = FPlatformTLS::GetCurrentThreadId();
@@ -51,7 +51,7 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 		UE_LOG(LogTemp, Warning, TEXT("FJavascriptInstanceHandler::RequestInstance tried to request from non-gamethread. Nullptr returned"));
 		if (OnDelayedResult)
 		{
-			OnDelayedResult(nullptr);
+			OnDelayedResult(nullptr, EJSInstanceResultType::RESULT_NONE_ERROR);
 		}
 		return EJSInstanceResult::RESULT_ERROR;
 	}
@@ -89,7 +89,7 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 
 			if (OnDelayedResult)
 			{
-				OnDelayedResult(Instance);
+				OnDelayedResult(Instance, EJSInstanceResultType::RESULT_REUSE);
 			}
 			return EJSInstanceResult::RESULT_INSTANT;
 		}
@@ -119,7 +119,7 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 
 				if (OnDelayedResult)
 				{
-					OnDelayedResult(NewInstance);
+					OnDelayedResult(NewInstance, EJSInstanceResultType::RESULT_NEW);
 				}
 			});
 		});
@@ -134,7 +134,7 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 
 		if (OnDelayedResult)
 		{
-			OnDelayedResult(NewInstance);
+			OnDelayedResult(NewInstance, EJSInstanceResultType::RESULT_NEW);
 		}
 		return EJSInstanceResult::RESULT_INSTANT;
 	}

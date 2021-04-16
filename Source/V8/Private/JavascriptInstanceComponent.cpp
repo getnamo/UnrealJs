@@ -68,111 +68,120 @@ void UJavascriptInstanceComponent::StartupInstanceAndRun()
 		}
 
 		//Initialize, happens on a callback due to possible delay
-		EJSInstanceResult Result = MainHandler->RequestInstance(InstanceOptions, [this](TSharedPtr<FJavascriptInstance> NewInstance)
+		EJSInstanceResult Result = MainHandler->RequestInstance(InstanceOptions, [this](TSharedPtr<FJavascriptInstance> NewInstance, EJSInstanceResultType ResultType)
+		{
+			Instance = NewInstance;
+
+			//Reflect our type in UObject variants for console variable debug lookup
+			if (ResultType == EJSInstanceResultType::RESULT_NEW)
 			{
-				Instance = NewInstance;
+				IsolateReflection = NewObject<UJavascriptIsolate>(this);
+				IsolateReflection->Init(Instance->ContextSettings.Isolate);
+				ContextReflection = NewObject<UJavascriptContext>(IsolateReflection);
+				ContextReflection->Init(Instance->ContextSettings.Context);
+			}
 
-				//Safe to expose some basics
-				if (InstanceOptions.Features.FeatureMap.Contains("Context"))
+			//Safe to expose some basics
+			if (InstanceOptions.Features.FeatureMap.Contains("Context"))
+			{
+				Expose(TEXT("Context"), this);
+			}
+			if (InstanceOptions.Features.FeatureMap.Contains("Root"))
+			{
+				Expose(TEXT("Root"), GetOwner());
+			}
+			if (InstanceOptions.Features.FeatureMap.Contains("Async"))
+			{
+				Expose(TEXT("Async"), NewObject<UJavascriptAsync>(this));
+				//Run javascript wrapping code for this exposure. Allows raw function passing
+				FString Content = Instance->ContextSettings.Context->ReadScriptFile(TEXT("async.js"));
+				Instance->ContextSettings.Context->Public_RunScript(Content);
+				//Instance->ContextSettings.Context->Public_RunFile(TEXT("async.js"));
+			}
+			if (InstanceOptions.Features.FeatureMap.Contains("UModule"))
+			{
+				Instance->ContextSettings.Context->ExposeUModule();
+			}
+			if (InstanceOptions.Features.FeatureMap.Contains("Http"))
+			{
+				//TODO: expose class not instance...
+				//Expose(TEXT("Http"), NewObject<UJavascriptHttpRequest>(this));
+			}
+			if (InstanceOptions.Features.FeatureMap.Contains(TEXT("World")))
+			{
+				Expose("GWorld", GetWorld());
+			}
+			if (InstanceOptions.Features.FeatureMap.Contains(TEXT("Engine")))
+			{
+				Expose("GEngine", GEngine);
+			}
+			if (InstanceOptions.Features.FeatureMap.Contains(TEXT("Globals")))
+			{
+				Instance->ContextSettings.Context->ExposeGlobals();
+			}
+
+			TFunction<void()> RunDefaultScript = [this]
+			{
+				OnInstanceReady.Broadcast();
+
+				OnScriptBegin.Broadcast();
+
+				Instance->ContextSettings.Context->Public_RunFile(DefaultScript);
+
+				OnBeginPlay.ExecuteIfBound();
+
+				OnScriptInitPassEnd.Broadcast();
+
+				bShouldScriptRun = true;
+				bIsScriptRunning = true;
+			};
+
+			if (InstanceOptions.UsesGameThread())
+			{
+				if (bCreateInspectorOnInstanceStartup)
 				{
-					Expose(TEXT("Context"), this);
-				}
-				if (InstanceOptions.Features.FeatureMap.Contains("Root"))
-				{
-					Expose(TEXT("Root"), GetOwner());
-				}
-				if (InstanceOptions.Features.FeatureMap.Contains("Async"))
-				{
-					Expose(TEXT("Async"), NewObject<UJavascriptAsync>(this));
-					//Run javascript wrapping code for this exposure. Allows raw function passing
-					FString Content = Instance->ContextSettings.Context->ReadScriptFile(TEXT("async.js"));
-					Instance->ContextSettings.Context->Public_RunScript(Content);
-					//Instance->ContextSettings.Context->Public_RunFile(TEXT("async.js"));
-				}
-				if (InstanceOptions.Features.FeatureMap.Contains("UModule"))
-				{
-					Instance->ContextSettings.Context->ExposeUModule();
-				}
-				if (InstanceOptions.Features.FeatureMap.Contains("Http"))
-				{
-					//TODO: expose class not instance...
-					//Expose(TEXT("Http"), NewObject<UJavascriptHttpRequest>(this));
-				}
-				if (InstanceOptions.Features.FeatureMap.Contains(TEXT("World")))
-				{
-					Expose("GWorld", GetWorld());
-				}
-				if (InstanceOptions.Features.FeatureMap.Contains(TEXT("Engine")))
-				{
-					Expose("GEngine", GEngine);
-				}
-				if (InstanceOptions.Features.FeatureMap.Contains(TEXT("Globals")))
-				{
-					Instance->ContextSettings.Context->ExposeGlobals();
+					Instance->ContextSettings.Context->CreateInspector(InspectorPort);
 				}
 
-				TFunction<void()> RunDefaultScript = [this]
-				{
-					OnInstanceReady.Broadcast();
-
-					OnScriptBegin.Broadcast();
-
-					Instance->ContextSettings.Context->Public_RunFile(DefaultScript);
-
-					OnBeginPlay.ExecuteIfBound();
-
-					OnScriptInitPassEnd.Broadcast();
-
-					bShouldScriptRun = true;
-					bIsScriptRunning = true;
-				};
-
-				if (InstanceOptions.UsesGameThread())
-				{
-					if (bCreateInspectorOnInstanceStartup)
+				RunDefaultScript();
+			}
+			else
+			{
+				EAsyncExecution Execution = FJavascriptAsyncUtil::ToAsyncExecution(InstanceOptions.ThreadOption);
+				Async(Execution, [this, RunDefaultScript]()
 					{
-						Instance->ContextSettings.Context->CreateInspector(InspectorPort);
-					}
+						RunDefaultScript();
 
-					RunDefaultScript();
-				}
-				else
-				{
-					EAsyncExecution Execution = FJavascriptAsyncUtil::ToAsyncExecution(InstanceOptions.ThreadOption);
-					Async(Execution, [this, RunDefaultScript]()
+						bIsThreadRunning = true;
+
+						if (InstanceOptions.bAttachToTick)
 						{
-							RunDefaultScript();
 
-							bIsThreadRunning = true;
-
-							if (InstanceOptions.bAttachToTick)
+							while (bShouldScriptRun)
 							{
+								//Todo: check MT data in
 
-								while (bShouldScriptRun)
-								{
-									//Todo: check MT data in
+								OnTick.ExecuteIfBound(0.001f);	//todo: feed in actual deltatime
 
-									OnTick.ExecuteIfBound(0.001f);	//todo: feed in actual deltatime
-
-									//Todo: process MT data out
-									FPlatformProcess::Sleep(0.001f);
-								}
+								//Todo: process MT data out
+								FPlatformProcess::Sleep(0.001f);
 							}
+						}
 
-							OnEndPlay.ExecuteIfBound();
+						OnEndPlay.ExecuteIfBound();
 
-							//request garbage collection on the same thread we're on
-							if (Instance->ContextSettings.Context.IsValid())
-							{
-								Instance->ContextSettings.Context->RequestV8GarbageCollection();
-							}
+						//request garbage collection on the same thread we're on
+						if (Instance->ContextSettings.Context.IsValid())
+						{
+							Instance->ContextSettings.Context->RequestV8GarbageCollection();
+						}
 
-							bIsThreadRunning = false;
-							bIsScriptRunning = false;
-						});
-				}
+						bIsThreadRunning = false;
+						bIsScriptRunning = false;
+					});
+			}
 
-			});
+		});
 	}
 }
 
