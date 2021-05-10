@@ -86,9 +86,9 @@ void UJavascriptInstanceComponent::StartupInstanceAndRun()
 			{
 				Expose(TEXT("Context"), this);
 			}
-			if (InstanceOptions.Features.FeatureMap.Contains("Root"))
+			if (InstanceOptions.Features.FeatureMap.Contains("JsOwner"))
 			{
-				Expose(TEXT("Root"), GetOwner());
+				Expose(TEXT("JsOwner"), GetOwner());
 			}
 			if (InstanceOptions.Features.FeatureMap.Contains("Async"))
 			{

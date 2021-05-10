@@ -152,7 +152,7 @@ void FJavascriptEditorModule::Bootstrap()
 		JavascriptContext->ExposeGlobals();
 
 		Tick = NewObject<UJavascriptEditorTick>(JavascriptContext);
-		//JavascriptContext->Expose(TEXT("Root"), Tick);
+		JavascriptContext->Expose(TEXT("Root"), Tick);	//NB: normally disabled for JSInstance
 		Tick->AddToRoot();
 
 		FEditorScriptExecutionGuard ScriptGuard;
