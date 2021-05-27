@@ -8,9 +8,9 @@ UJavascriptTileView::UJavascriptTileView(const FObjectInitializer& ObjectInitial
 
 TSharedRef<STableViewBase> UJavascriptTileView::RebuildListWidget()
 {
-	MyTileView = SNew(STileView< UObject* >)
+	MyTileView = SNew(STileView< UObject*>)
 		.SelectionMode(SelectionMode)
-		.ListItemsSource(&ListItems)
+		//UE5HACK: disabled source! .ListItemsSource(&ListItems)
 		.ItemHeight(EntryHeight)
 		.OnSelectionChanged_Lambda([this](UObject* Object, ESelectInfo::Type SelectInfo){
 			OnSelectionChanged(Object, SelectInfo);

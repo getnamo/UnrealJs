@@ -60,7 +60,9 @@
 
 #include "Engine/DataTable.h"
 #include "Engine/EngineTypes.h"
-#include "Toolkits/AssetEditorManager.h"
+
+#include "Kismet2/KismetEditorUtilities.h"
+//#include "Toolkits/AssetEditorManager.h"
 
 #if WITH_EDITOR
 ULandscapeInfo* UJavascriptEditorLibrary::GetLandscapeInfo(ALandscape* Landscape, bool bSpawnNewActor)
@@ -201,12 +203,12 @@ void UJavascriptEditorLibrary::OpenPopupWindow(UWidget* Widget, const FVector2D&
 
 void UJavascriptEditorLibrary::GetAllTags(const FJavascriptAssetData& AssetData, TArray<FName>& OutArray)
 {
-	AssetData.SourceAssetData.TagsAndValues.GetKeys(OutArray);
+	AssetData.SourceAssetData.TagsAndValues.CopyMap().GetKeys(OutArray);
 }
 
 bool UJavascriptEditorLibrary::GetTagValue(const FJavascriptAssetData& AssetData, const FName& Name, FString& OutValue)
 {
-	auto Value = AssetData.SourceAssetData.TagsAndValues.GetMap().Find(Name);
+	auto Value = AssetData.SourceAssetData.TagsAndValues.CopyMap().Find(Name);
 
 	if (Value)
 	{
@@ -495,7 +497,7 @@ void UJavascriptEditorLibrary::DrawPolygon(const FJavascriptPDI& PDI, const TArr
 	}
 
 	static auto TransparentPlaneMaterialXY = (UMaterial*)StaticLoadObject(UMaterial::StaticClass(), NULL, TEXT("/Engine/EditorMaterials/WidgetVertexColorMaterial.WidgetVertexColorMaterial"), NULL, LOAD_None, NULL);
-#if ENGINE_MINOR_VERSION < 22
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 	MeshBuilder.Draw(PDI.PDI, FMatrix::Identity, TransparentPlaneMaterialXY->GetRenderProxy(false), DepthPriority, 0.f);
 #else
 	MeshBuilder.Draw(PDI.PDI, FMatrix::Identity, TransparentPlaneMaterialXY->GetRenderProxy(), DepthPriority, 0.f);
@@ -690,7 +692,7 @@ FJavascriptSlateWidget UJavascriptEditorLibrary::GetRootWindow()
 void UJavascriptEditorLibrary::CreatePropertyEditorToolkit(TArray<UObject*> ObjectsForPropertiesMenu)
 {
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	PropertyEditorModule.CreatePropertyEditorToolkit(EToolkitMode::Standalone, TSharedPtr<IToolkitHost>(), ObjectsForPropertiesMenu);
+	PropertyEditorModule.CreatePropertyEditorToolkit(TSharedPtr<IToolkitHost>(), ObjectsForPropertiesMenu);
 }
 
 static FName NAME_LevelEditor("LevelEditor");
@@ -1040,7 +1042,12 @@ USCS_Node* FindSCSNode(const TArray<USCS_Node*>& Nodes, UActorComponent* Compone
 void UJavascriptEditorLibrary::AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components, bool bHarvesting, UActorComponent* OptionalNewRootComponent, bool bKeepMobility)
 {
 	auto* OptionalNewRootNode = FindSCSNode(Blueprint->SimpleConstructionScript->GetRootNodes(), OptionalNewRootComponent);
-	FKismetEditorUtilities::AddComponentsToBlueprint(Blueprint, Components, bHarvesting, OptionalNewRootNode, bKeepMobility);
+	FKismetEditorUtilities::FAddComponentsToBlueprintParams Params;
+	Params.HarvestMode = (bHarvesting ? FKismetEditorUtilities::EAddComponentToBPHarvestMode::Harvest_UseComponentName : FKismetEditorUtilities::EAddComponentToBPHarvestMode::None);
+	Params.OptionalNewRootNode = OptionalNewRootNode;
+	Params.bKeepMobility = bKeepMobility;
+	
+	FKismetEditorUtilities::AddComponentsToBlueprint(Blueprint, Components, Params);
 	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 }
 
@@ -1304,7 +1311,7 @@ bool UJavascriptEditorLibrary::LoadImageFromDiskAsync(const FString& ImagePath, 
 			{
 				Texture->SRGB = true;
 				Texture->UpdateResource();
-#if ENGINE_MINOR_VERSION < 22
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 					FWriteRawDataToTexture,
 					FTexture2DDynamicResource*, TextureResource, static_cast<FTexture2DDynamicResource*>(Texture->Resource),
@@ -1426,7 +1433,7 @@ FString UJavascriptEditorLibrary::GetDataTableAsJSON(UDataTable* InDataTable, ui
 
 void UJavascriptEditorLibrary::AddRichCurve(UCurveTable* InCurveTable, const FName& Key, const FRichCurve& InCurve)
 {
-#if ENGINE_MINOR_VERSION < 22
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 	FRichCurve* NewCurve = new FRichCurve();
 	NewCurve->SetKeys(InCurve.GetConstRefOfKeys());
 	NewCurve->PreInfinityExtrap = InCurve.PreInfinityExtrap;

@@ -131,7 +131,7 @@ static void SetClassFlags(UClass* Class, const TArray<FString>& Flags)
 		{ TEXT("Abstract"), CLASS_Abstract },
 		{ TEXT("DefaultConfig"), CLASS_DefaultConfig },
 		{ TEXT("Transient"), CLASS_Transient },
-#if ENGINE_MINOR_VERSION < 26
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 26
 		{ TEXT("AdvancedDisplay"), CLASS_AdvancedDisplay },
 #endif
 		{ TEXT("NotPlaceable"), CLASS_NotPlaceable },
@@ -1076,13 +1076,11 @@ public:
 			else
 				Class->GetDefaultObject();
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 12
 			// Assemble reference token stream for garbage collection/ RTGC.
 			if (!Class->HasAnyClassFlags(CLASS_TokenStreamAssembled))
 			{
 				Class->AssembleReferenceTokenStream();
 			}
-#endif
 			auto end = FPlatformTime::Seconds();
 			UE_LOG(Javascript, Warning, TEXT("Create UClass(%s) Elapsed: %.6f"), *Name, end - start);
 		};
@@ -1172,10 +1170,8 @@ public:
 
 			Class->GetDefaultObject(true);
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 12
 			// Assemble reference token stream for garbage collection/ RTGC.
 			Class->AssembleReferenceTokenStream(true);
-#endif
 			auto end = FPlatformTime::Seconds();
 			UE_LOG(Javascript, Warning, TEXT("Rebind UClass(%s) Elapsed: %.6f"), *Class->GetName(), end - start);
 #endif

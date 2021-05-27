@@ -38,7 +38,7 @@ public:
 	{
 		return SkyComponent;
 	}
-#if ENGINE_MINOR_VERSION < 23
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 23
 	class USphereReflectionCaptureComponent* GetDefaultSphereReflectionComponent()
 	{
 		return SphereReflectionComponent;
@@ -208,6 +208,7 @@ public:
         }
     }
 
+	/* UE5HACK
 	virtual FWidget::EWidgetMode GetWidgetMode() const override
 	{
 		if (Widget.IsValid() && Widget->OnGetWidgetMode.IsBound())
@@ -218,7 +219,7 @@ public:
 		{
 			return FEditorViewportClient::GetWidgetMode();
 		}		
-	}	
+	}*/	
 
 	virtual FVector GetWidgetLocation() const override
 	{
@@ -265,14 +266,7 @@ public:
 			{
 				for (FActorIterator It(PreviewScene->GetWorld()); It; ++It)
 				{
-#if ENGINE_MINOR_VERSION > 14
 					It->DispatchBeginPlay();
-#else
-					if (It->HasActorBegunPlay() == false)
-					{
-						It->BeginPlay();
-					}
-#endif
 				}
 				PreviewScene->GetWorld()->bBegunPlay = true;
 			}
@@ -447,13 +441,13 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 
 	void SetWidgetMode(EJavascriptWidgetMode WidgetMode)
 	{
-		EditorViewportClient->SetWidgetMode(WidgetMode == EJavascriptWidgetMode::WM_None ? FWidget::WM_None : (FWidget::EWidgetMode)WidgetMode);
+		EditorViewportClient->SetWidgetMode(WidgetMode == EJavascriptWidgetMode::WM_None ? UE::Widget::EWidgetMode::WM_None : (UE::Widget::EWidgetMode)WidgetMode);
     }
     
     EJavascriptWidgetMode GetWidgetMode()
     {
-        FWidget::EWidgetMode WidgetMode = EditorViewportClient->GetWidgetMode();
-        return FWidget::WM_None ? EJavascriptWidgetMode::WM_None : (EJavascriptWidgetMode)WidgetMode;
+		UE::Widget::EWidgetMode WidgetMode = EditorViewportClient->GetWidgetMode();
+        return UE::Widget::EWidgetMode::WM_None ? EJavascriptWidgetMode::WM_None : (EJavascriptWidgetMode)WidgetMode;
     }
 
 	FString GetEngineShowFlags()
@@ -508,7 +502,7 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 	{
 		return PreviewScene.GetDefaultSkySphereComponent();
 	}
-#if ENGINE_MINOR_VERSION < 23
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 23
 	class USphereReflectionCaptureComponent* GetDefaultSphereReflectionComponent()
 	{
 		return PreviewScene.GetDefaultSphereReflectionComponent();
@@ -534,11 +528,8 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 			UStaticMeshComponent* Component = *Itr;
 			if (Component && Component->GetOwner() == nullptr) 
 			{
-#if ENGINE_MINOR_VERSION >= 14
 				auto StaticMesh = Component->GetStaticMesh();
-#else
-				auto StaticMesh = Component->StaticMesh;
-#endif
+
 				if (StaticMesh && StaticMesh->GetName().Equals(FString(TEXT("Sphere_inversenormals"))))
 				{
 					return Component;
@@ -838,11 +829,8 @@ void UJavascriptEditorViewport::DeprojectScreenToWorld(const FVector2D &ScreenPo
         FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
         FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
 		
-#if ENGINE_MINOR_VERSION >= 14
 		const auto& InvViewProjMatrix = View->ViewMatrices.GetInvViewProjectionMatrix();
-#else
-		const auto& InvViewProjMatrix = View->ViewMatrices.GetInvViewProjMatrix();
-#endif
+
         FSceneView::DeprojectScreenToWorld(ScreenPosition, View->UnscaledViewRect, InvViewProjMatrix, OutRayOrigin, OutRayDirection);
     }
 }
@@ -854,11 +842,7 @@ void UJavascriptEditorViewport::ProjectWorldToScreen(const FVector &WorldPositio
         FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
         FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
 
-#if ENGINE_MINOR_VERSION >= 14
 		const auto& ViewProjMatrix = View->ViewMatrices.GetViewProjectionMatrix();
-#else
-		const auto& ViewProjMatrix = View->ViewMatrices.GetViewProjMatrix();
-#endif
         
         FSceneView::ProjectWorldToScreen(WorldPosition, View->UnscaledViewRect, ViewProjMatrix, OutScreenPosition);
     }
@@ -970,7 +954,7 @@ class UStaticMeshComponent* UJavascriptEditorViewport::GetDefaultSkySphereCompon
 
 class USphereReflectionCaptureComponent* UJavascriptEditorViewport::GetDefaultSphereReflectionComponent()
 {
-#if ENGINE_MINOR_VERSION < 23
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 23
 	if (ViewportWidget.IsValid())
 	{
 		return ViewportWidget->GetDefaultSphereReflectionComponent();

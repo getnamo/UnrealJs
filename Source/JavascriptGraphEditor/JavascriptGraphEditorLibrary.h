@@ -105,11 +105,7 @@ struct FJavascriptDetermineLinkGeometryContainer
 		TSharedRef<SWidget>* InOutputPinWidget,
 		TMap<UEdGraphNode*, int32>* InNodeWidgetMap,
 		TMap<TSharedRef<SWidget>, FArrangedWidget>* InPinGeometries,
-#if ENGINE_MINOR_VERSION > 22
 		TMap< UEdGraphPin*, TSharedPtr<SGraphPin> >* InPinToPinWidgetMap
-#else
-		TMap< UEdGraphPin*, TSharedRef<SGraphPin> >* InPinToPinWidgetMap
-#endif
 	)
 		: ArrangedNodes(InArrangedNodes)
 		, OutputPinWidget(InOutputPinWidget)
@@ -124,11 +120,8 @@ struct FJavascriptDetermineLinkGeometryContainer
 	TMap<UEdGraphNode*, int32>* NodeWidgetMap;
 
 	TMap<TSharedRef<SWidget>, FArrangedWidget>* PinGeometries;
-#if ENGINE_MINOR_VERSION > 22
 	TMap< UEdGraphPin*, TSharedPtr<SGraphPin> >* PinToPinWidgetMap;
-#else
-	TMap< UEdGraphPin*, TSharedRef<SGraphPin> >* PinToPinWidgetMap;
-#endif
+
 };
 
 USTRUCT(BlueprintType)

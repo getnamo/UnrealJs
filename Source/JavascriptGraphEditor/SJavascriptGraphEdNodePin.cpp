@@ -11,7 +11,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 {
 	this->SetCursor(EMouseCursor::Default);
 
-	typedef SJavascriptGraphPin ThisClass;
+	typedef SJavascriptGraphPin ThisClassPin;
 
 	bShowLabel = true;
 
@@ -33,8 +33,8 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 			SBorder::Construct(SBorder::FArguments()
 				.BorderImage(this, &SJavascriptGraphPin::GetPinBorder)
 				.BorderBackgroundColor(this, &SJavascriptGraphPin::GetPinColor)
-				.OnMouseButtonDown(this, &ThisClass::OnPinMouseDown)
-				.Cursor(this, &ThisClass::GetPinCursor)
+				.OnMouseButtonDown(this, &ThisClassPin::OnPinMouseDown)
+				.Cursor(this, &ThisClassPin::GetPinCursor)
 			);
 			return;
 		}
@@ -45,11 +45,11 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 	// Create the pin icon widget
 	TSharedRef<SWidget> ActualPinWidget =
 		SAssignNew(PinImage, SImage)
-		.Image(this, &ThisClass::GetPinIcon)
-		.IsEnabled(this, &ThisClass::GetIsConnectable)
-		.ColorAndOpacity(this, &ThisClass::GetPinColor)
-		.OnMouseButtonDown(this, &ThisClass::OnPinMouseDown)
-		.Cursor(this, &ThisClass::GetPinCursor);
+		.Image(this, &ThisClassPin::GetPinIcon)
+		.IsEnabled(this, &ThisClassPin::GetIsConnectable)
+		.ColorAndOpacity(this, &ThisClassPin::GetPinColor)
+		.OnMouseButtonDown(this, &ThisClassPin::OnPinMouseDown)
+		.Cursor(this, &ThisClassPin::GetPinCursor);
 	if (GraphSchema->OnGetActualPinWidget.IsBound())
 	{
 		auto Widget = GraphSchema->OnGetActualPinWidget.Execute(FJavascriptEdGraphPin{ const_cast<UEdGraphPin*>(GraphPinObj) }).Widget;
@@ -64,12 +64,12 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 	TSharedRef<SWidget> PinStatusIndicator =
 		SNew(SButton)
 		.ButtonStyle(FEditorStyle::Get(), NAME_NoBorder)
-		.Visibility(this, &ThisClass::GetPinStatusIconVisibility)
+		.Visibility(this, &ThisClassPin::GetPinStatusIconVisibility)
 		.ContentPadding(0)
-		.OnClicked(this, &ThisClass::ClickedOnPinStatusIcon)
+		.OnClicked(this, &ThisClassPin::ClickedOnPinStatusIcon)
 		[
 			SNew(SImage)
-			.Image(this, &ThisClass::GetPinStatusIcon)
+			.Image(this, &ThisClassPin::GetPinStatusIcon)
 		];
 	if (GraphSchema->OnGetPinStatusIndicator.IsBound())
 	{
@@ -81,10 +81,10 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 	}
 
 	TSharedRef<SWidget> InLabelWidget = SNew(STextBlock)
-		.Text(this, &ThisClass::GetPinLabel)
+		.Text(this, &ThisClassPin::GetPinLabel)
 		.TextStyle(FEditorStyle::Get(), InArgs._PinLabelStyle)
-		.Visibility(this, &ThisClass::GetPinLabelVisibility)
-		.ColorAndOpacity(this, &ThisClass::GetPinTextColor);
+		.Visibility(this, &ThisClassPin::GetPinLabelVisibility)
+		.ColorAndOpacity(this, &ThisClassPin::GetPinTextColor);
 	TSharedRef<SWidget> InValueWidget = SNew(SBox);
 	if (GraphSchema->OnGetValueWidget.IsBound())
 	{
@@ -95,13 +95,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 		}
 	}
 	// Create the widget used for the pin body (status indicator, label, and value)
-#if ENGINE_MINOR_VERSION > 22
-	LabelAndValue =
-#else
-	TSharedRef<SWrapBox> LabelAndValue =
-#endif
-		SNew(SWrapBox)
-		.PreferredWidth(150.f);
+	LabelAndValue = SNew(SWrapBox).PreferredWidth(150.f);
 
 	if (bIsInput)
 	{
@@ -123,7 +117,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 			[
 				SNew(SBox)
 				.Padding(0.0f)
-			.IsEnabled(this, &ThisClass::IsEditingEnabled)
+			.IsEnabled(this, &ThisClassPin::IsEditingEnabled)
 			[
 				InValueWidget
 			]
@@ -143,7 +137,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 			[
 				SNew(SBox)
 				.Padding(0.0f)
-			.IsEnabled(this, &ThisClass::IsEditingEnabled)
+			.IsEnabled(this, &ThisClassPin::IsEditingEnabled)
 			[
 				InValueWidget
 			]
@@ -173,11 +167,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			[
-#if ENGINE_MINOR_VERSION > 22
 				LabelAndValue.ToSharedRef()
-#else
-				LabelAndValue
-#endif
 			];
 	}
 	else
@@ -188,11 +178,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			[
-#if ENGINE_MINOR_VERSION > 22
-				LabelAndValue.ToSharedRef()
-#else
-				LabelAndValue
-#endif			
+				LabelAndValue.ToSharedRef()		
 			]
 		+ SHorizontalBox::Slot()
 			.AutoWidth()
@@ -207,10 +193,10 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 	SBorder::Construct(SBorder::FArguments()
 		.BorderImage(this, &SJavascriptGraphPin::GetPinBorder)
 		.BorderBackgroundColor(this, &SJavascriptGraphPin::GetPinColor)
-		.OnMouseButtonDown(this, &ThisClass::OnPinNameMouseDown)
+		.OnMouseButtonDown(this, &ThisClassPin::OnPinNameMouseDown)
 		[
 			SNew(SLevelOfDetailBranchNode)
-			.UseLowDetailSlot(this, &ThisClass::UseLowDetailPinNames)
+			.UseLowDetailSlot(this, &ThisClassPin::UseLowDetailPinNames)
 		.LowDetail()
 		[
 			//@TODO: Try creating a pin-colored line replacement that doesn't measure text / call delegates but still renders

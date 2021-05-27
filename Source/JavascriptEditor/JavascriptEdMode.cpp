@@ -4,11 +4,12 @@
 
 #if WITH_EDITOR
 #include "Components/Widget.h"
+#include "EditorFramework/Public/Toolkits/ToolkitManager.h"
 #include "EditorModeManager.h"
 #include "EdMode.h"
 #include "Engine/Canvas.h"
 #include "JavascriptUMG/SJavascriptBox.h"
-#include "Toolkits/ToolkitManager.h"
+
 
 /** Util to find named canvas in transient package, and create if not found */
 static UCanvas* GetCanvasByName(FName CanvasName)
@@ -388,7 +389,7 @@ public:
 		return MakeShareable(new FJavascriptEdModeInstance(Parent));
 	}
 
-#if ENGINE_MINOR_VERSION < 26
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 26
 	virtual UEdMode* CreateScriptableMode() const override
 	{
 		return nullptr;

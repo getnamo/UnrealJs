@@ -77,7 +77,7 @@ public class V8 : ModuleRules
 
         bool bHasZlib = false;
 
-        if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
+        if (Target.Platform == UnrealTargetPlatform.Win64)
         {
             PlatformSubdir = Path.Combine(PlatformSubdir, "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
             bHasZlib = true;
@@ -103,18 +103,11 @@ public class V8 : ModuleRules
         int[] v8_version = GetV8Version();
         bool ShouldLink_libsampler = !(v8_version[0] == 5 && v8_version[1] < 3);
         bool ShouldLink_lib_v8_compiler = (v8_version[0] > 6 && v8_version[1] > 6);
-        if ((Target.Platform == UnrealTargetPlatform.Win64) || (Target.Platform == UnrealTargetPlatform.Win32))
+        if (Target.Platform == UnrealTargetPlatform.Win64)
         {
             string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib");
 
-            if (Target.Platform == UnrealTargetPlatform.Win64)
-            {
-                LibrariesPath = Path.Combine(LibrariesPath, "Win64");
-            }
-            else
-            {
-                LibrariesPath = Path.Combine(LibrariesPath, "Win32");
-            }
+            LibrariesPath = Path.Combine(LibrariesPath, "Win64");
 
             if (Target.Configuration == UnrealTargetConfiguration.Debug)
             {

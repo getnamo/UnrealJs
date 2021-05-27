@@ -64,15 +64,11 @@ void UJavascriptUICommands::Uninitialize()
 
 void UJavascriptUICommands::BroadcastCommandsChanged(const FString& InContextName)
 {
-#if ENGINE_MINOR_VERSION > 14
 	TSharedPtr<FBindingContext> ExistingBindingContext = FInputBindingManager::Get().GetContextByName(*InContextName);
 	if (ExistingBindingContext.IsValid())
 	{
 		FBindingContext::CommandsChanged.Broadcast(*ExistingBindingContext);
 	}
-#else
-	FBindingContext::CommandsChanged.Broadcast();
-#endif
 }
 
 void UJavascriptUICommands::Refresh()
