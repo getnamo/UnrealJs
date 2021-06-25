@@ -19,8 +19,6 @@ class V8_API UJavascriptInstanceComponent : public UActorComponent
 
 public:
 
-
-
 	//Blueprint notifications
 	//Called before script start
 	UPROPERTY(BlueprintAssignable)
@@ -33,6 +31,14 @@ public:
 	//Called just after a script finished
 	UPROPERTY(BlueprintAssignable)
 	FJsInstBPNoParamDelegate OnScriptInitPassEnd;
+
+	//Called after instance shutdown (not necessarily a reload)
+	UPROPERTY(BlueprintAssignable)
+	FJsInstBPNoParamDelegate OnShutdownCompleteCallback;
+
+	//Called between shutdown and reload and start (non-fast reload)
+	UPROPERTY(BlueprintAssignable)
+	FJsInstBPNoParamDelegate OnInterReload;
 
 	//These are only called on javascript side
 	UPROPERTY()
@@ -50,6 +56,7 @@ public:
 
 	UPROPERTY()
 	FJsInstBytesMessageSignature OnBytesMessage;
+
 
 	//Specify common domain/uniqueness etc of instance
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category= "Javascript Instance Component")

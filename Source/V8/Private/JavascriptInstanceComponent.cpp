@@ -35,6 +35,7 @@ void UJavascriptInstanceComponent::EmitBytes(const FString& Name, const TArray<u
 void UJavascriptInstanceComponent::Reload()
 {
 	ShutDownInstance();
+	OnInterReload.Broadcast();
 	StartupInstanceAndRun();
 }
 
@@ -213,6 +214,8 @@ void UJavascriptInstanceComponent::ShutDownInstance()
 
 	MainHandler->ReleaseInstance(Instance);
 	Instance = nullptr;
+
+	OnShutdownCompleteCallback.Broadcast();
 }
 
 void UJavascriptInstanceComponent::InitializeComponent()
