@@ -64,6 +64,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RunScriptInLambda(int32 InLambdaId, const FString& Script);
 
+	/** Attempts to expose an already created uobject on remote thread */
+	UFUNCTION(BlueprintCallable)
+	void ExposeObjectInLambda(int32 InLambdaId, UObject* Object, const FString& Name);
+
 	/** if this lambda is pinned, it will unpin it*/
 	UFUNCTION(BlueprintCallable)
 	void StopLambda(int32 InLambdaId);

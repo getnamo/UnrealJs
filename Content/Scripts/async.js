@@ -105,10 +105,17 @@ class CallbackHandler {
 
 	//PUBLIC API: stop the lambda and cleanup
 	stop(){
+		console.log('lambda stop received.');
+		
 		Async.instance.StopLambda(this.lambdaId);
 
 		//todo: cleanup handler data
 		delete Async.instance.Callbacks[this.lambdaId];
+	}
+
+	//PUBLIC API: expose uobject
+	exposeAs(object, name){
+		Async.instance.ExposeObjectInLambda(this.lambdaId, object, name);
 	}
 };
 
@@ -203,12 +210,15 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	}
 	
 	//function JSON stringifies any result
-	const wrappedFunctionString = `\nJSON.stringify({result:lambda(), exports:Object.getOwnPropertyNames(exports)});\n`;
-	const finalScript = `globalThis.exports = {}; globalThis.lambda = undefined; {\n` + 
-						`_asyncUtil.parseArgs = ${Async.ParseArgs.toString()}\n` + 
-						`lambda = ${rawFunction.toString()};` +
-						captureString + 
-						wrappedFunctionString + 
+	const wrappedFunctionString = `\nJSON.stringify({
+		result: lambda(), 
+		exports: Object.getOwnPropertyNames(exports)
+	});\n`;
+	const finalScript = `\nglobalThis.exports = {}; \nglobalThis.lambda = undefined; \n{\n` + 
+						`\t_asyncUtil.parseArgs = ${Async.ParseArgs.toString()}\n` + 
+						`\tlambda = ${rawFunction.toString()};\n` + 
+						`\t` + captureString + 
+						`\t` + wrappedFunctionString + 
 						'\n}';
 
 

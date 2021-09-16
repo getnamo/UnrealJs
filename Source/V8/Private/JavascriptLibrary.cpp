@@ -180,7 +180,7 @@ void UJavascriptLibrary::SetClientTravel(UEngine* Engine, UWorld *InWorld, FStri
 
 UPackage* UJavascriptLibrary::CreatePackage(UObject* Outer, FString PackageName)
 {
-	return ::CreatePackage(Outer, *PackageName);
+	return ::CreatePackage(*PackageName);
 }
 
 UPackage* UJavascriptLibrary::FindPackage(UObject* InOuter, FString PackageName)
@@ -708,22 +708,22 @@ FJavascriptStreamableManager UJavascriptLibrary::CreateStreamableManager()
 	return{ MakeShareable<FStreamableManager>(new FStreamableManager) };
 }
 
-void UJavascriptLibrary::SimpleAsyncLoad(const FJavascriptStreamableManager& Manager, FStringAssetReference const& Target, int32 Priority)
+void UJavascriptLibrary::SimpleAsyncLoad(const FJavascriptStreamableManager& Manager, FSoftObjectPath const& Target, int32 Priority)
 {
 	Manager->RequestAsyncLoad(Target, FStreamableDelegate(), Priority, true);
 }
 
-void UJavascriptLibrary::Unload(const FJavascriptStreamableManager& Manager, FStringAssetReference const& Target)
+void UJavascriptLibrary::Unload(const FJavascriptStreamableManager& Manager, FSoftObjectPath const& Target)
 {
 	Manager->Unload(Target);
 }
 
-bool UJavascriptLibrary::IsAsyncLoadComplete(const FJavascriptStreamableManager& Manager, FStringAssetReference const& Target)
+bool UJavascriptLibrary::IsAsyncLoadComplete(const FJavascriptStreamableManager& Manager, FSoftObjectPath const& Target)
 {
 	return Manager->IsAsyncLoadComplete(Target);
 }
 
-void UJavascriptLibrary::RequestAsyncLoad(const FJavascriptStreamableManager& Manager, const TArray<FStringAssetReference>& TargetsToStream, FJavascriptFunction DelegateToCall, int32 Priority)
+void UJavascriptLibrary::RequestAsyncLoad(const FJavascriptStreamableManager& Manager, const TArray<FSoftObjectPath>& TargetsToStream, FJavascriptFunction DelegateToCall, int32 Priority)
 {
 	auto Copy = new FJavascriptFunction;
 	*Copy = DelegateToCall;

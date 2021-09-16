@@ -99,6 +99,14 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 								});
 							}
 						}
+						//expose object case, NB: hmm should these be an enum instead of a collection of bools?
+						else if (MessageFunctionData.bHasExposedObject)
+						{
+							if (MessageFunctionData.ExposedObject != nullptr)
+							{
+								NewInstance->ContextSettings.Context->Expose(MessageFunctionData.Args, MessageFunctionData.ExposedObject);
+							}
+						}
 						else
 						{
 							//The message wanted to run some raw script without return
@@ -134,6 +142,18 @@ void UJavascriptAsync::RunScriptInLambda(int32 InLambdaId, const FString& Script
 {
 	FJavascriptRemoteFunctionData MessageData;
 	MessageData.Event = Script;
+	MessageData.bIsFunctionCall = false;
+
+	LambdaMapData.DataForId(InLambdaId).MessageQueue->Enqueue(MessageData);
+}
+
+
+void UJavascriptAsync::ExposeObjectInLambda(int32 InLambdaId, UObject* Object, const FString& Name)
+{
+	FJavascriptRemoteFunctionData MessageData;
+	MessageData.bHasExposedObject = true;
+	MessageData.ExposedObject = Object;
+	MessageData.Args = Name;
 	MessageData.bIsFunctionCall = false;
 
 	LambdaMapData.DataForId(InLambdaId).MessageQueue->Enqueue(MessageData);

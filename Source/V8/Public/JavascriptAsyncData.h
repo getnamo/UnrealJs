@@ -38,7 +38,18 @@ struct FJavascriptRemoteFunctionData
 	UPROPERTY()
 	bool bIsFunctionCall;
 
-	FJavascriptRemoteFunctionData() { bIsFunctionCall = true; }
+	UPROPERTY()
+	bool bHasExposedObject;
+
+	UPROPERTY()
+	UObject* ExposedObject;
+
+	FJavascriptRemoteFunctionData() 
+	{
+		bIsFunctionCall = true;
+		bHasExposedObject = false;
+		ExposedObject = nullptr;
+	}
 };
 
 struct FJavascriptAsyncLambdaPinData
