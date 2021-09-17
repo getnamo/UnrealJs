@@ -52,9 +52,18 @@ public:
 	UFUNCTION(BlueprintCallable)
 	int32 NextLambdaId();
 
+	/** Called by Async.js to expose uobjects before main script runs */
+	UFUNCTION(BlueprintCallable)
+	void PreExposeObject(UObject* Object, const FString& Name);
+
+	UFUNCTION(BlueprintCallable)
+	void ClearPreExposures();
+
 	/** Run script on background thread, returns unique id for this run*/
 	UFUNCTION(BlueprintCallable)
-	int32 RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext = EJavascriptAsyncOption::ThreadPool, bool bPinAfterRun = false);
+	int32 RunScript(const FString& Script, 
+					EJavascriptAsyncOption ExecutionContext = EJavascriptAsyncOption::ThreadPool, 
+					bool bPinAfterRun = false);
 
 	/** calls function on remote thread and gives result in 'OnMessage' */
 	UFUNCTION(BlueprintCallable)
@@ -85,6 +94,8 @@ protected:
 	static int32 IdCounter;
 	static TSharedPtr<FJavascriptInstanceHandler> MainHandler;
 	TSharedPtr<FJavascriptInstance> LambdaInstance;
+
+	TMap<FString, UObject*> PreExposures;
 
 	UJavascriptCallableWrapper* CallableWrapper;
 

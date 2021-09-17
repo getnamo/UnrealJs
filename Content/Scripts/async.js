@@ -9,6 +9,25 @@ Async.instance = Async.StaticInstance();
 Async.instance.Callbacks = {};
 Async.DevLog = console.log;
 
+Async.TypeObj = (obj, showFullClass) => {
+
+	// get toPrototypeString() of obj (handles all types)
+	if (showFullClass && typeof obj === "object") {
+		return Object.prototype.toString.call(obj);
+	}
+	if (obj == null) { return (obj + '').toLowerCase(); } // implicit toString() conversion
+
+	var deepType = Object.prototype.toString.call(obj).slice(8,-1).toLowerCase();
+	if (deepType === 'generatorfunction') { return 'function' }
+
+	// Prevent overspecificity (for example, [object HTMLDivElement], etc).
+	// Account for functionish Regexp (Android <=2.3), functionish <object> element (Chrome <=57, Firefox <=52), etc.
+	// String.prototype.match is universally supported.
+
+	return deepType.match(/^(array|bigint|date|error|function|generator|regexp|symbol)$/) ? deepType :
+	   (typeof obj === 'object' || typeof obj === 'function') ? 'object' : typeof obj;
+}
+
 //Safe way of handling json parsing
 Async.ParseArgs = (args)=>{
     try {
@@ -185,6 +204,8 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	let didFindFunctions = false;	//affects whether we want to pin the lambda after run, 
 									//or if it's disposable
 
+	Async.instance.ClearPreExposures();
+
 	if(typeof(capture) === 'function'){
 		//we don't have captures, it's expecting (function, callback)
 		callback = rawFunction;
@@ -193,12 +214,21 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	else{
 		//find all function passes
 		for(let key in capture) {
-			if(typeof(capture[key]) === 'function'){
+			const keyType = typeof(capture[key]);
+			
+			console.log('Type1: ' + keyType);
+			console.log(Async.TypeObj(capture[key], true))
+
+			if(keyType === 'function'){
 				//Async.DevLog(`found function ${key}`);
 				captureString += handler._addBridge(key, capture[key]);
 
 				//captureString += 'console.log("Global: " + JSON.stringify(globalThis));\n';
 				didFindFunctions = true;	//pinning should only happen if we export?
+			}
+			else if (capture[key].GetObjectClass !== undefined){
+				//console.log('this one right here');
+				Async.instance.PreExposeObject(capture[key], key);
 			}
 			else{
 				captureString += `let ${key} = _asyncUtil.parseArgs(${JSON.stringify(capture[key])});\n`;

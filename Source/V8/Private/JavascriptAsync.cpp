@@ -34,6 +34,18 @@ int32 UJavascriptAsync::NextLambdaId()
 	return IdCounter + 1;
 }
 
+
+void UJavascriptAsync::PreExposeObject(UObject* Object, const FString& Name)
+{
+	PreExposures.Add(Name, Object);
+}
+
+
+void UJavascriptAsync::ClearPreExposures()
+{
+	PreExposures.Empty();
+}
+
 int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext, bool bPinAfterRun)
 {
 	FJSInstanceOptions InstanceOptions;
@@ -60,6 +72,16 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 			//Expose async callbacks
 			NewInstance->ContextSettings.Context->Expose(TEXT("_asyncUtil"), CallableWrapper);
 			const FString ExposeAdditional = TEXT("_asyncUtil.Callbacks = {}; _asyncUtil.CallbackIndex = 0;");
+
+			//Pre-expose any uobjects
+			if (PreExposures.Num() > 0)
+			{
+				for (auto& Pair : PreExposures)
+				{
+					NewInstance->ContextSettings.Context->Expose(Pair.Key, Pair.Value);
+				}
+				PreExposures.Empty();
+			}
 			
 			//run the main lambda script
 			FString ReturnValue = NewInstance->ContextSettings.Context->Public_RunScript(ExposeAdditional + SafeScript, false);
