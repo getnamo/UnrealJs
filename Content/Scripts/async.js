@@ -215,9 +215,6 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 		//find all function passes
 		for(let key in capture) {
 			const keyType = typeof(capture[key]);
-			
-			console.log('Type1: ' + keyType);
-			console.log(Async.TypeObj(capture[key], true))
 
 			if(keyType === 'function'){
 				//Async.DevLog(`found function ${key}`);
@@ -229,6 +226,8 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 			else if (capture[key].GetObjectClass !== undefined){
 				//console.log('this one right here');
 				Async.instance.PreExposeObject(capture[key], key);
+
+				console.log('pre exposed: ' + key);
 			}
 			else{
 				captureString += `let ${key} = _asyncUtil.parseArgs(${JSON.stringify(capture[key])});\n`;
@@ -244,6 +243,8 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 		result: lambda(), 
 		exports: Object.getOwnPropertyNames(exports)
 	});\n`;
+
+	//try{ lambda() } catch(e){ console.log('caught something'); }
 	const finalScript = `\nglobalThis.exports = {}; \nglobalThis.lambda = undefined; \n{\n` + 
 						`\t_asyncUtil.parseArgs = ${Async.ParseArgs.toString()}\n` + 
 						`\tlambda = ${rawFunction.toString()};\n` + 
@@ -260,7 +261,7 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	handler.pinned = didFindFunctions;
 	
 	//Debug log final script
-	//Async.DevLog(`Script: <${finalScript}>, found functions: ${didFindFunctions}`);
+	Async.DevLog(`Script: <${finalScript}>, found functions: ${didFindFunctions}`);
 	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions);
 
 	handler.lambdaId = lambdaId;
