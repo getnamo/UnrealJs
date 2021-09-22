@@ -63,7 +63,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	int32 RunScript(const FString& Script, 
 					EJavascriptAsyncOption ExecutionContext = EJavascriptAsyncOption::ThreadPool, 
-					bool bPinAfterRun = false);
+					bool bPinAfterRun = false,
+					bool bEnableRequire = false);
 
 	/** calls function on remote thread and gives result in 'OnMessage' */
 	UFUNCTION(BlueprintCallable)

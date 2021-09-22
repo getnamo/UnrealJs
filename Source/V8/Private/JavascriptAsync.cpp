@@ -46,14 +46,15 @@ void UJavascriptAsync::ClearPreExposures()
 	PreExposures.Empty();
 }
 
-int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext, bool bPinAfterRun)
+int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption ExecutionContext, bool bPinAfterRun,
+	bool bEnableRequire)
 {
 	FJSInstanceOptions InstanceOptions;
 	InstanceOptions.ThreadOption = ExecutionContext;
 	const int32 LambdaId = ++IdCounter;
 
 	const FString SafeScript = Script;
-	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript, LambdaId, bPinAfterRun, this](TSharedPtr<FJavascriptInstance> NewInstance, EJSInstanceResultType ResultType)
+	FJavascriptInstanceHandler::GetMainHandler().Pin()->RequestInstance(InstanceOptions, [SafeScript, LambdaId, bPinAfterRun, bEnableRequire, this](TSharedPtr<FJavascriptInstance> NewInstance, EJSInstanceResultType ResultType)
 	{
 		//Convert context
 		const EAsyncExecution AsyncExecutionContext = FJavascriptAsyncUtil::ToAsyncExecution(NewInstance->Options.ThreadOption);
@@ -67,8 +68,14 @@ int32 UJavascriptAsync::RunScript(const FString& Script, EJavascriptAsyncOption 
 		//Expose function callback feature
 		FJavascriptAsyncLambdaPinData& PinData = LambdaMapData.DataForId(LambdaId);
 
-		Async(AsyncExecutionContext, [NewInstance, SafeScript, LambdaId, bPinAfterRun, &PinData, this]()
+		Async(AsyncExecutionContext, [NewInstance, bEnableRequire, SafeScript, LambdaId, bPinAfterRun, &PinData, this]()
 		{
+			//Enable require is exposed
+			if (bEnableRequire)
+			{
+				NewInstance->ContextSettings.Context->ExposeUModule();
+			}
+
 			//Expose async callbacks
 			NewInstance->ContextSettings.Context->Expose(TEXT("_asyncUtil"), CallableWrapper);
 			const FString ExposeAdditional = TEXT("_asyncUtil.Callbacks = {}; _asyncUtil.CallbackIndex = 0;");

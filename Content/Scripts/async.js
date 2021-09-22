@@ -197,7 +197,7 @@ Async.instance.OnAsyncCall = (name, args, lambdaId, callbackId) => {
 
 //console.log(JSON.stringify(Async.instance))
 
-Async.Lambda = (capture, rawFunction, callback)=>{
+Async.Lambda = (capture, rawFunction, callback, {enableRequire=false}={})=>{
 	let captureString = "";
 	let handler = new CallbackHandler(Async.instance.NextLambdaId());
 
@@ -262,7 +262,7 @@ Async.Lambda = (capture, rawFunction, callback)=>{
 	
 	//Debug log final script
 	Async.DevLog(`Script: <${finalScript}>, found functions: ${didFindFunctions}`);
-	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions);
+	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions, enableRequire);
 
 	handler.lambdaId = lambdaId;
 	handler._setReturn(callback);
