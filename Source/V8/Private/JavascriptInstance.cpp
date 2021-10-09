@@ -95,6 +95,7 @@ bool FJSInstanceOptions::UsesGameThread() const
 
 FJSInstanceOptions::FJSInstanceOptions()
 {
+	bEnabled = true;
 	IsolateDomain = TEXT("default");
 	ThreadOption = EJavascriptAsyncOption::TaskGraphMainThread;
 	Features = FJavascriptFeatures();	//no features is default

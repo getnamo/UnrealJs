@@ -51,6 +51,10 @@ struct V8_API FJSInstanceOptions
 {
 	GENERATED_USTRUCT_BODY();
 
+	//Quick disable option. Can only change on startup
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	bool bEnabled;
+
 	//Will determine isolate/context domains if non-unique option is set
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
 	FString IsolateDomain;

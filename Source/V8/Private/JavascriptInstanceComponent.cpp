@@ -221,7 +221,11 @@ void UJavascriptInstanceComponent::ShutDownInstance()
 void UJavascriptInstanceComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
-	StartupInstanceAndRun();
+
+	if (InstanceOptions.bEnabled)
+	{
+		StartupInstanceAndRun();
+	}
 }
 
 void UJavascriptInstanceComponent::UninitializeComponent()
