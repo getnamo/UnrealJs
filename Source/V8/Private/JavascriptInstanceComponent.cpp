@@ -237,8 +237,11 @@ void UJavascriptInstanceComponent::UninitializeComponent()
 		return;
 	}
 
-	ShutDownInstance();
-	
+	if (InstanceOptions.bEnabled && Instance)
+	{
+		ShutDownInstance();
+	}
+
 	Super::UninitializeComponent();
 }
 
