@@ -122,7 +122,8 @@ public:
 			Outer->Commands->Bind(&(GetToolkitCommands().Get()));
 		}
 
-		TSharedPtr<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::FLayout::NewFromString(Outer->Layout.Replace(TEXT("#toolbartab"), *(GetToolbarTabId().ToString())));
+		//Fix note: toolbar removed in ue5 preview, replacing toolbar ID with None
+		TSharedPtr<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::FLayout::NewFromString(Outer->Layout.Replace(TEXT("#toolbartab"), TEXT("None")));
 
 		// Initialize the asset editor and spawn nothing (dummy layout)
 		InitAssetEditor(Mode, EditWithinLevelEditor, Outer->ToolkitFName, StandaloneDefaultLayout.ToSharedRef(), /*bCreateDefaultStandaloneMenu=*/ true, /*bCreateDefaultToolbar=*/ true, InObjects);

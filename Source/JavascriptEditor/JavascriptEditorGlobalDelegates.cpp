@@ -37,8 +37,6 @@ OP_REFLECT(ResumePIE)\
 OP_REFLECT(SingleStepPIE)\
 OP_REFLECT(PropertySelectionChange)\
 OP_REFLECT(PostLandscapeLayerUpdated)\
-OP_REFLECT(PreSaveWorld)\
-OP_REFLECT(PostSaveWorld)\
 OP_REFLECT(OnFinishPickingBlueprintClass)\
 OP_REFLECT(OnConfigureNewAssetProperties)\
 OP_REFLECT(OnNewAssetCreated)\
@@ -66,6 +64,9 @@ OP_REFLECT(OnDeleteActorsBegin)\
 OP_REFLECT(OnDeleteActorsEnd)\
 OP_REFLECT(OnDuplicateActorsBegin)\
 OP_REFLECT(OnDuplicateActorsEnd)
+
+/*OP_REFLECT(PreSaveWorld)\
+OP_REFLECT(PostSaveWorld)\*/
 
 #define DO_REFLECT_MAINFRAME() \
 OP_REFLECT_MAINFRAME(OnMainFrameCreationFinished)

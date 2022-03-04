@@ -5,7 +5,6 @@
 #include "JavascriptMenuLibrary.h"
 #include "JavascriptInputEventStateLibrary.h"
 #include "Editor/Transactor.h"
-#include "Engine/Brush.h"
 #include "Framework/Docking/WorkspaceItem.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Engine/CurveTable.h"
@@ -258,12 +257,6 @@ class JAVASCRIPTEDITOR_API UJavascriptEditorLibrary : public UBlueprintFunctionL
 	static void SetIsTemporarilyHiddenInEditor(AActor* Actor, bool bIsHidden);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
-	static ABrush* GetDefaultBrush(UWorld* World);
-
-	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
-	static bool Build(UBrushBuilder* Builder, UWorld* InWorld, ABrush* InBrush = nullptr);
-
-	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static void Select(USelection* Selection, UObject* InObject);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
@@ -277,9 +270,6 @@ class JAVASCRIPTEDITOR_API UJavascriptEditorLibrary : public UBlueprintFunctionL
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static int32 GetSelectedObjects(USelection* Selection, TArray<UObject*>& Out);
-
-	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
-	static ABrush* csgAdd(ABrush* DefaultBrush, int32 PolyFlags, EBrushType BrushType);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static void ModifyObject(UObject* Object, bool bAlwaysMarkDirty = false);
@@ -458,9 +448,6 @@ class JAVASCRIPTEDITOR_API UJavascriptEditorLibrary : public UBlueprintFunctionL
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript | Editor")
 	static bool DeletePackage(UPackage* Package);
-
-	UFUNCTION(BlueprintCallable, Category = "Javascript | Editor")
-	static void CreateBrushForVolumeActor(AVolume* NewActor, UBrushBuilder* BrushBuilder);
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript | Editor")
 	static UWorld* FindWorldInPackage(UPackage* Package);

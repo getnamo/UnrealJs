@@ -496,7 +496,7 @@ bool SJavascriptGraphEdNode::InSelectionArea() const
 		(MouseZone == CRWZ_TopRightBorder) || (MouseZone == CRWZ_BottomLeftBorder));
 }
 
-void SJavascriptGraphEdNode::MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter)
+void SJavascriptGraphEdNode::MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter, bool bMarkDirty)
 {
 	auto GraphEdNode = CastChecked<UJavascriptGraphEdNode>(GraphNode);
 	auto Schema = CastChecked<UJavascriptGraphAssetGraphSchema>(GraphNode->GetSchema());

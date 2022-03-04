@@ -11,7 +11,6 @@
 #include "Editor/LandscapeEditor/Private/LandscapeEdModeTools.h"
 #include "JavascriptContext.h"
 #include "DynamicMeshBuilder.h"
-#include "BSPOps.h"
 #include "Misc/HotReloadInterface.h"
 #include "JavascriptUMG/JavascriptWindow.h"
 #include "JavascriptUMG/JavascriptUMGLibrary.h"
@@ -27,11 +26,9 @@
 #include "LandscapeDataAccess.h"
 #include "LandscapeEdit.h"
 
-#include "Engine/BrushBuilder.h"
 #include "Engine/Selection.h"
 #include "EngineUtils.h"
 #include "GameFramework/Volume.h"
-#include "Components/BrushComponent.h"
 
 #include "../../Launch/Resources/Version.h"
 #include "HAL/PlatformFilemanager.h"
@@ -281,16 +278,6 @@ void UJavascriptEditorLibrary::SetIsTemporarilyHiddenInEditor(AActor* Actor, boo
 	Actor->SetIsTemporarilyHiddenInEditor(bIsHidden);
 }
 
-ABrush* UJavascriptEditorLibrary::GetDefaultBrush(UWorld* World)
-{
-	return World->GetDefaultBrush();
-}
-
-bool UJavascriptEditorLibrary::Build(UBrushBuilder* Builder, UWorld* InWorld, ABrush* InBrush)
-{
-	return Builder->Build(InWorld, InBrush);
-}
-
 void UJavascriptEditorLibrary::Select(USelection* Selection, UObject* InObject)
 {
 	Selection->Select(InObject);
@@ -314,11 +301,6 @@ void UJavascriptEditorLibrary::DeselectAll(USelection* Selection, UClass* InClas
 int32 UJavascriptEditorLibrary::GetSelectedObjects(USelection* Selection, TArray<UObject*>& Out)
 {
 	return Selection->GetSelectedObjects(Out);
-}
-
-ABrush* UJavascriptEditorLibrary::csgAdd(ABrush* DefaultBrush, int32 PolyFlags, EBrushType BrushType)
-{
-	return FBSPOps::csgAddOperation(DefaultBrush, PolyFlags, BrushType);
 }
 
 void UJavascriptEditorLibrary::ModifyObject(UObject* Object, bool bAlwaysMarkDirty)
@@ -488,7 +470,7 @@ void UJavascriptEditorLibrary::DrawPolygon(const FJavascriptPDI& PDI, const TArr
 
 	for (const auto& V : Verts)
 	{
-		MeshBuilder.AddVertex(V, FVector2D(0, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), Color);
+		MeshBuilder.AddVertex(V, FVector2f(0, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), Color);
 	}
 
 	for (int32 Index = 0; Index < Verts.Num() - 2; ++Index)
@@ -850,41 +832,6 @@ bool UJavascriptEditorLibrary::DeletePackage(UPackage* Package)
 	return false;
 }
 
-void UJavascriptEditorLibrary::CreateBrushForVolumeActor(AVolume* NewActor, UBrushBuilder* BrushBuilder)
-{
-	if (NewActor != NULL)
-	{
-		// this code builds a brush for the new actor
-		NewActor->PreEditChange(NULL);
-
-		NewActor->PolyFlags = 0;
-		NewActor->Brush = NewObject<UModel>(NewActor, NAME_None, RF_Transactional);
-		NewActor->Brush->Initialize(nullptr, true);
-		NewActor->Brush->Polys = NewObject<UPolys>(NewActor->Brush, NAME_None, RF_Transactional);
-		NewActor->GetBrushComponent()->Brush = NewActor->Brush;
-		if (BrushBuilder != nullptr)
-		{
-			NewActor->BrushBuilder = DuplicateObject<UBrushBuilder>(BrushBuilder, NewActor);
-		}
-
-		BrushBuilder->Build(NewActor->GetWorld(), NewActor);
-
-		FBSPOps::csgPrepMovingBrush(NewActor);
-
-		// Set the texture on all polys to NULL.  This stops invisible textures
-		// dependencies from being formed on volumes.
-		if (NewActor->Brush)
-		{
-			for (int32 poly = 0; poly < NewActor->Brush->Polys->Element.Num(); ++poly)
-			{
-				FPoly* Poly = &(NewActor->Brush->Polys->Element[poly]);
-				Poly->Material = NULL;
-			}
-		}
-
-		NewActor->PostEditChange();
-	}
-}
 
 UWorld* UJavascriptEditorLibrary::FindWorldInPackage(UPackage* Package)
 {
