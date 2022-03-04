@@ -32,6 +32,11 @@ public:
 		Collector.AddReferencedObjects(DelegateObjects);
 	}
 
+	virtual FString GetReferencerName() const
+	{
+		return TEXT("FJavascriptDelegate");
+	}
+
 	FJavascriptDelegate(UObject* InObject, FProperty* InProperty)
 		: WeakObject(InObject), Property(InProperty)
 	{}

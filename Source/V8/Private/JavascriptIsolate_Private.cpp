@@ -649,7 +649,9 @@ public:
 		}
 		else if (auto p = CastField<FTextProperty>(Property))
 		{
+			//NB: PyTestStruct will fail here unless blocked from export
 			const FText& Data = p->GetPropertyValue_InContainer(Buffer);
+
 			if (!Flags.Alternative)
 			{
 				return V8_String(isolate_, Data.ToString());

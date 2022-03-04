@@ -129,8 +129,14 @@ struct FJavascriptEditorTabTracker : public FGCObject
 			}
 		}
 
-		Collector.AddReferencedObjects(Widgets);
-		Collector.AddReferencedObjects(Spawners);
+		if (Widgets.Num() > 0)
+		{
+			Collector.AddReferencedObjects(Widgets);
+		}
+		if (Spawners.Num() > 0)
+		{
+			Collector.AddReferencedObjects(Spawners);
+		}
 	}
 
 	bool bInit{ false };
