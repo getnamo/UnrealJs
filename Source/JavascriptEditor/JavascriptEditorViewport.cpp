@@ -329,14 +329,14 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 		SceneViewport->InvalidateDisplay();
 	}
 
-	void SetRealtime(bool bInRealtime, bool bStoreCurrentValue)
+	void AddRealtimeOverride(bool bInRealtime, FText SystemDisplayName)
 	{
-		EditorViewportClient->SetRealtime(bInRealtime, bStoreCurrentValue);
+		EditorViewportClient->AddRealtimeOverride(bInRealtime, SystemDisplayName);
 	}
 
-	void RestoreRealtime(bool bAllowDisable)
+	void RemoveRealtimeOverride(FText SystemDisplayName)
 	{
-		EditorViewportClient->RestoreRealtime(bAllowDisable);
+		EditorViewportClient->RemoveRealtimeOverride(SystemDisplayName);
 	}	
 
 	void SetBackgroundColor(const FLinearColor& BackgroundColor)
@@ -635,19 +635,19 @@ void UJavascriptEditorViewport::ReleaseSlateResources(bool bReleaseChildren)
 	ViewportWidget.Reset();
 }
 
-void UJavascriptEditorViewport::SetRealtime(bool bInRealtime, bool bStoreCurrentValue)
+void UJavascriptEditorViewport::AddRealtimeOverride(bool bInRealtime, FText SystemDisplayName)
 {
 	if (ViewportWidget.IsValid())
 	{
-		ViewportWidget->SetRealtime(bInRealtime,bStoreCurrentValue);
+		ViewportWidget->AddRealtimeOverride(bInRealtime, SystemDisplayName);
 	}
 }
 
-void UJavascriptEditorViewport::RestoreRealtime(bool bAllowDisable)
+void UJavascriptEditorViewport::RemoveRealtimeOverride(FText SystemDisplayName)
 {
 	if (ViewportWidget.IsValid())
 	{
-		ViewportWidget->RestoreRealtime(bAllowDisable);
+		ViewportWidget->RemoveRealtimeOverride(SystemDisplayName);
 	}
 }
 

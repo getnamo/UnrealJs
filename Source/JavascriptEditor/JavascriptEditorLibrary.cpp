@@ -58,6 +58,7 @@
 #include "Engine/DataTable.h"
 #include "Engine/EngineTypes.h"
 
+#include "UObject/SavePackage.h"
 #include "Kismet2/KismetEditorUtilities.h"
 //#include "Toolkits/AssetEditorManager.h"
 
@@ -470,7 +471,7 @@ void UJavascriptEditorLibrary::DrawPolygon(const FJavascriptPDI& PDI, const TArr
 
 	for (const auto& V : Verts)
 	{
-		MeshBuilder.AddVertex(V, FVector2f(0, 0), FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), Color);
+		MeshBuilder.AddVertex(FVector3f(V), FVector2f(0, 0), FVector3f(1, 0, 0), FVector3f(0, 1, 0), FVector3f(0, 0, 1), Color);
 	}
 
 	for (int32 Index = 0; Index < Verts.Num() - 2; ++Index)
@@ -615,9 +616,7 @@ FName UJavascriptEditorLibrary::GetFolderPath(AActor* Actor)
 
 void UJavascriptEditorLibrary::BroadcastHotReload()
 {
-	// Register to have Populate called when doing a Hot Reload.
-	IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
-	HotReloadSupport.OnHotReload().Broadcast(false);
+	FCoreUObjectDelegates::ReloadCompleteDelegate.Broadcast(EReloadCompleteReason::HotReloadManual);
 }
 
 void UJavascriptEditorLibrary::BroadcastAssetCreated(UObject* NewAsset)
@@ -812,11 +811,21 @@ bool UJavascriptEditorLibrary::SavePackage(UPackage* Package, FString FileName)
 
 	if (World)
 	{
-		bSavedCorrectly = UPackage::SavePackage(Package, World, RF_NoFlags, *FileName, GError, NULL, false, true);
+		FSavePackageArgs Args;
+		Args.Error = GError;
+		Args.bWarnOfLongFilename = true;
+		Args.bForceByteSwapping = false;
+		Args.TopLevelFlags = RF_NoFlags;
+		bSavedCorrectly = UPackage::SavePackage(Package, World, *FileName, Args);
 	}
 	else
 	{
-		bSavedCorrectly =  UPackage::SavePackage(Package, NULL, RF_Standalone, *FileName, GError, NULL, false, true);
+		FSavePackageArgs Args;
+		Args.Error = GError;
+		Args.bWarnOfLongFilename = true;
+		Args.bForceByteSwapping = false;
+		Args.TopLevelFlags = RF_Standalone;
+		bSavedCorrectly = UPackage::SavePackage(Package, NULL, *FileName, Args);;
 	}
 	return bSavedCorrectly;
 }
@@ -919,7 +928,7 @@ void UJavascriptEditorLibrary::RemoveLevelInstance(UWorld* World)
 
 void UJavascriptEditorLibrary::AddWhitelistedObject(UObject* InObject)
 {
-	FVisualLogger::Get().AddWhitelistedObject(*InObject);
+	FVisualLogger::Get().AddObjectToAllowList(*InObject);
 }
 
 void UJavascriptEditorLibrary::PostEditChange(UObject* InObject)
@@ -1261,13 +1270,13 @@ bool UJavascriptEditorLibrary::LoadImageFromDiskAsync(const FString& ImagePath, 
 #if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 					FWriteRawDataToTexture,
-					FTexture2DDynamicResource*, TextureResource, static_cast<FTexture2DDynamicResource*>(Texture->Resource),
+					FTexture2DDynamicResource*, TextureResource, static_cast<FTexture2DDynamicResource*>(Texture->GetResource()),
 					TArray<uint8>, RawData, *RawData,
 					{
 						WriteRawToTexture_RenderThread(TextureResource, RawData);
 					});
 #else
-				FTexture2DDynamicResource* TextureResource = static_cast<FTexture2DDynamicResource*>(Texture->Resource);
+				FTexture2DDynamicResource* TextureResource = static_cast<FTexture2DDynamicResource*>(Texture->GetResource());
 				TArray64<uint8> RawDataCopy = RawData;
 				ENQUEUE_RENDER_COMMAND(FWriteRawDataToTexture)(
 					[TextureResource, RawDataCopy](FRHICommandListImmediate& RHICmdList)

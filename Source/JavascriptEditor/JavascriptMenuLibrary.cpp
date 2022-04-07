@@ -27,7 +27,7 @@ bool UJavascriptMenuLibrary::ProcessCommandBindings_PointerEvent(FJavascriptUICo
 void UJavascriptMenuLibrary::CreateToolbarBuilder(FJavascriptUICommandList CommandList, EOrientation Orientation, FJavascriptFunction Function)
 {
 	FJavascriptMenuBuilder Out;
-	FToolBarBuilder Builder(CommandList.Handle, FMultiBoxCustomization::None, nullptr, Orientation);
+	FToolBarBuilder Builder(CommandList.Handle, FMultiBoxCustomization::None, nullptr);
 	Out.MultiBox = Out.ToolBar = &Builder;
 	Function.Execute(FJavascriptMenuBuilder::StaticStruct(), &Out);
 }
@@ -89,7 +89,7 @@ void UJavascriptMenuLibrary::AddSeparator(FJavascriptMenuBuilder& Builder)
 	else if (Builder.ToolMenu)
 	{
 		FToolMenuSection& Section = Builder.ToolMenu->Sections.Num() > 0 ? Builder.ToolMenu->Sections.Top() : Builder.ToolMenu->AddSection(FName());
-		Section.AddMenuSeparator(FName());
+		Section.AddSeparator(FName());
 	}
 }
 

@@ -93,7 +93,7 @@ public:
 	void SetBackgroundColor(const FLinearColor& BackgroundColor);
 
 	UFUNCTION(BlueprintCallable, Category = "Viewport")
-	void SetRealtime(bool bInRealtime, bool bStoreCurrentValue);
+	void AddRealtimeOverride(bool bInRealtime, FText SystemDisplayName);
 
 	UFUNCTION(BlueprintCallable, Category = "Viewport")
 	void SetViewLocation(const FVector& ViewLocation);
@@ -120,7 +120,7 @@ public:
 	int32 GetCameraSpeedSetting();
 
 	UFUNCTION(BlueprintCallable, Category = "Viewport")
-	void RestoreRealtime(bool bAllowDisable);
+	void RemoveRealtimeOverride(FText SystemDisplayName);
 
 	UFUNCTION(BlueprintCallable, Category = "Viewport")
 	void SetLightLocation(const FVector& InLightPos);
