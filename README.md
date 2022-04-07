@@ -7,7 +7,7 @@
 
 ## getnamo fork
 
-Some opinionated changes to add certain features for live gameplay coding.
+Some opinionated changes to add certain features for live gameplay coding. Not all upstream functionality is guaranteed, but best effort is used when upgrading engine versions.
 
 ### Async
 
