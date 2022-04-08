@@ -17,7 +17,7 @@ Call a function on a background thread and optionally expose communication bridg
 Format is 
 ```Async.Lambda( capture params, function, result callback );```
 
-See https://github.com/getnamo/Unreal.js-core/blob/master/Content/Scripts/async.js for detailed API.
+See https://github.com/getnamo/UnrealJs/blob/master/Content/Scripts/async.js for detailed API.
 
 ### JavascriptInstance
 
@@ -25,11 +25,11 @@ A javascript component with more fine-grained control over features exposed to j
 
 [![exposure.png](https://i.imgur.com/cZsjeRn.png)](https://twitter.com/getnamo/status/1271772156611817472)
 
-See https://github.com/getnamo/Unreal.js-core/blob/master/Source/V8/Public/JavascriptInstanceComponent.h for detailed API.
+See https://github.com/getnamo/UnrealJs/blob/master/Source/V8/Public/JavascriptInstanceComponent.h for detailed API.
 
 
 ### UModule Package Manager
 
 Should enable 'require' like include with code and asset support and simple external package management for modular development.
 
-WIP: https://github.com/getnamo/Unreal.js-core/tree/feature-umodule
+WIP: https://github.com/getnamo/UnrealJs/tree/feature-umodule
