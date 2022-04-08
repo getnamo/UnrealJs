@@ -125,7 +125,12 @@ public:
 		check(InArgs._Style);
 		check(InArgs._ExpanderStyleSet);
 
+#if WITH_EDITOR
 		this->BorderImage = TAttribute<const FSlateBrush*>(this, &SJavascriptItemRow::GetBorder);
+#else
+		UE_LOG(LogTemp, Warning, TEXT("SJavascriptItemRow::Construct:: Attempted BorderImage in non-editor context. Future note: Fix methods to support this."));
+#endif
+		
 		this->DoubleClickBrush = FSlateColorBrush(FLinearColor::Blue);
 	}
 

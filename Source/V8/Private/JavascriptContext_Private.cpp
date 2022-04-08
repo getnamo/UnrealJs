@@ -654,8 +654,6 @@ public:
 		Modules.Empty();
 	}
 
-
-
 	void ExportUnrealEngineClasses()
 	{
 		auto fn = [](const FunctionCallbackInfo<Value>& info) {
@@ -698,7 +696,14 @@ public:
 			// Create a blueprint
 			auto Blueprint = NewObject<UBlueprint>(Outer);
 			Blueprint->GeneratedClass = Class;
+
+//NOTE: temp disable for packaged build
+#if WITH_EDITOR
 			Class->ClassGeneratedBy = Blueprint;
+#else
+			UE_LOG(LogTemp, Warning, TEXT("ExportUnrealEngineClasses:: Attempted ClassGeneratedBy in non-editor context. Future note: Fix methods to support this."));
+#endif
+			
 
 			auto ClassConstructor = [](const FObjectInitializer& ObjectInitializer){
 				auto Class = static_cast<UBlueprintGeneratedClass*>(CurrentClassUnderConstruction ? CurrentClassUnderConstruction : ObjectInitializer.GetClass());
@@ -2527,10 +2532,15 @@ public:
 	{
 		UClass* Class = Cast<UClass>(TargetStruct);
 
+//NOTE: temp disable for packaged build
+#if WITH_EDITOR
 		if (Class && Class->ClassGeneratedBy && Cast<UBlueprint>(Class->ClassGeneratedBy)->BlueprintType == EBlueprintType::BPTYPE_LevelScript)
 		{
 			return true;
 		}
+#else
+		UE_LOG(LogTemp, Warning, TEXT("IsExcludeGCStructTarget:: Attempted set ClassGeneratedBy in non-editor context. Future note: Fix methods to support this."));
+#endif
 
 		return false;
 	}

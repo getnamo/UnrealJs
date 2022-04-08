@@ -908,7 +908,13 @@ TArray<UClass*> UJavascriptLibrary::GetSuperClasses(UClass* InClass)
 
 bool UJavascriptLibrary::IsGeneratedByBlueprint(UClass* InClass)
 {
+#if WITH_EDITOR
 	return NULL != Cast<UBlueprint>(InClass->ClassGeneratedBy);
+#else
+	UE_LOG(LogTemp, Warning, TEXT("UJavascriptLibrary::IsGeneratedByBlueprint:: Attempted ClassGeneratedBy in non-editor context. Future note: Fix methods to support this."));
+
+	return false;
+#endif
 }
 
 bool UJavascriptLibrary::IsPendingKill(AActor* InActor)
