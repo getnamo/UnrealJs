@@ -625,11 +625,39 @@ public:
 #else
 		if (false) {}
 #endif
-		else if (auto p = CastField<FIntProperty>(Property))
+		if (auto p = CastField<FIntProperty>(Property))
 		{
 			return Int32::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
 		}
+		else if (auto p = CastField<FUInt32Property>(Property))
+		{
+			return Uint32::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
+		}
+		else if (auto p = CastField<FInt64Property>(Property))
+		{
+			return Integer::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
+		}
+		else if (auto p = CastField<FUInt64Property>(Property))
+		{
+			return BigInt::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
+		}
+		else if (auto p = CastField<FInt8Property>(Property))
+		{
+			return Int32::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
+		}
+		else if (auto p = CastField<FInt16Property>(Property))
+		{
+			return Int32::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
+		}
+		else if (auto p = CastField<FUInt16Property>(Property))
+		{
+			return Uint32::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
+		}
 		else if (auto p = CastField<FFloatProperty>(Property))
+		{
+			return Number::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
+		}
+		else if (auto p = CastField<FDoubleProperty>(Property))
 		{
 			return Number::New(isolate_, p->GetPropertyValue_InContainer(Buffer));
 		}
