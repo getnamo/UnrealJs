@@ -78,7 +78,7 @@ struct TypingGeneratorBase
 struct TokenWriter
 {
 	TokenWriter(TypingGeneratorBase& generator)
-	: generator(generator)
+		: generator(generator)
 	{}
 
 	TypingGeneratorBase& generator;
@@ -99,38 +99,33 @@ struct TokenWriter
 	{
 		return *Text;
 	}
-	
+
 	void push(FProperty* Property)
 	{
-		if (auto p = CastField<FIntProperty>(Property))
-		{
-			push("number");
+#define PUSH_PROPERTY_TYPE(TYPE, VALUE)				\
+		if (CastField<const TYPE>(Property) != nullptr)	\
+		{											\
+			push(VALUE);							\
+			return;									\
 		}
-		else if (auto p = CastField<FFloatProperty>(Property))
-		{
-			push("number");
-		}
-		else if (auto p = CastField<FDoubleProperty>(Property))
-		{
-			push("number");
-		}
-		else if (auto p = CastField<FBoolProperty>(Property))
-		{
-			push("boolean");
-		}
-		else if (auto p = CastField<FNameProperty>(Property))
-		{
-			push("string");
-		}
-		else if (auto p = CastField<FStrProperty>(Property))
-		{
-			push("string");
-		}
-		else if (auto p = CastField<FTextProperty>(Property))
-		{
-			push("string");
-		}
-		else if (auto p = CastField<FClassProperty>(Property))
+
+		PUSH_PROPERTY_TYPE(FInt8Property, "number");
+		PUSH_PROPERTY_TYPE(FInt16Property, "number");
+		PUSH_PROPERTY_TYPE(FUInt16Property, "number");
+		PUSH_PROPERTY_TYPE(FIntProperty, "number");
+		PUSH_PROPERTY_TYPE(FUInt32Property, "number");
+		PUSH_PROPERTY_TYPE(FInt64Property, "number");
+		PUSH_PROPERTY_TYPE(FUInt64Property, "number");
+		PUSH_PROPERTY_TYPE(FFloatProperty, "number");
+		PUSH_PROPERTY_TYPE(FDoubleProperty, "number");
+		PUSH_PROPERTY_TYPE(FBoolProperty, "boolean");
+		PUSH_PROPERTY_TYPE(FNameProperty, "string");
+		PUSH_PROPERTY_TYPE(FStrProperty, "string");
+		PUSH_PROPERTY_TYPE(FTextProperty, "string");
+
+#undef PUSH_PROPERTY_TYPE
+
+		if (auto p = CastField<FClassProperty>(Property))
 		{
 			generator.Export(p->MetaClass);
 
@@ -148,6 +143,25 @@ struct TokenWriter
 
 			push(p->Inner);
 			push("[]");
+		}
+		else if (auto p = CastField<FSetProperty>(Property))
+		{
+			generator.Export(p->ElementProp);
+
+			push("Set<");
+			push(p->ElementProp);
+			push(">");
+		}
+		else if (auto p = CastField<FMapProperty>(Property))
+		{
+			generator.Export(p->KeyProp);
+			generator.Export(p->ValueProp);
+
+			push("Map<");
+			push(p->KeyProp);
+			push(", ");
+			push(p->ValueProp);
+			push(">");
 		}
 		else if (auto p = CastField<FByteProperty>(Property))
 		{
@@ -178,15 +192,15 @@ struct TokenWriter
 			push(p->SignatureFunction);
 			push(">");
 		}
-		else if (auto p = CastField<FObjectProperty>(Property))
+		else if (auto p = CastField<FObjectPropertyBase>(Property))
 		{
 			generator.Export(p->PropertyClass);
 			push(FV8Config::Safeify(p->PropertyClass->GetName()));
 		}
-		else if (auto p = CastField<FSoftObjectProperty>(Property))
+		else if (auto p = CastField<FInterfaceProperty>(Property))
 		{
-			generator.Export(p->PropertyClass);
-			push(FV8Config::Safeify(p->PropertyClass->GetName()));
+			generator.Export(p->InterfaceClass);
+			push(FV8Config::Safeify(p->InterfaceClass->GetName()));
 		}
 		else
 		{
@@ -253,14 +267,15 @@ struct TokenWriter
 struct TypingGenerator : TypingGeneratorBase
 {
 	TypingGenerator(FJavascriptIsolate& InEnvironment)
-	: Environment(InEnvironment)
+		: Environment(InEnvironment)
 	{}
 	virtual ~TypingGenerator() {}
 	FJavascriptIsolate& Environment;
 
 	FString Text;
 
-	TArray<FString> Folded;	
+	TArray<FString> Folded;
+	TArray<FString> GlobalNames;
 
 	void fold(bool force = false)
 	{
@@ -280,7 +295,7 @@ struct TypingGenerator : TypingGeneratorBase
 		w.push(enumName);
 		w.push(" = ");
 
-		
+		GlobalNames.Add(enumName);
 
 		auto EnumCount = source->NumEnums();
 
@@ -290,7 +305,7 @@ struct TypingGenerator : TypingGeneratorBase
 		{
 
 			auto name = source->GetNameStringByIndex(Index);
-			if ( StringLiteralVisited.Find(name) ) continue;
+			if (StringLiteralVisited.Find(name)) continue;
 			StringLiteralVisited.Add(name);
 		}
 
@@ -344,11 +359,13 @@ struct TypingGenerator : TypingGeneratorBase
 
 	virtual void ExportStruct(UStruct* source) override
 	{
-		TokenWriter w(*this);		
+		TokenWriter w(*this);
 
 		const auto name = FV8Config::Safeify(source->GetName());
 		auto super_class = source->GetSuperStruct();
-		
+
+		GlobalNames.Add(name);
+
 		w.tooltip("", source);
 
 		w.push("declare class ");
@@ -524,7 +541,7 @@ struct TypingGenerator : TypingGeneratorBase
 
 				if (!FV8Config::CanExportFunction(klass, Function)) continue;
 
-				write_function(Function,false);
+				write_function(Function, false);
 			}
 		}
 		else
@@ -555,7 +572,7 @@ struct TypingGenerator : TypingGeneratorBase
 		}
 
 		w.push("}\n\n");
-		
+
 		Text.Append(*w);
 
 		fold();
@@ -585,7 +602,7 @@ struct TypingGenerator : TypingGeneratorBase
 		w.push("}\n\n");
 
 		w.push("declare class Process {\n");
-		w.push("\tnextTick(fn : (number) => void): void;\n");		
+		w.push("\tnextTick(fn : (number) => void): void;\n");
 		w.push("}\n\n");
 		w.push("declare var process : Process;\n\n");
 
@@ -609,6 +626,20 @@ struct TypingGenerator : TypingGeneratorBase
 		w.push("}\n\n");
 
 		Text.Append(*w);
+
+		GlobalNames.Add("Process");
+		GlobalNames.Add("Memory");
+		GlobalNames.Add("memory");
+		GlobalNames.Add("GEngine");
+		GlobalNames.Add("GWorld");
+		GlobalNames.Add("Root");
+		GlobalNames.Add("Context");
+		GlobalNames.Add("$execEditor");
+		GlobalNames.Add("$execTransaction");
+		GlobalNames.Add("$time");
+		GlobalNames.Add("JavascriptUserObjectListEntry");
+		GlobalNames.Add("Base64");
+		GlobalNames.Add("JavascriptText");
 	}
 
 	void ExportWKO(FString name, UObject* Object)
@@ -667,5 +698,18 @@ struct TypingGenerator : TypingGeneratorBase
 		}
 
 		return true;
+	}
+
+	bool SaveGlobalNames(const FString& Filename)
+	{
+		FString Content;
+		Content.Append("module.exports = {\n");
+		for (auto name : GlobalNames)
+		{
+			Content.Append(FString::Printf(TEXT("\t%s: \'readonly\',\n"), *name));
+		}
+		Content.Append("};\n");
+
+		return FFileHelper::SaveStringToFile(Content, *Filename);
 	}
 };
