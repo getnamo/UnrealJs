@@ -2506,15 +2506,18 @@ public:
 			return true;
 		}
 
-		if (TargetObj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
-		{
-			return true;
-		}
-
 		if (TargetObj->IsA(AActor::StaticClass()) || TargetObj->IsA(UWorld::StaticClass()) || TargetObj->IsA(ULevel::StaticClass()) || TargetObj->IsA(UActorComponent::StaticClass()))
 		{
 			return true;
 		}
+
+		/* WARNING: removed section
+		//Get package locks when attempting to find with JavascriptAsync and instance...
+		if (TargetObj->GetPackage()->HasAnyPackageFlags(PKG_PlayInEditor))
+		{
+			return true;
+		}*/
+		
 		else if (TargetObj->IsA(UBlueprint::StaticClass()))
 		{
 			UBlueprint* Blueprint = Cast<UBlueprint>(TargetObj);
@@ -2589,7 +2592,7 @@ inline void FJavascriptContextImplementation::AddReferencedObjects(UObject * InT
 	for (auto It = MemoryToObjectMap.CreateIterator(); It; ++It)
 	{
 		TSharedPtr<FStructMemoryInstance> StructScript = It.Value().Instance;
-		if (!StructScript.IsValid() || StructScript->Struct->IsPendingKill())
+		if (!StructScript.IsValid() || !(::IsValid(StructScript->Struct)))
 		{
 			It.RemoveCurrent();
 		}

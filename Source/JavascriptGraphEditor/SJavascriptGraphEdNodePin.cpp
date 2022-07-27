@@ -15,7 +15,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 
 	bShowLabel = true;
 
-	Visibility = TAttribute<EVisibility>(this, &SJavascriptGraphPin::GetPinVisiblity);
+	SetVisibility(TAttribute<EVisibility>(this, &SJavascriptGraphPin::GetPinVisiblity));
 
 	GraphPinObj = InPin;
 	check(GraphPinObj != NULL);

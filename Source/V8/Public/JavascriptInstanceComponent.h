@@ -109,7 +109,10 @@ protected:
 	FThreadSafeBool bIsThreadRunning;
 	bool bIsScriptRunning;
 
+	UPROPERTY()
 	UJavascriptIsolate* IsolateReflection;
+
+	UPROPERTY()
 	UJavascriptContext* ContextReflection;	//only used for console
 
 };

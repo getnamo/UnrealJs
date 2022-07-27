@@ -55,7 +55,7 @@ private:
 	std::unique_ptr<v8::Platform> platform_;
 	TQueue<v8::IdleTask*> IdleTasks;
 	FTickerDelegate TickDelegate;
-	FDelegateHandle TickHandle;
+	FTSTicker::FDelegateHandle TickHandle;
 	bool bActive{ true };
 
 public:
@@ -67,12 +67,12 @@ public:
 		: platform_(platform::NewDefaultPlatform(0, platform::IdleTaskSupport::kEnabled))
 	{
 		TickDelegate = FTickerDelegate::CreateRaw(this, &FUnrealJSPlatform::HandleTicker);
-		TickHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate);
+		TickHandle = FTSTicker::GetCoreTicker().AddTicker(TickDelegate);
 	}
 
 	~FUnrealJSPlatform()
 	{
-		FTicker::GetCoreTicker().RemoveTicker(TickHandle);
+		FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 		platform_.release();
 	}
 

@@ -134,5 +134,8 @@ public:
 	static TMap<FString, FString> DefaultIsolateFeatures();
 	static TMap<FString, FString> MinimumIsolateFeatures();
 	static TMap<FString, FString> DefaultContextFeatures();
+
+	UPROPERTY()
+	UJavascriptContext* Context;
 };
 

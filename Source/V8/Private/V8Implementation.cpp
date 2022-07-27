@@ -94,7 +94,7 @@ void UJavascriptIsolate::BeginDestroy()
 
 UJavascriptContext* UJavascriptIsolate::CreateContext()
 {
-	auto Context = NewObject<UJavascriptContext>(this);
+	Context = NewObject<UJavascriptContext>(this);
 	Context->Init();
 	Context->ExposeFeatures(Features);
 	return Context;
@@ -126,7 +126,12 @@ UJavascriptContext::UJavascriptContext(const FObjectInitializer& ObjectInitializ
 	if (!bIsClassDefaultObject)
 	{
 		auto Isolate = Cast<UJavascriptIsolate>(GetOuter());
-		JavascriptContext = TSharedPtr<FJavascriptContext>(FJavascriptContext::Create(Isolate->JavascriptIsolate, Paths));
+
+		//If we already have an isolate make the context
+		if (Isolate != nullptr) 
+		{
+			JavascriptContext = TSharedPtr<FJavascriptContext>(FJavascriptContext::Create(Isolate->JavascriptIsolate, Paths));
+		}
 
 		//This gets exposed by the javascript component, not automatically
 		//Expose("Context", this);
@@ -155,7 +160,7 @@ void UJavascriptContext::Init(TSharedPtr<FJavascriptContext> InPremadeContext)
 	const bool bIsClassDefaultObject = IsTemplate(RF_ClassDefaultObject);
 	if (!bIsClassDefaultObject)
 	{
-		auto Isolate = Cast<UJavascriptIsolate>(GetOuter());
+		//auto Isolate = Cast<UJavascriptIsolate>(GetOuter());
 		JavascriptContext = InPremadeContext;
 
 		//This gets exposed by the javascript component, not automatically

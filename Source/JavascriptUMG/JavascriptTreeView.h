@@ -72,6 +72,11 @@ public:
 		return SelectedItemArray;
 	}
 
+	void SetOnContextMenuOpening(FOnContextMenuOpening InOnContextMenuOpening)
+	{
+		OnContextMenuOpening = InOnContextMenuOpening;
+	}
+
 protected:
 	TSet<UObject*> DoubleClickedItems;
 };
@@ -83,14 +88,14 @@ struct FJavascriptColumn
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	FString Id;
+		UPROPERTY()
+		FString Id;
 
 	UPROPERTY()
-	float Width;
+		float Width = 0.f;
 
 	UPROPERTY(Transient)
-	UWidget* Widget;
+		UWidget* Widget = nullptr;
 };
 
 /**
@@ -101,7 +106,7 @@ class JAVASCRIPTUMG_API UJavascriptTreeView : public UListViewBase
 {
 	GENERATED_UCLASS_BODY()
 
-public:	
+public:
 	/** Delegate for constructing a UWidget based on a UObject */
 	DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnGetChildrenUObject, UObject*, Item, UJavascriptTreeView*, Instance);
 
@@ -116,82 +121,91 @@ public:
 
 	/** Called when a widget needs to be generated */
 	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
-	FOnGenerateRow OnGenerateRowEvent;
-	
-	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
-	FOnExpansionChanged OnExpansionChanged;
+		FOnGenerateRow OnGenerateRowEvent;
 
 	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
-	FOnContextMenuOpening OnContextMenuOpening;
+		FOnExpansionChanged OnExpansionChanged;
+
+	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
+		FOnContextMenuOpening OnContextMenuOpening;
 
 	/** Called when a widget needs to be generated */
 	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
-	FOnGetChildrenUObject OnGetChildren;	
+		FOnGetChildrenUObject OnGetChildren;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Javascript")
-	UJavascriptContext* JavascriptContext;
+		UJavascriptContext* JavascriptContext;
 
 	/** The list of items to generate widgets for */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Content)
-	TArray<UObject*> Items;
+		TArray<UObject*> Items;
 
 	UPROPERTY(EditAnywhere, BlueprintInternalUseOnly, Category = "Javascript")
-	FHeaderRowStyle HeaderRowStyle;
+		FHeaderRowStyle HeaderRowStyle;
 
 	UPROPERTY(EditAnywhere, BlueprintInternalUseOnly, Category = "Javascript")
-	FTableRowStyle TableRowStyle;
+		FTableRowStyle TableRowStyle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript")
-	FScrollBarStyle ScrollBarStyle;
+		FScrollBarStyle ScrollBarStyle;
 
 	/** The selection method for the list */
 	UPROPERTY(EditAnywhere, Category = Content)
-	TEnumAsByte<ESelectionMode::Type> SelectionMode;
+		TEnumAsByte<ESelectionMode::Type> SelectionMode;
 
 	UPROPERTY(BlueprintReadWrite, Transient, Category = "Javascript")
-	mutable TArray<UObject*> Children;
+		mutable TArray<UObject*> Children;
 
 	UPROPERTY(BlueprintReadWrite, Transient, Category = "Javascript")
-	TArray<FJavascriptColumn> Columns;
+		TArray<FJavascriptColumn> Columns;
 
 	/** Refreshes the list */
 	UFUNCTION(BlueprintCallable, Category = "Behavior")
-	void RequestTreeRefresh();
-	
-	/** Event fired when a tutorial stage ends */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Javascript")
-	void OnDoubleClick(UObject* Object);
+		void RequestTreeRefresh();
 
 	/** Event fired when a tutorial stage ends */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Javascript")
-	void OnSelectionChanged(UObject* Object, ESelectInfo::Type Type);
+		void OnDoubleClick(UObject* Object);
+
+	/** Event fired when a tutorial stage ends */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Javascript")
+		void OnSelectionChanged(UObject* Object, ESelectInfo::Type Type);
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void SetItemExpansion(UObject* InItem, bool InShouldExpandItem);
+		void SetItemExpansion(UObject* InItem, bool InShouldExpandItem);
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void SetSingleExpandedItem(UObject* InItem);
+		void SetSingleExpandedItem(UObject* InItem);
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	bool IsItemExpanded(UObject* InItem);
+		bool IsItemExpanded(UObject* InItem);
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+		void SetItemSelection(TArray<UObject*> MultiSelectedItems, bool bIsSelected);
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Behavior")
-	void SetSelection(UObject* SoleSelectedItem);
+		void SetSelection(UObject* SoleSelectedItem);
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Behavior")
-	bool GetSelectedItems(TArray<UObject*>& OutItems);
+		bool GetSelectedItems(TArray<UObject*>& OutItems);
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void ClearDoubleClickSelection();
+		void ClearSelection();
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void SetDoubleClickSelection(UObject* SelectedItem);
+		void ClearDoubleClickSelection();
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	bool IsDoubleClickSelection(UObject* SelectedItem);
+		void SetDoubleClickSelection(UObject* SelectedItem);
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
-	void GetDoubleClickedItems(TArray<UObject*>& OutItems);
+		bool IsDoubleClickSelection(UObject* SelectedItem);
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+		void GetDoubleClickedItems(TArray<UObject*>& OutItems);
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+		void RequestNavigateToItem(UObject* Item);
 
 	TSharedRef<ITableRow> HandleOnGenerateRow(UObject* Item, const TSharedRef< STableViewBase >& OwnerTable);
 
@@ -215,7 +229,7 @@ public:
 	TSharedPtr<SHeaderRow> GetHeaderRowWidget();
 
 	UPROPERTY(Transient)
-	TArray<UWidget*> ColumnWidgets;
+		TArray<UWidget*> ColumnWidgets;
 
 	// UObject interface.
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);

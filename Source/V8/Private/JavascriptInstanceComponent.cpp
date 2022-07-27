@@ -78,7 +78,7 @@ void UJavascriptInstanceComponent::StartupInstanceAndRun()
 			{
 				IsolateReflection = NewObject<UJavascriptIsolate>(this);
 				IsolateReflection->Init(Instance->ContextSettings.Isolate);
-				ContextReflection = NewObject<UJavascriptContext>(IsolateReflection);
+				ContextReflection = NewObject<UJavascriptContext>(this);
 				ContextReflection->Init(Instance->ContextSettings.Context);
 			}
 
@@ -256,5 +256,3 @@ void UJavascriptInstanceComponent::TickComponent(float DeltaTime, enum ELevelTic
 		OnTick.ExecuteIfBound(DeltaTime);
 	}
 }
-
-

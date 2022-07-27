@@ -4,8 +4,8 @@
 #include "Brushes/SlateColorBrush.h"
 
 UJavascriptTreeView::UJavascriptTreeView(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
-{	
+	: Super(ObjectInitializer)
+{
 	bIsVariable = true;
 
 	SelectionMode = ESelectionMode::Single;
@@ -50,7 +50,7 @@ TSharedPtr<SHeaderRow> UJavascriptTreeView::GetHeaderRowWidget()
 			);
 		}
 	}
-	else 
+	else
 	{
 		HeaderRowWidget = SNew(SHeaderRow)
 			.Style(&HeaderRowStyle);
@@ -60,41 +60,41 @@ TSharedPtr<SHeaderRow> UJavascriptTreeView::GetHeaderRowWidget()
 
 TSharedRef<STableViewBase> UJavascriptTreeView::RebuildListWidget()
 {
-	return SAssignNew(MyTreeView, SJavascriptTreeView)
+	SAssignNew(MyTreeView, SJavascriptTreeView)
 		.ClearSelectionOnClick(false)
 		.SelectionMode(SelectionMode)
 		.TreeItemsSource(&Items)
 		.OnGenerateRow(BIND_UOBJECT_DELEGATE(STreeView< UObject* >::FOnGenerateRow, HandleOnGenerateRow))
 		.OnGetChildren(BIND_UOBJECT_DELEGATE(STreeView< UObject* >::FOnGetChildren, HandleOnGetChildren))
 		.OnExpansionChanged(BIND_UOBJECT_DELEGATE(STreeView< UObject* >::FOnExpansionChanged, HandleOnExpansionChanged))
-		.OnContextMenuOpening_Lambda([this]() {
-		if (OnContextMenuOpening.IsBound())
+		.OnSelectionChanged_Lambda([this](UObject* Object, ESelectInfo::Type SelectInfo)
 			{
-				auto Widget = OnContextMenuOpening.Execute(this);
-				if (Widget)
-				{
-					return Widget->TakeWidget();
-				}
-			}
-			return SNullWidget::NullWidget;
-		})
-				.OnSelectionChanged_Lambda([this](UObject* Object, ESelectInfo::Type SelectInfo) {
 				UE_LOG(LogSlate, Log, TEXT("OnSelection...."));
-			OnSelectionChanged(Object, SelectInfo);
-		})
-			.OnMouseButtonDoubleClick_Lambda([this](UObject* Object) {
-			OnDoubleClick(Object);
-		})
-		.HeaderRow(GetHeaderRowWidget())
-		.ExternalScrollbar(SNew(SScrollBar).Style(&ScrollBarStyle));
-		//.OnContextMenuOpening(this, &SSocketManager::OnContextMenuOpening)
-		//.OnItemScrolledIntoView(this, &SSocketManager::OnItemScrolledIntoView)
-		//	.HeaderRow
-		//	(
-		//		SNew(SHeaderRow)
-		//		.Visibility(EVisibility::Collapsed)
-		//		+ SHeaderRow::Column(TEXT("Socket"))
-		//	);
+				OnSelectionChanged(Object, SelectInfo);
+			})
+		.OnMouseButtonDoubleClick_Lambda([this](UObject* Object)
+			{
+				OnDoubleClick(Object);
+			})
+				.HeaderRow(GetHeaderRowWidget());
+
+			if (OnContextMenuOpening.IsBound())
+			{
+				MyTreeView->SetOnContextMenuOpening(::FOnContextMenuOpening::CreateLambda([this]()
+					{
+						if (OnContextMenuOpening.IsBound())
+						{
+							auto Widget = OnContextMenuOpening.Execute(this);
+							if (Widget)
+							{
+								return Widget->TakeWidget();
+							}
+						}
+						return SNullWidget::NullWidget;
+					}));
+			}
+
+			return MyTreeView.ToSharedRef();
 }
 
 void UJavascriptTreeView::ProcessEvent(UFunction* Function, void* Parms)
@@ -112,7 +112,7 @@ void UJavascriptTreeView::RequestTreeRefresh()
 	if (MyTreeView.IsValid())
 	{
 		MyTreeView->RequestTreeRefresh();
-	}	
+	}
 }
 
 class SJavascriptItemRow : public STableRow<UObject*>
@@ -125,12 +125,7 @@ public:
 		check(InArgs._Style);
 		check(InArgs._ExpanderStyleSet);
 
-#if WITH_EDITOR
-		this->BorderImage = TAttribute<const FSlateBrush*>(this, &SJavascriptItemRow::GetBorder);
-#else
-		UE_LOG(LogTemp, Warning, TEXT("SJavascriptItemRow::Construct:: Attempted BorderImage in non-editor context. Future note: Fix methods to support this."));
-#endif
-		
+		this->SetBorderImage(TAttribute<const FSlateBrush*>(this, &SJavascriptItemRow::GetBorder));
 		this->DoubleClickBrush = FSlateColorBrush(FLinearColor::Blue);
 	}
 
@@ -169,10 +164,10 @@ class SJavascriptTableRow
 {
 public:
 	SLATE_BEGIN_ARGS(SJavascriptTableRow) { }
-		SLATE_ARGUMENT(UObject*, Object)
+	SLATE_ARGUMENT(UObject*, Object)
 		SLATE_ARGUMENT(UJavascriptTreeView*, TreeView)
 		SLATE_STYLE_ARGUMENT(FTableRowStyle, Style)
-	SLATE_END_ARGS()
+		SLATE_END_ARGS()
 
 public:
 	// FSerializableObject interface
@@ -182,6 +177,11 @@ public:
 		Collector.AddReferencedObject(Object);
 	}
 	// End of FSerializableObject interface
+
+	virtual FString GetReferencerName() const
+	{
+		return "SJavascriptTableRow";
+	}
 
 	/**
 	* Constructs the widget.
@@ -202,7 +202,7 @@ public:
 	// SMultiColumnTableRow interface
 
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
+		virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
 	{
 		auto ColumnWidget = SNullWidget::NullWidget;
 
@@ -236,7 +236,7 @@ public:
 	}
 	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-	TArray<UWidget*> Widgets;
+		TArray<UWidget*> Widgets;
 
 private:
 	UObject* Object;
@@ -259,7 +259,7 @@ TSharedRef<ITableRow> UJavascriptTreeView::HandleOnGenerateRow(UObject* Item, co
 			{
 				return CreateItemRow(Widget, OwnerTable);
 			}
-		}		
+		}
 	}
 
 	// If a row wasn't generated just create the default one, a simple text block of the item's name.
@@ -273,8 +273,8 @@ void UJavascriptTreeView::HandleOnGetChildren(UObject* Item, TArray<UObject*>& O
 	{
 		Children.Empty();
 
-		OnGetChildren.Execute(Item,this);
-		
+		OnGetChildren.Execute(Item, this);
+
 		OutChildItems.Append(Children);
 
 		Children.Empty();
@@ -286,6 +286,14 @@ void UJavascriptTreeView::HandleOnExpansionChanged(UObject* Item, bool bExpanded
 	if (OnExpansionChanged.IsBound())
 	{
 		OnExpansionChanged.Execute(Item, bExpanded, this);
+	}
+}
+
+void UJavascriptTreeView::SetItemSelection(TArray<UObject*> MultiSelectedItems, bool bIsSelected)
+{
+	if (MyTreeView.IsValid())
+	{
+		MyTreeView->SetItemSelection(MultiSelectedItems, bIsSelected);
 	}
 }
 
@@ -322,6 +330,14 @@ void UJavascriptTreeView::SetSingleExpandedItem(UObject* InItem)
 	}
 }
 
+void UJavascriptTreeView::ClearSelection()
+{
+	if (MyTreeView.IsValid())
+	{
+		MyTreeView->ClearSelection();
+	}
+}
+
 void UJavascriptTreeView::ClearDoubleClickSelection()
 {
 	if (MyTreeView.IsValid())
@@ -353,6 +369,14 @@ void UJavascriptTreeView::GetDoubleClickedItems(TArray<UObject*>& OutItems)
 	if (MyTreeView.IsValid())
 	{
 		OutItems = MyTreeView->GetDoubleClickedItems();
+	}
+}
+
+void UJavascriptTreeView::RequestNavigateToItem(UObject* Item)
+{
+	if (MyTreeView.IsValid())
+	{
+		MyTreeView->RequestNavigateToItem(Item);
 	}
 }
 
