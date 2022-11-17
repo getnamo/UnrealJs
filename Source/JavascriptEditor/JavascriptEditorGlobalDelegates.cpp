@@ -1,5 +1,5 @@
 ﻿#include "JavascriptEditorGlobalDelegates.h"
-#include "AssetRegistryModule.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Interfaces/IMainFrameModule.h"
 #include "EditorSupportDelegates.h"
 #include "Editor/EditorEngine.h"
