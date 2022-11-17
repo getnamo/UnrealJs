@@ -223,7 +223,17 @@ public:
 		}
 	}
 
-	virtual WidgetAlias::EWidgetMode GetWidgetMode() const override;
+	virtual WidgetAlias::EWidgetMode GetWidgetMode() const override
+	{
+		if (Widget.IsValid() && Widget->OnGetWidgetMode.IsBound())
+		{
+			return (WidgetAlias::EWidgetMode)Widget->OnGetWidgetMode.Execute(Widget.Get());
+		}
+		else
+		{
+			return FEditorViewportClient::GetWidgetMode();
+		}
+	}
 
 	virtual FVector GetWidgetLocation() const override
 	{
