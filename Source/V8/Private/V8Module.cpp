@@ -432,7 +432,7 @@ public:
 
 	virtual void SetFlagsFromString(const FString& V8Flags) override
 	{
-		V8::SetFlagsFromString(TCHAR_TO_ANSI(*V8Flags));
+		V8::SetFlagsFromString(TCHAR_TO_ANSI(*V8Flags), strlen(TCHAR_TO_ANSI(*V8Flags)));
 	}
 
 	virtual bool IsEnableHotReload() const override

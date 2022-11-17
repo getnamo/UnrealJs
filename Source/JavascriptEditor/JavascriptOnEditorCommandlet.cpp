@@ -83,7 +83,9 @@ void UJavascriptOnEditorCommandlet::Bootstrap()
 	PatchReimportRule();
 
 	auto Isolate = NewObject<UJavascriptIsolate>();
-	Isolate->Init(true);
+	TMap<FString, FString> Features;
+
+	Isolate->Init(true, Features);
 	auto Context = Isolate->CreateContext();
 
 	JavascriptContext = Context;

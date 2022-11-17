@@ -172,19 +172,23 @@ ULandscapeLayerInfoObject* UJavascriptEditorLibrary::GetLayerInfoByName(ULandsca
 {
 	return LandscapeInfo ? LandscapeInfo->GetLayerInfoByName(LayerName, Owner) : nullptr;
 }
-
 void UJavascriptEditorLibrary::GetAllTagsByAssetData(const FAssetData& AssetData, TArray<FName>& OutArray)
 {
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 27
-	AssetData.TagsAndValues.GetKeys(OutArray);
-#else
 	AssetData.TagsAndValues.CopyMap().GetKeys(OutArray);
-#endif
 }
 
 bool UJavascriptEditorLibrary::GetTagValueByAssetData(const FAssetData& AssetData, const FName& Name, FString& OutValue)
 {
-	AssetData.SourceAssetData.TagsAndValues.CopyMap().GetKeys(OutArray);
+	auto Value = AssetData.TagsAndValues.FindTag(Name);
+	if (Value.IsSet())
+	{
+		OutValue = Value.GetValue();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #if WITH_EDITOR
-#include "AssetData.h"
-#include "IAssetRegistry.h"
+#include "AssetRegistry/AssetData.h"
+#include "AssetRegistry/IAssetRegistry.h"
 #include "Editor/UnrealEdTypes.h"
 #include "Widgets/SWindow.h"
 #endif
