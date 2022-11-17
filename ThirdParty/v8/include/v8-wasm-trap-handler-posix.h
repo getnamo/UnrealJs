@@ -7,7 +7,7 @@
 
 #include <signal.h>
 
-#include "v8config.h"  // NOLINT(build/include_directory)
+#include "v8config.h"  // NOLINT(build/include)
 
 namespace v8 {
 /**
