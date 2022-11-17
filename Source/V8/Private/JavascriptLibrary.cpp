@@ -327,7 +327,7 @@ FReadStringFromFileHandle UJavascriptLibrary::ReadStringFromFileAsync(UObject* O
 	return Handle;
 }
 
-FString UJavascriptLibrary::ReadStringFromFile(UObject* Object, FString Filename)
+FString UJavascriptLibrary::ReadStringFromFile(UObject* Object, FString Filename, EFileRead_JS ReadFlags)
 {
 	FString Result;
 	FFileHelper::LoadFileToString(Result, *Filename);

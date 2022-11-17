@@ -239,7 +239,7 @@ FString UJavascriptContext::RunFileWithArgs(FString Filename, const TArray<FStri
 {
 	if (JavascriptContext.IsValid())
 	{
-		return JavascriptContext->Public_RunFile(Filename, Args);
+		JavascriptContext->Public_RunFile(Filename);// , Args);
 	}
 
 	return TEXT("undefined");

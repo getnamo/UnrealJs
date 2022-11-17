@@ -57,9 +57,6 @@
 
 #include "Engine/DataTable.h"
 #include "Engine/EngineTypes.h"
-#if ENGINE_MAJOR_VERSION == 4
-	#include "Toolkits/AssetEditorManager.h"
-#endif
 #include "Stats/StatsData.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "ISourceControlModule.h"
@@ -190,49 +187,20 @@ bool UJavascriptEditorLibrary::GetTagValueByAssetData(const FAssetData& AssetDat
 	AssetData.SourceAssetData.TagsAndValues.CopyMap().GetKeys(OutArray);
 }
 
-bool UJavascriptEditorLibrary::GetTagValue(const FJavascriptAssetData& AssetData, const FName& Name, FString& OutValue)
-{
-	auto Value = AssetData.SourceAssetData.TagsAndValues.CopyMap().Find(Name);
-
-	if (Value)
-	{
-		OutValue = *Value;
-		return true;
-	}
-#endif
-	else
-	{
-		return false;
-	}
-}
-
 
 void UJavascriptEditorLibrary::GetAllTags(const FJavascriptAssetData& AssetData, TArray<FName>& OutArray)
 {
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 27
-	AssetData.SourceAssetData.TagsAndValues.GetKeys(OutArray);
-#else
 	AssetData.SourceAssetData.TagsAndValues.CopyMap().GetKeys(OutArray);
-#endif
 }
 
 bool UJavascriptEditorLibrary::GetTagValue(const FJavascriptAssetData& AssetData, const FName& Name, FString& OutValue)
 {
-#if ENGINE_MAJOR_VERSION > 4
 	auto Value = AssetData.SourceAssetData.TagsAndValues.FindTag(Name);
 	if (Value.IsSet())
 	{
 		OutValue = Value.GetValue();
 		return true;
 	}
-#else
-	auto Value = AssetData.SourceAssetData.TagsAndValues.GetMap().Find(Name);
-	if (Value)
-	{
-		OutValue = *Value;
-		return true;
-	}
-#endif
 	else
 	{
 		return false;

@@ -65,7 +65,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 	static const FName NAME_NoBorder("NoBorder");
 	TSharedRef<SWidget> PinStatusIndicator =
 		SNew(SButton)
-		.ButtonStyle(FEditorStyle::Get(), NAME_NoBorder)
+		.ButtonStyle(FAppStyle::Get(), NAME_NoBorder)
 		.Visibility(this, &ThisClassPin::GetPinStatusIconVisibility)
 		.ContentPadding(0)
 		.OnClicked(this, &ThisClassPin::ClickedOnPinStatusIcon)
@@ -84,7 +84,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 
 	TSharedRef<SWidget> InLabelWidget = SNew(STextBlock)
 		.Text(this, &ThisClassPin::GetPinLabel)
-		.TextStyle(FEditorStyle::Get(), InArgs._PinLabelStyle)
+		.TextStyle(FAppStyle::Get(), InArgs._PinLabelStyle)
 		.Visibility(this, &ThisClassPin::GetPinLabelVisibility)
 		.ColorAndOpacity(this, &ThisClassPin::GetPinTextColor);
 	TSharedRef<SWidget> InValueWidget = SNew(SBox);
@@ -204,7 +204,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 		.OnMouseButtonDown(this, &ThisClassPin::OnPinNameMouseDown)
 		[
 			SNew(SLevelOfDetailBranchNode)
-			.UseLowDetailSlot(this, &ThisClass::UseLowDetailPinNames)
+			.UseLowDetailSlot(this, &ThisClassPin::UseLowDetailPinNames)
 			.LowDetail()
 			[
 				SNew(SSpacer)

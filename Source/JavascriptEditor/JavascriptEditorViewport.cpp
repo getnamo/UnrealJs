@@ -223,7 +223,7 @@ public:
 		}
 	}
 
-	virtual WidgetAlias::EWidgetMode GetWidgetMode() const override
+	virtual WidgetAlias::EWidgetMode GetWidgetMode() const override;
 
 	virtual FVector GetWidgetLocation() const override
 	{

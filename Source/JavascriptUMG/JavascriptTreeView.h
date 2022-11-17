@@ -196,6 +196,9 @@ public:
 	void ClearDoubleClickSelection();
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	bool IsDoubleClickSelection(UObject* SelectedItem);
+
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
 	void SetDoubleClickSelection(UObject* SelectedItem);
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript")

@@ -105,6 +105,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void DestroyInspector();
 
+	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	void ResetUnrealConsoleDelegate();
+
 	UPROPERTY(BlueprintReadOnly, Category = "Scripting|Javascript")
 	EJavascriptAsyncOption Thread;
 
