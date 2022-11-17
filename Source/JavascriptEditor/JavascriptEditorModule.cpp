@@ -161,7 +161,9 @@ void FJavascriptEditorModule::Bootstrap()
 		PatchReimportRule();
 
 		auto Isolate = NewObject<UJavascriptIsolate>();
-		Isolate->Init(true);
+		auto Features = UJavascriptIsolate::DefaultIsolateFeatures();
+		Isolate->Init(true, Features);
+		Isolate->Features.Append(UJavascriptIsolate::DefaultContextFeatures());
 		auto Context = Isolate->CreateContext();
 
 		JavascriptContext = Context;
@@ -169,8 +171,10 @@ void FJavascriptEditorModule::Bootstrap()
 
 		JavascriptContext->SetContextId(TEXT("Editor"));
 
+		JavascriptContext->ExposeGlobals();
+
 		Tick = NewObject<UJavascriptEditorTick>(JavascriptContext);
-		JavascriptContext->Expose(TEXT("Root"), Tick);
+		JavascriptContext->Expose(TEXT("Root"), Tick);	//NB: normally disabled for JSInstance
 		Tick->AddToRoot();
 
 		FEditorScriptExecutionGuard ScriptGuard;

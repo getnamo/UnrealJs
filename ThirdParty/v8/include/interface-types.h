@@ -16,7 +16,7 @@ class ConsoleCallArguments : private v8::FunctionCallbackInfo<v8::Value> {
   }
 
   explicit ConsoleCallArguments(const v8::FunctionCallbackInfo<v8::Value>&);
-  explicit ConsoleCallArguments(const internal::BuiltinArguments&);
+  explicit ConsoleCallArguments(internal::BuiltinArguments&);
 };
 
 class ConsoleContext {

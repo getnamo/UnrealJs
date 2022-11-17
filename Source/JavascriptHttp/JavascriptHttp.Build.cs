@@ -15,7 +15,10 @@ public class JavascriptHttp : ModuleRules
 
         if (Target.bBuildEditor == true)
         {
-            PrivateDependencyModuleNames.Add("UnrealEd");
+            PrivateDependencyModuleNames.AddRange(new string[] {
+                "EditorFramework",
+                "UnrealEd",
+            });
         }
-	}
+    }
 }

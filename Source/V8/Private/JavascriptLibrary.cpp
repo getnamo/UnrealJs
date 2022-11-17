@@ -3,6 +3,7 @@
 #include "JavascriptContext.h"
 #include "IV8.h"
 #include "SocketSubsystem.h"
+#include "GameFramework/GameMode.h"
 #include "Sockets.h"
 #include "NavigationSystem.h"
 #include "HAL/PlatformApplicationMisc.h"
@@ -22,7 +23,6 @@
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
 #include "Async/Async.h"
-#include "Serialization/Csv/CsvParser.h"
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "EngineUtils.h"
@@ -60,7 +60,6 @@ bool UJavascriptLibrary::ResolveIp(FString HostName, FString& OutIp)
 	auto SocketSub = ISocketSubsystem::Get();
 	TSharedRef<FInternetAddr> HostAddr = SocketSub->CreateInternetAddr();
 
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 22) || ENGINE_MAJOR_VERSION > 4
 	FAddressInfoResult GAIResult = SocketSub->GetAddressInfo(*HostName, nullptr, EAddressInfoFlags::Default, NAME_None);
 	if (GAIResult.Results.Num() > 0)
 	{
@@ -69,16 +68,6 @@ bool UJavascriptLibrary::ResolveIp(FString HostName, FString& OutIp)
 	}
 
 	return false;
-
-#else
-	ESocketErrors HostResolveError = SocketSub->GetHostByName(TCHAR_TO_ANSI(*HostName), *HostAddr);
-	if (HostResolveError == SE_NO_ERROR || HostResolveError == SE_EWOULDBLOCK)
-	{
-		OutIp = HostAddr->ToString(false);
-		return true;
-	}
-	return false;
-#endif
 }
 
 void UJavascriptLibrary::SetIp(FJavascriptInternetAddr& Addr, FString ResolvedAddress, bool& bValid)
@@ -228,9 +217,9 @@ UDynamicBlueprintBinding* UJavascriptLibrary::GetDynamicBinding(UClass* Outer, T
 	return nullptr;
 }
 
-void UJavascriptLibrary::HandleSeamlessTravelPlayer(AGameModeBase* GameMode, AController*& C)	
-{	
-	GameMode->HandleSeamlessTravelPlayer(C);	
+void UJavascriptLibrary::HandleSeamlessTravelPlayer(AGameModeBase* GameMode, AController*& C)
+{
+	GameMode->HandleSeamlessTravelPlayer(C);
 }
 
 void UJavascriptLibrary::SetRootComponent(AActor* Actor, USceneComponent* Component)
@@ -338,10 +327,10 @@ FReadStringFromFileHandle UJavascriptLibrary::ReadStringFromFileAsync(UObject* O
 	return Handle;
 }
 
-FString UJavascriptLibrary::ReadStringFromFile(UObject* Object, FString Filename, EFileRead_JS ReadFlags)
+FString UJavascriptLibrary::ReadStringFromFile(UObject* Object, FString Filename)
 {
 	FString Result;
-	FFileHelper::LoadFileToString(Result, *Filename, FFileHelper::EHashOptions::None, (uint32)ReadFlags);
+	FFileHelper::LoadFileToString(Result, *Filename);
 	return Result;
 }
 
@@ -455,7 +444,7 @@ void UJavascriptLibrary::GetAllActorsOfClassAndTags(UObject* WorldContextObject,
 		for (TActorIterator<AActor> It(World, ActorClass); It; ++It)
 		{
 			AActor* Actor = *It;
-			if (::IsValid(Actor))
+			if (IsValid(Actor))
 			{
 				bool bReject{ false };
 				bool bAccept{ false };
@@ -688,11 +677,7 @@ void UJavascriptLibrary::Log(const FJavascriptLogCategory& Category, ELogVerbosi
 		FMsg::Logf_Internal(TCHAR_TO_ANSI(*FileName), LineNumber, Category.Handle->GetCategoryName(), Verbosity, TEXT("%s"), *Message);
 		if (Verbosity == ELogVerbosity::Fatal)
 		{
-#ifdef UE_DEBUG_BREAK_AND_PROMPT_FOR_REMOTE
-			UE_DEBUG_BREAK_AND_PROMPT_FOR_REMOTE();
-#else
 			_DebugBreakAndPromptForRemote();
-#endif
 			FDebug::AssertFailed("", TCHAR_TO_ANSI(*FileName), LineNumber, *Message);
 		}
 	}
@@ -748,11 +733,6 @@ void UJavascriptLibrary::RequestAsyncLoad(const FJavascriptStreamableManager& Ma
 	}, Priority);
 }
 
-bool UJavascriptLibrary::V8_IsEnableHotReload()
-{
-	return IV8::Get().IsEnableHotReload();
-}
-
 void UJavascriptLibrary::V8_SetFlagsFromString(const FString& V8Flags)
 {
 	IV8::Get().SetFlagsFromString(V8Flags);
@@ -765,7 +745,7 @@ void UJavascriptLibrary::V8_SetIdleTaskBudget(float BudgetInSeconds)
 
 UObject* UJavascriptLibrary::TryLoadByPath(FString Path)
 {
-	return FSoftObjectPath(*Path).TryLoad();
+	return FStringAssetReference(*Path).TryLoad();
 }
 
 void UJavascriptLibrary::GenerateNavigation(UWorld* InWorld, ARecastNavMesh* NavData )
@@ -823,11 +803,6 @@ TArray<FJavscriptProperty> UJavascriptLibrary::GetStructProperties(const FString
 				{
 					Type += TEXT("/") + p->Inner->GetCPPType();
 				}
-				if (auto p = CastField<FMapProperty>(Property))
-				{
-					Type += TEXT("/") + p->KeyProp->GetCPPType();
-					Type += TEXT(":") + p->ValueProp->GetCPPType();
-				}
 				JavascriptProperty.Type = Type;
 				JavascriptProperty.Name = Property->GetName();
 
@@ -836,21 +811,6 @@ TArray<FJavscriptProperty> UJavascriptLibrary::GetStructProperties(const FString
 		}
 	}
     return Properties;
-}
-
-TArray<FString> UJavascriptLibrary::GetEnumListByEnumName(const FString EnumName)
-{
-	TArray<FString> EnumList;
-	UEnum* Enum = FindObjectFast<UEnum>(NULL, *EnumName, false, true);
-	if (Enum != nullptr)
-	{
-		int32 length = Enum->NumEnums();
-		for (int32 i = 0; i < length; i++)
-		{
-			EnumList.Push(Enum->GetNameStringByIndex(i));
-		}
-	}
-	return EnumList;
 }
 
 int32 UJavascriptLibrary::GetFunctionParmsSize(UFunction* Function)
@@ -884,7 +844,6 @@ FJavascriptStat UJavascriptLibrary::NewStat(
 {
 	FJavascriptStat Out;
 #if STATS
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 20) || ENGINE_MAJOR_VERSION > 4
     ANSICHAR StatName[NAME_SIZE];
     ANSICHAR GroupName[NAME_SIZE];
     ANSICHAR GroupCategoryName[NAME_SIZE];
@@ -904,21 +863,6 @@ FJavascriptStat UJavascriptLibrary::NewStat(
         bCycleStat,
         bSortByName,
         FPlatformMemory::EMemoryCounterRegion::MCR_Invalid);
-#else
-    Out.Instance = MakeShareable(new FJavascriptThreadSafeStaticStatBase);
-    Out.Instance->DoSetup(
-        InStatName.GetPlainANSIString(),
-        *InStatDesc,
-        InGroupName.GetPlainANSIString(),
-        InGroupCategory.GetPlainANSIString(),
-        *InGroupDesc,
-        bDefaultEnable,
-        bShouldClearEveryFrame,
-        (EStatDataType::Type)InStatType,
-        bCycleStat,
-        bSortByName,
-        FPlatformMemory::EMemoryCounterRegion::MCR_Invalid);
-#endif
 #endif
 
 	return Out;
@@ -964,8 +908,13 @@ TArray<UClass*> UJavascriptLibrary::GetSuperClasses(UClass* InClass)
 
 bool UJavascriptLibrary::IsGeneratedByBlueprint(UClass* InClass)
 {
-	//return NULL != Cast<UBlueprint>(InClass->ClassGeneratedBy);
-	return InClass->HasAnyClassFlags(EClassFlags::CLASS_CompiledFromBlueprint);
+#if WITH_EDITOR
+	return NULL != Cast<UBlueprint>(InClass->ClassGeneratedBy);
+#else
+	UE_LOG(LogTemp, Warning, TEXT("UJavascriptLibrary::IsGeneratedByBlueprint:: Attempted ClassGeneratedBy in non-editor context. Future note: Fix methods to support this."));
+
+	return false;
+#endif
 }
 
 bool UJavascriptLibrary::IsPendingKill(AActor* InActor)
@@ -1098,65 +1047,4 @@ TArray<UActorComponent*> UJavascriptLibrary::GetComponentsByClass(AActor* Actor,
 		TArray<UActorComponent*> Components;
 		return Components;
 	}
-}
-
-bool UJavascriptLibrary::ReadCSV(const FString& InPath, TArray<FJavascriptRow>& OutData, EFileRead_JS ReadFlags)
-{
-	FString CSVStr;
-	if (false == FFileHelper::LoadFileToString(CSVStr, *InPath, FFileHelper::EHashOptions::None, (uint32)ReadFlags))
-	{
-		return false;
-	}
-
-	const FCsvParser CSvParser(CSVStr);
-	const FCsvParser::FRows& Rows = CSvParser.GetRows();
-
-	if (Rows.Num() <= 0)
-	{
-		return false;
-	}
-
-	for (int32 StartIndex = 0; StartIndex < Rows.Num(); ++StartIndex)
-	{
-		FJavascriptRow JavascriptRow;
-		TArray<const TCHAR*> RowData = Rows[StartIndex];
-		for (int32 RowDataIndex = 0; RowDataIndex < RowData.Num(); ++RowDataIndex)
-		{
-			JavascriptRow.Values.Add(RowData[RowDataIndex]);
-		}
-		OutData.Add(JavascriptRow);
-	}
-
-	return true;
-}
-
-bool UJavascriptLibrary::WriteCSV(const FString& InPath, TArray<FJavascriptRow>& InData, EJavascriptEncodingOptions::Type EncodingOptions)
-{
-	FString CSVStr;
-	for (int32 StartIndex = 0; StartIndex < InData.Num(); ++StartIndex)
-	{
-		TArray<FString> RowData = InData[StartIndex].Values;
-		for (int32 RowDataIndex = 0; RowDataIndex < RowData.Num(); ++RowDataIndex)
-		{
-			FString ValueString = RowData[RowDataIndex];
-			if (INDEX_NONE != ValueString.Find(TEXT(",")) || INDEX_NONE != ValueString.Find(TEXT("\n")))
-			{
-				ValueString.InsertAt(0, TEXT("\""));
-				ValueString.InsertAt(ValueString.Len(), TEXT("\""));
-			}
-			CSVStr += ValueString;
-
-			if (RowDataIndex != RowData.Num() - 1)
-			{
-				CSVStr += TEXT(",");
-			}
-		}
-
-		if (StartIndex != InData.Num() - 1)
-		{
-			CSVStr += TEXT("\n");
-		}
-	}
-
-	return WriteStringToFile(nullptr, *InPath, CSVStr, EncodingOptions);
 }

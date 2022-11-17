@@ -11,7 +11,6 @@
 #include "Editor/LandscapeEditor/Private/LandscapeEdModeTools.h"
 #include "JavascriptContext.h"
 #include "DynamicMeshBuilder.h"
-#include "BSPOps.h"
 #include "Misc/HotReloadInterface.h"
 #include "JavascriptUMG/JavascriptWindow.h"
 #include "JavascriptUMG/JavascriptUMGLibrary.h"
@@ -27,11 +26,9 @@
 #include "LandscapeDataAccess.h"
 #include "LandscapeEdit.h"
 
-#include "Engine/BrushBuilder.h"
 #include "Engine/Selection.h"
 #include "EngineUtils.h"
 #include "GameFramework/Volume.h"
-#include "Components/BrushComponent.h"
 
 #include "../../Launch/Resources/Version.h"
 #include "HAL/PlatformFilemanager.h"
@@ -73,6 +70,7 @@
 #include "Sockets.h"
 #include "IPAddress.h"
 #include "UObject/SavePackage.h"
+
 
 #if WITH_EDITOR
 ULandscapeInfo* UJavascriptEditorLibrary::GetLandscapeInfo(ALandscape* Landscape, bool bSpawnNewActor)
@@ -189,15 +187,13 @@ void UJavascriptEditorLibrary::GetAllTagsByAssetData(const FAssetData& AssetData
 
 bool UJavascriptEditorLibrary::GetTagValueByAssetData(const FAssetData& AssetData, const FName& Name, FString& OutValue)
 {
-#if ENGINE_MAJOR_VERSION > 4
-	auto Value = AssetData.TagsAndValues.FindTag(Name);
-	if (Value.IsSet())
-	{
-		OutValue = Value.GetValue();
-		return true;
-	}
-#else
-	auto Value = AssetData.TagsAndValues.GetMap().Find(Name);
+	AssetData.SourceAssetData.TagsAndValues.CopyMap().GetKeys(OutArray);
+}
+
+bool UJavascriptEditorLibrary::GetTagValue(const FJavascriptAssetData& AssetData, const FName& Name, FString& OutValue)
+{
+	auto Value = AssetData.SourceAssetData.TagsAndValues.CopyMap().Find(Name);
+
 	if (Value)
 	{
 		OutValue = *Value;
@@ -303,16 +299,6 @@ void UJavascriptEditorLibrary::SetIsTemporarilyHiddenInEditor(AActor* Actor, boo
 	Actor->SetIsTemporarilyHiddenInEditor(bIsHidden);
 }
 
-ABrush* UJavascriptEditorLibrary::GetDefaultBrush(UWorld* World)
-{
-	return World->GetDefaultBrush();
-}
-
-bool UJavascriptEditorLibrary::Build(UBrushBuilder* Builder, UWorld* InWorld, ABrush* InBrush)
-{
-	return Builder->Build(InWorld, InBrush);
-}
-
 void UJavascriptEditorLibrary::Select(USelection* Selection, UObject* InObject)
 {
 	Selection->Select(InObject);
@@ -336,11 +322,6 @@ void UJavascriptEditorLibrary::DeselectAll(USelection* Selection, UClass* InClas
 int32 UJavascriptEditorLibrary::GetSelectedObjects(USelection* Selection, TArray<UObject*>& Out)
 {
 	return Selection->GetSelectedObjects(Out);
-}
-
-ABrush* UJavascriptEditorLibrary::csgAdd(ABrush* DefaultBrush, int32 PolyFlags, EBrushType BrushType)
-{
-	return FBSPOps::csgAddOperation(DefaultBrush, PolyFlags, BrushType);
 }
 
 void UJavascriptEditorLibrary::ModifyObject(UObject* Object, bool bAlwaysMarkDirty)
@@ -713,11 +694,7 @@ FJavascriptSlateWidget UJavascriptEditorLibrary::GetRootWindow()
 void UJavascriptEditorLibrary::CreatePropertyEditorToolkit(TArray<UObject*> ObjectsForPropertiesMenu)
 {
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-#if ENGINE_MAJOR_VERSION > 4 
 	PropertyEditorModule.CreatePropertyEditorToolkit(TSharedPtr<IToolkitHost>(), ObjectsForPropertiesMenu);
-#else
-	PropertyEditorModule.CreatePropertyEditorToolkit(EToolkitMode::Standalone, TSharedPtr<IToolkitHost>(), ObjectsForPropertiesMenu);
-#endif
 }
 
 static FName NAME_LevelEditor("LevelEditor");
@@ -855,15 +832,21 @@ bool UJavascriptEditorLibrary::SavePackage(UPackage* Package, FString FileName)
 
 	if (World)
 	{
-		FSavePackageArgs SaveArgs = { NULL, NULL, RF_NoFlags, 0U, false,
-			true, true, FDateTime::MinValue(), GError };
-		bSavedCorrectly = UPackage::SavePackage(Package, World, *FileName, SaveArgs);
+		FSavePackageArgs Args;
+		Args.Error = GError;
+		Args.bWarnOfLongFilename = true;
+		Args.bForceByteSwapping = false;
+		Args.TopLevelFlags = RF_NoFlags;
+		bSavedCorrectly = UPackage::SavePackage(Package, World, *FileName, Args);
 	}
 	else
 	{
-		FSavePackageArgs SaveArgs = { NULL, NULL, RF_Standalone, 0U, false,
-			true, true, FDateTime::MinValue(), GError };
-		bSavedCorrectly =  UPackage::SavePackage(Package, NULL,  *FileName, SaveArgs);
+		FSavePackageArgs Args;
+		Args.Error = GError;
+		Args.bWarnOfLongFilename = true;
+		Args.bForceByteSwapping = false;
+		Args.TopLevelFlags = RF_Standalone;
+		bSavedCorrectly = UPackage::SavePackage(Package, NULL, *FileName, Args);;
 	}
 	return bSavedCorrectly;
 }
@@ -879,41 +862,6 @@ bool UJavascriptEditorLibrary::DeletePackage(UPackage* Package)
 	return false;
 }
 
-void UJavascriptEditorLibrary::CreateBrushForVolumeActor(AVolume* NewActor, UBrushBuilder* BrushBuilder)
-{
-	if (NewActor != NULL)
-	{
-		// this code builds a brush for the new actor
-		NewActor->PreEditChange(NULL);
-
-		NewActor->PolyFlags = 0;
-		NewActor->Brush = NewObject<UModel>(NewActor, NAME_None, RF_Transactional);
-		NewActor->Brush->Initialize(nullptr, true);
-		NewActor->Brush->Polys = NewObject<UPolys>(NewActor->Brush, NAME_None, RF_Transactional);
-		NewActor->GetBrushComponent()->Brush = NewActor->Brush;
-		if (BrushBuilder != nullptr)
-		{
-			NewActor->BrushBuilder = DuplicateObject<UBrushBuilder>(BrushBuilder, NewActor);
-		}
-
-		BrushBuilder->Build(NewActor->GetWorld(), NewActor);
-
-		FBSPOps::csgPrepMovingBrush(NewActor);
-
-		// Set the texture on all polys to NULL.  This stops invisible textures
-		// dependencies from being formed on volumes.
-		if (NewActor->Brush)
-		{
-			for (int32 poly = 0; poly < NewActor->Brush->Polys->Element.Num(); ++poly)
-			{
-				FPoly* Poly = &(NewActor->Brush->Polys->Element[poly]);
-				Poly->Material = NULL;
-			}
-		}
-
-		NewActor->PostEditChange();
-	}
-}
 
 UWorld* UJavascriptEditorLibrary::FindWorldInPackage(UPackage* Package)
 {
@@ -1075,7 +1023,6 @@ USCS_Node* FindSCSNode(const TArray<USCS_Node*>& Nodes, UActorComponent* Compone
 void UJavascriptEditorLibrary::AddComponentsToBlueprint(UBlueprint* Blueprint, const TArray<UActorComponent*>& Components, bool bHarvesting, UActorComponent* OptionalNewRootComponent, bool bKeepMobility)
 {
 	auto* OptionalNewRootNode = FindSCSNode(Blueprint->SimpleConstructionScript->GetRootNodes(), OptionalNewRootComponent);
-
 	FKismetEditorUtilities::FAddComponentsToBlueprintParams Params;
 	Params.HarvestMode = (bHarvesting ? FKismetEditorUtilities::EAddComponentToBPHarvestMode::Harvest_UseComponentName : FKismetEditorUtilities::EAddComponentToBPHarvestMode::None);
 	Params.OptionalNewRootNode = OptionalNewRootNode;
@@ -1353,7 +1300,7 @@ bool UJavascriptEditorLibrary::LoadImageFromDiskAsync(const FString& ImagePath, 
 #if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 22
 				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 					FWriteRawDataToTexture,
-					FTexture2DDynamicResource*, TextureResource, static_cast<FTexture2DDynamicResource*>(Texture->Resource),
+					FTexture2DDynamicResource*, TextureResource, static_cast<FTexture2DDynamicResource*>(Texture->GetResource()),
 					TArray<uint8>, RawData, *RawData,
 					{
 						WriteRawToTexture_RenderThread(TextureResource, RawData);

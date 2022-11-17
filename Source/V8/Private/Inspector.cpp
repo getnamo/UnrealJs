@@ -441,7 +441,16 @@ public:
 		v8inspector->contextCreated(v8_inspector::V8ContextInfo(InContext, CONTEXT_GROUP_ID, context_name));
 
 		Install(InPort);
+		{
+			Isolate::Scope isolate_scope(isolate_);
+			Context::Scope context_scope(InContext);
 
+			TryCatch try_catch(isolate_);
+
+			auto source = TEXT("'log error warn info void assert'.split(' ').forEach(x => { let o = console[x].bind(console); /*let y = $console[x].bind($console);*/ console['$'+x] = o; console[x] = function () { /*y(...arguments);*/ return o(...arguments); }})");
+			auto script = v8::Script::Compile(context(), I.String(source)).ToLocalChecked();
+			auto result = script->Run(context());
+		}
 		UE_LOG(Javascript, Log, TEXT("open %s"), *DevToolsFrontEndUrl());
 
 		InstallRelay();

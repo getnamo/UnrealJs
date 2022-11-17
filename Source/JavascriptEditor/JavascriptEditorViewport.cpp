@@ -66,25 +66,25 @@ public:
 
 class FCanvasOwner : public FGCObject
 {
-    
+	
 public:
-    FCanvasOwner(): FGCObject()
-    {
-        Canvas = nullptr;
-    }
-    
-    virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-    {
-        Collector.AddReferencedObject(Canvas);
-    }
+	FCanvasOwner(): FGCObject()
+	{
+		Canvas = nullptr;
+	}
+	
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(Canvas);
+	}
 
 	virtual FString GetReferencerName() const
 	{
 		return "FCanvasOwner";
 	}
-    
+	
 public:
-    UCanvas* Canvas;
+	UCanvas* Canvas;
 };
 
 #if WITH_EDITOR
@@ -202,38 +202,28 @@ public:
 			Widget->OnDraw.Execute(FJavascriptPDI(PDI),Widget.Get());
 		}
 	}
-    
-    virtual void DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas) override
-    {
-        FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
-        
-        if (Widget.IsValid() && Widget->OnDrawCanvas.IsBound())
-        {
-            if(CanvasOwner.Canvas == nullptr){
-                CanvasOwner.Canvas = NewObject<UCanvas>(Widget.Get());
-            }
-            
-            CanvasOwner.Canvas->Canvas = &Canvas;
-            CanvasOwner.Canvas->Init(View.UnscaledViewRect.Width(), View.UnscaledViewRect.Height(), const_cast<FSceneView*>(&View), &Canvas);
-            CanvasOwner.Canvas->ApplySafeZoneTransform();
-            
-            Widget->OnDrawCanvas.Execute(CanvasOwner.Canvas, Widget.Get());
-            
-            CanvasOwner.Canvas->PopSafeZoneTransform();
-        }
-    }
+	
+	virtual void DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas) override
+	{
+		FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
+		
+		if (Widget.IsValid() && Widget->OnDrawCanvas.IsBound())
+		{
+			if(CanvasOwner.Canvas == nullptr){
+				CanvasOwner.Canvas = NewObject<UCanvas>(Widget.Get());
+			}
+			
+			CanvasOwner.Canvas->Canvas = &Canvas;
+			CanvasOwner.Canvas->Init(View.UnscaledViewRect.Width(), View.UnscaledViewRect.Height(), const_cast<FSceneView*>(&View), &Canvas);
+			CanvasOwner.Canvas->ApplySafeZoneTransform();
+			
+			Widget->OnDrawCanvas.Execute(CanvasOwner.Canvas, Widget.Get());
+			
+			CanvasOwner.Canvas->PopSafeZoneTransform();
+		}
+	}
 
 	virtual WidgetAlias::EWidgetMode GetWidgetMode() const override
-	{
-		if (Widget.IsValid() && Widget->OnGetWidgetMode.IsBound())
-		{
-			return (WidgetAlias::EWidgetMode)Widget->OnGetWidgetMode.Execute(Widget.Get());
-		}
-		else
-		{
-			return FEditorViewportClient::GetWidgetMode();
-		}		
-	}	
 
 	virtual FVector GetWidgetLocation() const override
 	{
@@ -280,14 +270,7 @@ public:
 			{
 				for (FActorIterator It(PreviewScene->GetWorld()); It; ++It)
 				{
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 14) || ENGINE_MAJOR_VERSION > 4
 					It->DispatchBeginPlay();
-#else
-					if (It->HasActorBegunPlay() == false)
-					{
-						It->BeginPlay();
-					}
-#endif
 				}
 				PreviewScene->GetWorld()->bBegunPlay = true;
 			}
@@ -302,7 +285,7 @@ public:
 	FLinearColor BackgroundColor;
 
 private:
-    FCanvasOwner CanvasOwner;
+	FCanvasOwner CanvasOwner;
 };
 
 class SAutoRefreshEditorViewport : public SEditorViewport
@@ -350,11 +333,15 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 		SceneViewport->InvalidateDisplay();
 	}
 
-	void SetRealtime(bool bInRealtime, bool bStoreCurrentValue)
+	void AddRealtimeOverride(bool bInRealtime, FText SystemDisplayName)
 	{
-		EditorViewportClient->SetRealtime(bInRealtime);
+		EditorViewportClient->AddRealtimeOverride(bInRealtime, SystemDisplayName);
 	}
 
+	void RemoveRealtimeOverride(FText SystemDisplayName)
+	{
+		EditorViewportClient->RemoveRealtimeOverride(SystemDisplayName);
+	}	
 	void SetBackgroundColor(const FLinearColor& BackgroundColor)
 	{
 		EditorViewportClient->BackgroundColor = BackgroundColor;
@@ -457,14 +444,14 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 
 	void SetWidgetMode(EJavascriptWidgetMode WidgetMode)
 	{
-		EditorViewportClient->SetWidgetMode(WidgetMode == EJavascriptWidgetMode::WM_None ? WidgetAlias::WM_None : (WidgetAlias::EWidgetMode)WidgetMode);
-    }
-    
-    EJavascriptWidgetMode GetWidgetMode()
-    {
-		WidgetAlias::EWidgetMode WidgetMode = EditorViewportClient->GetWidgetMode();
-        return WidgetAlias::WM_None ? EJavascriptWidgetMode::WM_None : (EJavascriptWidgetMode)WidgetMode;
-    }
+		EditorViewportClient->SetWidgetMode(WidgetMode == EJavascriptWidgetMode::WM_None ? UE::Widget::EWidgetMode::WM_None : (UE::Widget::EWidgetMode)WidgetMode);
+	}
+	
+	EJavascriptWidgetMode GetWidgetMode()
+	{
+		UE::Widget::EWidgetMode WidgetMode = EditorViewportClient->GetWidgetMode();
+		return UE::Widget::EWidgetMode::WM_None ? EJavascriptWidgetMode::WM_None : (EJavascriptWidgetMode)WidgetMode;
+	}
 
 	FString GetEngineShowFlags()
 	{
@@ -544,11 +531,8 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 			UStaticMeshComponent* Component = *Itr;
 			if (Component && Component->GetOwner() == nullptr) 
 			{
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14) || ENGINE_MAJOR_VERSION > 4
 				auto StaticMesh = Component->GetStaticMesh();
-#else
-				auto StaticMesh = Component->StaticMesh;
-#endif
+
 				if (StaticMesh && StaticMesh->GetName().Equals(FString(TEXT("Sphere_inversenormals"))))
 				{
 					return Component;
@@ -654,11 +638,19 @@ void UJavascriptEditorViewport::ReleaseSlateResources(bool bReleaseChildren)
 	ViewportWidget.Reset();
 }
 
-void UJavascriptEditorViewport::SetRealtime(bool bInRealtime, bool bStoreCurrentValue)
+void UJavascriptEditorViewport::AddRealtimeOverride(bool bInRealtime, FText SystemDisplayName)
 {
 	if (ViewportWidget.IsValid())
 	{
-		ViewportWidget->SetRealtime(bInRealtime,bStoreCurrentValue);
+		ViewportWidget->AddRealtimeOverride(bInRealtime, SystemDisplayName);
+	}
+}
+
+void UJavascriptEditorViewport::RemoveRealtimeOverride(FText SystemDisplayName)
+{
+	if (ViewportWidget.IsValid())
+	{
+		ViewportWidget->RemoveRealtimeOverride(SystemDisplayName);
 	}
 }
 
@@ -808,13 +800,13 @@ void UJavascriptEditorViewport::SetWidgetMode(EJavascriptWidgetMode WidgetMode)
 
 EJavascriptWidgetMode UJavascriptEditorViewport::GetWidgetMode()
 {
-    if (ViewportWidget.IsValid())
-    {
-        return ViewportWidget->GetWidgetMode();
-    }
-    else {
-        return EJavascriptWidgetMode::WM_None;
-    }
+	if (ViewportWidget.IsValid())
+	{
+		return ViewportWidget->GetWidgetMode();
+	}
+	else {
+		return EJavascriptWidgetMode::WM_None;
+	}
 }
 
 void UJavascriptEditorViewport::SetViewportType(ELevelViewportType InViewportType)
@@ -835,35 +827,27 @@ void UJavascriptEditorViewport::SetViewMode(EViewModeIndex InViewModeIndex)
 
 void UJavascriptEditorViewport::DeprojectScreenToWorld(const FVector2D &ScreenPosition, FVector &OutRayOrigin, FVector& OutRayDirection)
 {
-    if (ViewportWidget.IsValid())
-    {
-        FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
-        FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
+	if (ViewportWidget.IsValid())
+	{
+		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
+		FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
 		
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14) || ENGINE_MAJOR_VERSION > 4
 		const auto& InvViewProjMatrix = View->ViewMatrices.GetInvViewProjectionMatrix();
-#else
-		const auto& InvViewProjMatrix = View->ViewMatrices.GetInvViewProjMatrix();
-#endif
-        FSceneView::DeprojectScreenToWorld(ScreenPosition, View->UnscaledViewRect, InvViewProjMatrix, OutRayOrigin, OutRayDirection);
-    }
+
+		FSceneView::DeprojectScreenToWorld(ScreenPosition, View->UnscaledViewRect, InvViewProjMatrix, OutRayOrigin, OutRayDirection);
+	}
 }
 
 void UJavascriptEditorViewport::ProjectWorldToScreen(const FVector &WorldPosition, FVector2D &OutScreenPosition)
 {
-    if (ViewportWidget.IsValid())
-    {
-        FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
-        FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
-
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14) || ENGINE_MAJOR_VERSION > 4
+	if (ViewportWidget.IsValid())
+	{
+		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
+		FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
 		const auto& ViewProjMatrix = View->ViewMatrices.GetViewProjectionMatrix();
-#else
-		const auto& ViewProjMatrix = View->ViewMatrices.GetViewProjMatrix();
-#endif
-        
-        FSceneView::ProjectWorldToScreen(WorldPosition, View->UnscaledViewRect, ViewProjMatrix, OutScreenPosition);
-    }
+		
+		FSceneView::ProjectWorldToScreen(WorldPosition, View->UnscaledViewRect, ViewProjMatrix, OutScreenPosition);
+	}
 }
 
 FString UJavascriptEditorViewport::GetEngineShowFlags()

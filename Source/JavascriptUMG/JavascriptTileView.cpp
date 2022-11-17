@@ -8,7 +8,7 @@ UJavascriptTileView::UJavascriptTileView(const FObjectInitializer& ObjectInitial
 
 TSharedRef<STableViewBase> UJavascriptTileView::RebuildListWidget()
 {
-	MyTileView = SNew(STileView< UObject* >)
+	MyTileView = SNew(STileView< UObject*>)
 		.SelectionMode(SelectionMode)
 		.ListItemsSource(&TileListItems)
 		.ItemHeight(EntryHeight)

@@ -93,6 +93,9 @@ OP_REFLECT(OnDeleteActorsEnd)\
 OP_REFLECT(OnDuplicateActorsBegin)\
 OP_REFLECT(OnDuplicateActorsEnd)
 
+/*OP_REFLECT(PreSaveWorld)\
+OP_REFLECT(PostSaveWorld)\*/
+
 #define DO_REFLECT_MAINFRAME() \
 OP_REFLECT_MAINFRAME(OnMainFrameCreationFinished)
 

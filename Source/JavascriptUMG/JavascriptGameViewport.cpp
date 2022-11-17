@@ -110,14 +110,7 @@ void FJavascriptUMGViewportClient::Tick(float InDeltaTime)
 		{
 			for (FActorIterator It(GameScene->GetWorld()); It; ++It)
 			{
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 14) || ENGINE_MAJOR_VERSION > 4
 				It->DispatchBeginPlay();
-#else
-				if (It->HasActorBegunPlay() == false)
-				{
-					It->BeginPlay();
-				}
-#endif
 			}
 			GameScene->GetWorld()->bBegunPlay = true;
 		}

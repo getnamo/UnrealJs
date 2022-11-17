@@ -10,7 +10,7 @@ namespace v8
 		if (Memory)
 		{
 			auto uobj = reinterpret_cast<UObject*>(Memory);
-			if (uobj->IsValidLowLevelFast() && ::IsValid(uobj))
+			if (uobj->IsValidLowLevelFast() && IsValid(uobj))
 			{
 				return uobj;
 			}
@@ -89,13 +89,13 @@ namespace v8
 	Local<String> V8_String(Isolate* isolate, const FString& String)
 	{
 		auto maybe_str = String::NewFromUtf8(isolate, TCHAR_TO_UTF8(*String));
-		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str.ToLocalChecked();
+		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str;
 	}
 
 	Local<String> V8_String(Isolate* isolate, const char* String)
 	{
 		auto maybe_str = String::NewFromUtf8(isolate, String);
-		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str.ToLocalChecked();
+		return maybe_str.IsEmpty() ? v8::String::Empty(isolate) : maybe_str;
 	}
 
 	Local<String> V8_KeywordString(Isolate* isolate, const FString& String)
@@ -139,11 +139,7 @@ namespace v8
 		{
 			if (auto s = Cast<UUserDefinedStruct>(Struct))
 			{
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 22) || ENGINE_MAJOR_VERSION > 4
 				return s->GetAuthoredNameForField(Property);
-#else
-				return s->PropertyNameToDisplayName(name);
-#endif
 			}
 		}
 		return name.ToString();
@@ -157,11 +153,7 @@ namespace v8
 		{
 			if (auto s = Cast<UUserDefinedStruct>(Struct))
 			{
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 22) || ENGINE_MAJOR_VERSION > 4
 				return s->GetAuthoredNameForField(Property) == NameToMatch.ToString();
-#else
-				return s->PropertyNameToDisplayName(name) == NameToMatch.ToString();
-#endif
 			}
 		}
 		return name == NameToMatch;

@@ -76,7 +76,6 @@ public class V8 : ModuleRules
         string PlatformSubdir = Target.Platform.ToString();
 
         bool bHasZlib = false;
-
         if (Target.IsInPlatformGroup(UnrealPlatformGroup.Windows))
         {
             PlatformSubdir = Path.Combine(PlatformSubdir, "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
@@ -102,21 +101,13 @@ public class V8 : ModuleRules
     {
         int[] v8_version = GetV8Version();
         bool ShouldLink_libsampler = !(v8_version[0] == 5 && v8_version[1] < 3);
-        bool ShouldLink_lib_v8_compiler = (v8_version[0] > 6 && v8_version[1] > 6);
-        bool ShouldLink_lib_monolith = v8_version[0] > 8;
-
-        if (Target.IsInPlatformGroup(UnrealPlatformGroup.Windows))
+        bool ShouldLink_lib_v8_compiler = (v8_version[0] > 6 && v8_version[1] > 6); //maybe false
+        bool ShouldLink_lib_monolith = false; //v8_version[0] > 8;
+        if (Target.Platform == UnrealTargetPlatform.Win64)
         {
             string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib");
 
-            if (Target.Platform == UnrealTargetPlatform.Win64)
-            {
-                LibrariesPath = Path.Combine(LibrariesPath, "Win64");
-            }
-            else
-            {
-                LibrariesPath = Path.Combine(LibrariesPath, "Win32");
-            }
+            LibrariesPath = Path.Combine(LibrariesPath, "Win64");
 
             if (ShouldLink_lib_monolith)
             {
@@ -168,10 +159,18 @@ public class V8 : ModuleRules
         }
         else if (Target.Platform == UnrealTargetPlatform.Android)
         {
-            string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android");
+            string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARM64");
+			//string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARMv7");
 
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "ARM64"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "ARMv7"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_init.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_initializers.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libbase.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libplatform.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_nosnapshot.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libsampler.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_initializers.a"));
+			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector.a"));
 
             if (ShouldLink_lib_monolith)
             {

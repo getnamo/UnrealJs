@@ -78,7 +78,7 @@ struct TypingGeneratorBase
 struct TokenWriter
 {
 	TokenWriter(TypingGeneratorBase& generator)
-	: generator(generator)
+		: generator(generator)
 	{}
 
 	TypingGeneratorBase& generator;
@@ -99,7 +99,7 @@ struct TokenWriter
 	{
 		return *Text;
 	}
-	
+
 	void push(FProperty* Property)
 	{
 #define PUSH_PROPERTY_TYPE(TYPE, VALUE)				\
@@ -267,7 +267,7 @@ struct TokenWriter
 struct TypingGenerator : TypingGeneratorBase
 {
 	TypingGenerator(FJavascriptIsolate& InEnvironment)
-	: Environment(InEnvironment)
+		: Environment(InEnvironment)
 	{}
 	virtual ~TypingGenerator() {}
 	FJavascriptIsolate& Environment;
@@ -305,7 +305,7 @@ struct TypingGenerator : TypingGeneratorBase
 		{
 
 			auto name = source->GetNameStringByIndex(Index);
-			if ( StringLiteralVisited.Find(name) ) continue;
+			if (StringLiteralVisited.Find(name)) continue;
 			StringLiteralVisited.Add(name);
 		}
 
@@ -359,13 +359,12 @@ struct TypingGenerator : TypingGeneratorBase
 
 	virtual void ExportStruct(UStruct* source) override
 	{
-		TokenWriter w(*this);		
+		TokenWriter w(*this);
 
 		const auto name = FV8Config::Safeify(source->GetName());
 		auto super_class = source->GetSuperStruct();
 
 		GlobalNames.Add(name);
-		
 		w.tooltip("", source);
 
 		w.push("declare class ");
@@ -541,7 +540,7 @@ struct TypingGenerator : TypingGeneratorBase
 
 				if (!FV8Config::CanExportFunction(klass, Function)) continue;
 
-				write_function(Function,false);
+				write_function(Function, false);
 			}
 		}
 		else
@@ -572,7 +571,7 @@ struct TypingGenerator : TypingGeneratorBase
 		}
 
 		w.push("}\n\n");
-		
+
 		Text.Append(*w);
 
 		fold();
@@ -602,7 +601,7 @@ struct TypingGenerator : TypingGeneratorBase
 		w.push("}\n\n");
 
 		w.push("declare class Process {\n");
-		w.push("\tnextTick(fn : (number) => void): void;\n");		
+		w.push("\tnextTick(fn : (number) => void): void;\n");
 		w.push("}\n\n");
 		w.push("declare var process : Process;\n\n");
 
@@ -636,7 +635,7 @@ struct TypingGenerator : TypingGeneratorBase
 		GlobalNames.Add("Context");
 		GlobalNames.Add("$execEditor");
 		GlobalNames.Add("$execTransaction");
-		GlobalNames.Add("$time"); 
+		GlobalNames.Add("$time");
 		GlobalNames.Add("JavascriptUserObjectListEntry");
 		GlobalNames.Add("Base64");
 		GlobalNames.Add("JavascriptText");

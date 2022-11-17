@@ -4,8 +4,8 @@
 #include "Brushes/SlateColorBrush.h"
 
 UJavascriptTreeView::UJavascriptTreeView(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
-{	
+	: Super(ObjectInitializer)
+{
 	bIsVariable = true;
 
 	SelectionMode = ESelectionMode::Single;
@@ -50,7 +50,7 @@ TSharedPtr<SHeaderRow> UJavascriptTreeView::GetHeaderRowWidget()
 			);
 		}
 	}
-	else 
+	else
 	{
 		HeaderRowWidget = SNew(SHeaderRow)
 			.Style(&HeaderRowStyle);
@@ -93,7 +93,6 @@ TSharedRef<STableViewBase> UJavascriptTreeView::RebuildListWidget()
 			return SNullWidget::NullWidget;
 		}));
 	}
-
 	return MyTreeView.ToSharedRef();
 }
 
@@ -112,7 +111,7 @@ void UJavascriptTreeView::RequestTreeRefresh()
 	if (MyTreeView.IsValid())
 	{
 		MyTreeView->RequestTreeRefresh();
-	}	
+	}
 }
 
 class SJavascriptItemRow : public STableRow<UObject*>
@@ -164,10 +163,10 @@ class SJavascriptTableRow
 {
 public:
 	SLATE_BEGIN_ARGS(SJavascriptTableRow) { }
-		SLATE_ARGUMENT(UObject*, Object)
+	SLATE_ARGUMENT(UObject*, Object)
 		SLATE_ARGUMENT(UJavascriptTreeView*, TreeView)
 		SLATE_STYLE_ARGUMENT(FTableRowStyle, Style)
-	SLATE_END_ARGS()
+		SLATE_END_ARGS()
 
 public:
 	// FSerializableObject interface
@@ -202,7 +201,7 @@ public:
 	// SMultiColumnTableRow interface
 
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-	virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
+		virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
 	{
 		auto ColumnWidget = SNullWidget::NullWidget;
 
@@ -236,7 +235,7 @@ public:
 	}
 	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-	TArray<UWidget*> Widgets;
+		TArray<UWidget*> Widgets;
 
 private:
 	UObject* Object;
@@ -259,7 +258,7 @@ TSharedRef<ITableRow> UJavascriptTreeView::HandleOnGenerateRow(UObject* Item, co
 			{
 				return CreateItemRow(Widget, OwnerTable);
 			}
-		}		
+		}
 	}
 
 	// If a row wasn't generated just create the default one, a simple text block of the item's name.
@@ -273,8 +272,8 @@ void UJavascriptTreeView::HandleOnGetChildren(UObject* Item, TArray<UObject*>& O
 	{
 		Children.Empty();
 
-		OnGetChildren.Execute(Item,this);
-		
+		OnGetChildren.Execute(Item, this);
+
 		OutChildItems.Append(Children);
 
 		Children.Empty();

@@ -20,6 +20,7 @@
 #include "Logging/LogVerbosity.h"
 #include "Settings/EditorStyleSettings.h"
 #include "../../Launch/Resources/Version.h"
+#include "Logging/LogVerbosity.h"
 
 #define LOCTEXT_NAMESPACE "JavascriptConsole"
 

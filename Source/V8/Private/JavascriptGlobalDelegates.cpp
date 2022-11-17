@@ -59,12 +59,7 @@ void UJavascriptGlobalDelegates::Bind(FString Key)
 	DO_REFLECT_WORLD()
 	DO_REFLECT_EDITOR_ONLY()
 	DO_REFLECT_FUNCTION()
-
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 13
-	OP_REFLECT_OLD(PreLoadMap)
-#else
 	OP_REFLECT(PreLoadMap)
-#endif	
 
 	if (Handle.IsValid())
 	{

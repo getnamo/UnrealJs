@@ -1,4 +1,4 @@
-﻿PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
 #include "JavascriptContext_Private.h"
 #include "JavascriptIsolate.h"
@@ -57,12 +57,12 @@ static FString URLToLocalPath(FString URL)
 	return URL;
 }
 
-static TArray<FString> StringArrayFromV8(Isolate* isolate, v8::Handle<Value> InArray)
+static TArray<FString> StringArrayFromV8(Isolate* isolate, Handle<Value> InArray)
 {
 	TArray<FString> OutArray;
 	if (!InArray.IsEmpty() && InArray->IsArray())
 	{
-		auto arr = v8::Handle<Array>::Cast(InArray);
+		auto arr = Handle<Array>::Cast(InArray);
 		auto len = arr->Length();
 		auto context_ = isolate->GetCurrentContext();
 		for (decltype(len) Index = 0; Index < len; ++Index)
@@ -454,7 +454,7 @@ static FProperty* CreateProperty(T* Outer, FName Name, const TArray<FString>& De
 	return SetupProperty(Create());
 }
 
-static FProperty* CreatePropertyFromDecl(Local<Context> context, FIsolateHelper& I, UObject* Outer, v8::Handle<Value> PropertyDecl)
+static FProperty* CreatePropertyFromDecl(Local<Context> context, FIsolateHelper& I, UObject* Outer, Handle<Value> PropertyDecl)
 {
 	auto Decl = PropertyDecl->ToObject(context).ToLocalChecked();
 	auto Name = Decl->Get(context, I.Keyword("Name")).ToLocalChecked();
@@ -611,11 +611,10 @@ public:
 
 		context_.Reset(isolate(), context);
 
-		ExposeGlobals();
+		//Now called externally to control what gets exposed
+		//ExposeGlobals();
 
 		Paths = IV8::Get().GetGlobalScriptSearchPaths();
-
-		PostWorldCleanupHandle = FWorldDelegates::OnPostWorldCleanup.AddRaw(this, &FJavascriptContextImplementation::OnWorldCleanup);
 	}
 
 	~FJavascriptContextImplementation()
@@ -627,8 +626,6 @@ public:
 		DestroyInspector();
 
 		context_.Reset();
-
-		FWorldDelegates::OnPostWorldCleanup.Remove(PostWorldCleanupHandle);
 	}
 
 	void ReleaseAllPersistentHandles()
@@ -650,25 +647,11 @@ public:
 		ExportUnrealEngineStructs();
 
 		ExposeMemory2();
-		ExposeVersions();		
 	}
 
 	void PurgeModules()
 	{
 		Modules.Empty();
-	}
-
-	void ExposeVersions()
-	{
-		FIsolateHelper I(isolate());
-
-		auto ctx = context();
-		auto global = ctx->Global();
-
-		(void)global->Set(ctx, I.Keyword("$engineVersion"), I.String(ENGINE_VERSION_STRING));
-		(void)global->Set(ctx, I.Keyword("$engineMajorVersion"), I.String(VERSION_STRINGIFY(ENGINE_MAJOR_VERSION)));
-		(void)global->Set(ctx, I.Keyword("$engineMinorVersion"), I.String(VERSION_STRINGIFY(ENGINE_MINOR_VERSION)));
-		(void)global->Set(ctx, I.Keyword("$enginePatchVersion"), I.String(VERSION_STRINGIFY(ENGINE_PATCH_VERSION)));
 	}
 
 	void ExportUnrealEngineClasses()
@@ -707,15 +690,21 @@ public:
 				Class = Klass;
 
 				// This flag is necessary for proper initialization
-				Class->ClassFlags |= CLASS_Native;
+				Class->ClassFlags |= (CLASS_Native | CLASS_CompiledFromBlueprint);
 			}
 
 			// Create a blueprint
 			auto Blueprint = NewObject<UBlueprint>(Outer);
 			Blueprint->GeneratedClass = Class;
-#if WITH_EDITORONLY_DATA
+
+//NOTE: temp disable for packaged build
+#if WITH_EDITOR
 			Class->ClassGeneratedBy = Blueprint;
+#else
+			UE_LOG(LogTemp, Warning, TEXT("ExportUnrealEngineClasses:: Attempted ClassGeneratedBy in non-editor context. Future note: Fix methods to support this."));
 #endif
+			
+
 			auto ClassConstructor = [](const FObjectInitializer& ObjectInitializer){
 				auto Class = static_cast<UBlueprintGeneratedClass*>(CurrentClassUnderConstruction ? CurrentClassUnderConstruction : ObjectInitializer.GetClass());
 				CurrentClassUnderConstruction = nullptr;
@@ -784,14 +773,14 @@ public:
 
 					CallClassConstructor(Class->GetSuperClass(), ObjectInitializer);
 
-					// move to javascriptgeneratedclass_*
-// 					{
-// 						auto func = proxy->ToObject(context).ToLocalChecked()->Get(context, I.Keyword("ctor")).ToLocalChecked();
-// 						if (func->IsFunction())
-// 						{
-// 							CallJavascriptFunction(context, This, nullptr, Local<Function>::Cast(func), nullptr);
-// 						}
-// 					}
+					// move to javascriptgeneratedclass_* <- undo this
+ 					{
+ 						auto func = proxy->ToObject(context).ToLocalChecked()->Get(context, I.Keyword("ctor")).ToLocalChecked();
+ 						if (func->IsFunction())
+ 						{
+ 							CallJavascriptFunction(context, This, nullptr, Local<Function>::Cast(func), nullptr);
+ 						}
+				}
 
 					Context->ObjectInitializerStack.RemoveAt(Context->ObjectInitializerStack.Num() - 1, 1);
 				}
@@ -812,7 +801,7 @@ public:
 			Class->ClassFlags |= (ParentClass->ClassFlags & (CLASS_Inherit | CLASS_ScriptInherit | CLASS_CompiledFromBlueprint));
 			Class->ClassCastFlags |= ParentClass->ClassCastFlags;
 
-			auto AddFunction = [&](FName NewFunctionName, v8::Handle<Value> TheFunction) -> bool {
+			auto AddFunction = [&](FName NewFunctionName, Handle<Value> TheFunction) -> bool {
 				UFunction* ParentFunction = ParentClass->FindFunctionByName(NewFunctionName);
 
 				UJavascriptGeneratedFunction* Function{ nullptr };
@@ -887,13 +876,13 @@ public:
 						}
 					}
 
-					auto InitializeProperties = [&](UFunction* Function, v8::Handle<Value> Signature) {
+					auto InitializeProperties = [&](UFunction* Function, Handle<Value> Signature) {
 						FField** Storage = &Function->ChildProperties;
 						FProperty** PropertyStorage = &Function->PropertyLink;
 
 						if (!Signature.IsEmpty() && Signature->IsArray())
 						{
-							auto arr = v8::Handle<Array>::Cast(Signature);
+							auto arr = Handle<Array>::Cast(Signature);
 							auto len = arr->Length();
 
 							for (decltype(len) Index = 0; Index < len; ++Index)
@@ -996,7 +985,7 @@ public:
 
 				if (PropertyDecls->IsArray())
 				{
-					auto arr = v8::Handle<Array>::Cast(PropertyDecls);
+					auto arr = Handle<Array>::Cast(PropertyDecls);
 					auto len = arr->Length();
 
 					for (decltype(len) Index = 0; Index < len; ++Index)
@@ -1025,7 +1014,7 @@ public:
 			}
 
 			auto maybe_Functions = Opts->Get(context, I.Keyword("Functions"));
-			TMap<FString, v8::Handle<Value>> Others;
+			TMap<FString,Handle<Value>> Others;
 			if (!maybe_Functions.IsEmpty())
 			{
 				auto Functions = maybe_Functions.ToLocalChecked();
@@ -1092,13 +1081,11 @@ public:
 			else
 				Class->GetDefaultObject();
 
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 12) || ENGINE_MAJOR_VERSION > 4
 			// Assemble reference token stream for garbage collection/ RTGC.
 			if (!Class->HasAnyClassFlags(CLASS_TokenStreamAssembled))
 			{
 				Class->AssembleReferenceTokenStream();
 			}
-#endif
 			auto end = FPlatformTime::Seconds();
 			UE_LOG(Javascript, Warning, TEXT("Create UClass(%s) Elapsed: %.6f"), *Name, end - start);
 		};
@@ -1130,7 +1117,7 @@ public:
 				auto PropertyDecls = maybe_PropertyDecls.ToLocalChecked();
 				if (PropertyDecls->IsArray())
 				{
-					auto arr = v8::Handle<Array>::Cast(PropertyDecls);
+					auto arr = Handle<Array>::Cast(PropertyDecls);
 					auto len = arr->Length();
 
 					for (decltype(len) Index = 0; Index < len; ++Index)
@@ -1169,7 +1156,7 @@ public:
 			if (!maybe_Functions.IsEmpty())
 			{
 				auto Functions = maybe_Functions.ToLocalChecked();
-				TMap<FString, v8::Handle<Value>> Others;
+				TMap<FString, Handle<Value>> Others;
 				if (!Functions.IsEmpty() && Functions->IsObject())
 				{
 					auto FuncMap = Functions->ToObject(context).ToLocalChecked();
@@ -1177,21 +1164,19 @@ public:
 					auto Function1 = FuncMap->Get(context, I.Keyword("prector")).ToLocalChecked();
 
 					auto ProxyFuncMap = ProxyFunctions->ToObject(context).ToLocalChecked();
-					(void)ProxyFuncMap->Set(context, I.Keyword("ctor"), Function0);
-					(void)ProxyFuncMap->Set(context, I.Keyword("prector"), Function1);
+					ProxyFuncMap->Set(context, I.Keyword("ctor"), Function0);
+					ProxyFuncMap->Set(context, I.Keyword("prector"), Function1);
 				}
 			}
 			Context->Environment->PublicExportUClass(Class);
 
 			auto aftr_v8_template = Context->ExportObject(Class);
-			(void)(aftr_v8_template->ToObject(context).ToLocalChecked()->Set(context, I.Keyword("proxy"), ProxyFunctions));
+			aftr_v8_template->ToObject(context).ToLocalChecked()->Set(context, I.Keyword("proxy"), ProxyFunctions);
 
 			Class->GetDefaultObject(true);
 
-#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 12) || ENGINE_MAJOR_VERSION > 4
 			// Assemble reference token stream for garbage collection/ RTGC.
 			Class->AssembleReferenceTokenStream(true);
-#endif
 			auto end = FPlatformTime::Seconds();
 			UE_LOG(Javascript, Warning, TEXT("Rebind UClass(%s) Elapsed: %.6f"), *Class->GetName(), end - start);
 #endif
@@ -1247,7 +1232,7 @@ public:
 			auto PropertyDecls = Opts->Get(context, I.Keyword("Properties")).ToLocalChecked();
 			if (!PropertyDecls.IsEmpty() && PropertyDecls->IsArray())
 			{
-				auto arr = v8::Handle<Array>::Cast(PropertyDecls);
+				auto arr = Handle<Array>::Cast(PropertyDecls);
 				auto len = arr->Length();
 
 				for (decltype(len) Index = 0; Index < len; ++Index)
@@ -1299,7 +1284,7 @@ public:
 			auto PropertyDecls = Opts->Get(context, I.Keyword("Properties")).ToLocalChecked();
 			if (!PropertyDecls.IsEmpty() && PropertyDecls->IsArray())
 			{
-				auto arr = v8::Handle<Array>::Cast(PropertyDecls);
+				auto arr = Handle<Array>::Cast(PropertyDecls);
 				auto len = arr->Length();
 
 				for (decltype(len) Index = 0; Index < len; ++Index)
@@ -1329,7 +1314,7 @@ public:
 			Context->Environment->PublicExportStruct(Struct);
 
 			auto aftr_v8_template = Context->ExportObject(Struct);
-			(void)(aftr_v8_template->ToObject(context).ToLocalChecked()->Set(context, I.Keyword("proxy"), ProxyFunctions));
+			aftr_v8_template->ToObject(context).ToLocalChecked()->Set(context, I.Keyword("proxy"), ProxyFunctions);
 			auto end = FPlatformTime::Seconds();
 			UE_LOG(Javascript, Warning, TEXT("Rebind UStruct(%s) Elapsed: %.6f"), *Struct->GetName(), end - start);
 #endif
@@ -1607,6 +1592,278 @@ public:
 		(void)global->SetAccessor(ctx, V8_KeywordString(isolate(), "modules"), getter, 0, self);
 	}
 
+	void ExposeUModule()
+	{
+		HandleScope handle_scope(isolate());
+		Context::Scope context_scope(context());
+
+		//Temporary to see if we can include e.g. request via umodule by also exposing require by default
+		ExposeRequire();
+
+		/*
+		//largely copied from ExposeRequire, but will have some additional logic
+		auto fn = [](const FunctionCallbackInfo<Value>& info) {
+			auto isolate = info.GetIsolate();
+			HandleScope scope(isolate);
+
+			if (info.Length() != 1 || !(info[0]->IsString()))
+			{
+				return;
+			}
+
+			auto Self = reinterpret_cast<FJavascriptContextImplementation*>((Local<External>::Cast(info.Data()))->Value());
+
+			auto required_module = StringFromV8(isolate, info[0]);
+
+			bool found = false;
+
+			auto inner = [&](const FString& script_path)
+			{
+				auto relative_path = script_path.Replace(TEXT("/./"), TEXT("/"), ESearchCase::CaseSensitive);
+
+				// path referencing .. cleansing
+				int pos = relative_path.Len();
+				while (true)
+				{
+					int idx = relative_path.Find("/../", ESearchCase::CaseSensitive, ESearchDir::FromEnd, pos);
+					if (idx < 0)
+						break;
+
+					int parentIdx = relative_path.Find("/", ESearchCase::CaseSensitive, ESearchDir::FromEnd, idx) + 1;
+					FString parent = relative_path.Mid(parentIdx, idx - parentIdx);
+					if (parent == "..")
+					{
+						pos = idx + 1;
+						continue;
+					}
+
+					relative_path = relative_path.Mid(0, parentIdx) + relative_path.Mid(idx + 4);
+					pos = relative_path.Len(); // reset counter
+				}
+
+				auto full_path = FPaths::ConvertRelativePathToFull(relative_path);
+#if PLATFORM_WINDOWS
+				full_path = full_path.Replace(TEXT("/"), TEXT("\\"));
+#endif
+				auto it = Self->Modules.Find(full_path);
+				if (it)
+				{
+					info.GetReturnValue().Set(Local<Value>::New(isolate, *it));
+					found = true;
+					return true;
+				}
+
+				FString Text;
+				if (FFileHelper::LoadFileToString(Text, *relative_path))
+				{
+					Text = FString::Printf(TEXT("(function (global, __filename, __dirname) { var module = { exports : {}, filename : __filename }, exports = module.exports; (function () { %s\n })()\n;return module.exports;}(this,'%s', '%s'));"), *Text, *relative_path, *FPaths::GetPath(relative_path));
+					auto exports = Self->RunScript(full_path, Text, 0);
+					if (exports.IsEmpty())
+					{
+						UE_LOG(Javascript, Log, TEXT("Invalid script for require"));
+					}
+					Self->Modules.Add(full_path, UniquePersistent<Value>(isolate, exports));
+					info.GetReturnValue().Set(exports);
+					found = true;
+					return true;
+				}
+
+				return false;
+			};
+
+			auto inner_maybejs = [&](const FString& script_path)
+			{
+				if (!script_path.EndsWith(TEXT(".js")))
+				{
+					return inner(script_path + TEXT(".js"));
+				}
+				else
+				{
+					return inner(script_path);
+				}
+			};
+
+			auto inner_package_json = [&](const FString& script_path)
+			{
+				FString Text;
+				if (FFileHelper::LoadFileToString(Text, *(script_path / TEXT("package.json"))))
+				{
+					Text = FString::Printf(TEXT("(function (json) {return json.main;})(%s);"), *Text);
+					auto full_path = FPaths::ConvertRelativePathToFull(script_path);
+#if PLATFORM_WINDOWS
+					full_path = full_path.Replace(TEXT("/"), TEXT("\\"));
+#endif
+					auto exports = Self->RunScript(full_path, Text, 0);
+					if (exports.IsEmpty() || !exports->IsString())
+					{
+						return false;
+					}
+					else
+					{
+						return inner_maybejs(script_path / StringFromV8(isolate, exports));
+					}
+				}
+
+				return false;
+			};
+
+			auto inner_json = [&](const FString& script_path)
+			{
+				auto full_path = FPaths::ConvertRelativePathToFull(script_path);
+#if PLATFORM_WINDOWS
+				full_path = full_path.Replace(TEXT("/"), TEXT("\\"));
+#endif
+				auto it = Self->Modules.Find(full_path);
+				if (it)
+				{
+					info.GetReturnValue().Set(Local<Value>::New(isolate, *it));
+					found = true;
+					return true;
+				}
+
+				FString Text;
+				if (FFileHelper::LoadFileToString(Text, *script_path))
+				{
+					Text = FString::Printf(TEXT("(function (json) {return json;})(%s);"), *Text);
+
+#if PLATFORM_WINDOWS
+					full_path = full_path.Replace(TEXT("/"), TEXT("\\"));
+#endif
+					auto exports = Self->RunScript(full_path, Text, 0);
+					if (exports.IsEmpty() || !exports->IsObject())
+					{
+						return false;
+					}
+					else
+					{
+						Self->Modules.Add(full_path, UniquePersistent<Value>(isolate, exports));
+						info.GetReturnValue().Set(exports);
+						found = true;
+						return true;
+					}
+				}
+
+				return false;
+			};
+
+			auto inner2 = [&](FString base_path)
+			{
+				if (!FPaths::DirectoryExists(base_path)) return false;
+
+				auto script_path = base_path / required_module;
+				if (script_path.EndsWith(TEXT(".js")))
+				{
+					if (inner(script_path)) return true;
+				}
+				else
+				{
+					if (inner(script_path + TEXT(".js"))) return true;
+				}
+				if (script_path.EndsWith(TEXT(".json")))
+				{
+					if (inner_json(script_path)) return true;
+				}
+				else
+				{
+					if (inner_json(script_path + TEXT(".json"))) return true;
+				}
+
+				if (inner(script_path / TEXT("index.js"))) return true;
+				if (inner_package_json(script_path)) return true;
+
+				return false;
+			};
+
+			auto load_module_paths = [&](FString base_path)
+			{
+				TArray<FString> Dirs;
+				TArray<FString> Parsed;
+				base_path.ParseIntoArray(Parsed, TEXT("/"));
+				auto PartCount = Parsed.Num();
+				while (PartCount > 0) {
+					if (Parsed[PartCount - 1].Equals(TEXT("node_modules")))
+					{
+						PartCount--;
+						continue;
+					}
+					else
+					{
+						TArray<FString> Parts;
+						for (int i = 0; i < PartCount; i++) Parts.Add(Parsed[i]);
+						FString Dir = FString::Join(Parts, TEXT("/"));
+						Dirs.Add(Dir);
+					}
+					PartCount--;
+				}
+
+				return Dirs;
+			};
+
+			if (inner(required_module))
+				return;
+
+			auto current_script_path = FPaths::GetPath(StringFromV8(isolate, StackTrace::CurrentStackTrace(isolate, 1, StackTrace::kScriptName)->GetFrame(isolate, 0)->GetScriptName()));
+			current_script_path = URLToLocalPath(current_script_path);
+
+			if (!(required_module[0] == '.' && inner2(current_script_path)))
+			{
+				for (const auto& path : load_module_paths(current_script_path))
+				{
+					if (inner2(path)) break;
+					if (inner2(path / TEXT("node_modules"))) break;
+				}
+
+				for (const auto& path : Self->Paths)
+				{
+					if (inner2(path)) break;
+					if (inner2(path / TEXT("node_modules"))) break;
+				}
+			}
+
+			if (!found)
+			{
+				UE_LOG(Javascript, Warning, TEXT("Undefined required script '%s'"), *required_module);
+				info.GetReturnValue().Set(v8::Undefined(isolate));
+			}
+		};
+
+		auto fn2 = [](const FunctionCallbackInfo<Value>& info) {
+			auto isolate = info.GetIsolate();
+			HandleScope scope(isolate);
+
+			auto Self = reinterpret_cast<FJavascriptContextImplementation*>((Local<External>::Cast(info.Data()))->Value());
+			Self->PurgeModules();
+		};
+		auto ctx = context();
+		auto global = ctx->Global();
+		auto self = External::New(isolate(), this);
+
+		(void)global->Set(ctx, V8_KeywordString(isolate(), "umodule"), FunctionTemplate::New(isolate(), FV8Exception::GuardLambda(fn), self)->GetFunction(ctx).ToLocalChecked());
+		//(void)global->Set(ctx, V8_KeywordString(isolate(), "purge_modules"), FunctionTemplate::New(isolate(), FV8Exception::GuardLambda(fn2), self)->GetFunction(ctx).ToLocalChecked());
+
+		AccessorNameGetterCallback getter = [](Local<Name> property, const PropertyCallbackInfo<Value>& info) {
+			auto isolate = info.GetIsolate();
+			HandleScope scope(isolate);
+
+			auto Self = reinterpret_cast<FJavascriptContextImplementation*>((Local<External>::Cast(info.Data()))->Value());
+
+			auto out = Object::New(isolate);
+
+			auto context_ = isolate->GetCurrentContext();
+			for (auto it = Self->Modules.CreateConstIterator(); it; ++it)
+			{
+				const auto& name = it.Key();
+				const auto& module = it.Value();
+
+				auto FullPath = FPaths::ConvertRelativePathToFull(name);
+				(void)out->Set(context_, V8_String(isolate, name), V8_String(isolate, TCHAR_TO_UTF8(*FullPath)));
+			}
+
+			info.GetReturnValue().Set(out);
+		};
+		(void)global->SetAccessor(ctx, V8_KeywordString(isolate(), "modules"), getter, 0, self);
+		*/
+	}
 
 	void ExposeMemory2()
 	{
@@ -1644,7 +1901,7 @@ public:
 					{
 						auto Source = reinterpret_cast<FJavascriptRawAccess*>(Memory);
 
-						v8::Handle<Value> argv[1];
+						Handle<Value> argv[1];
 
 						auto Name = StringFromV8(isolate, info[1]);
 
@@ -1683,18 +1940,13 @@ public:
 					{
 						auto Source = reinterpret_cast<FJavascriptMemoryStruct*>(Memory);
 
-						v8::Handle<Value> argv[1];
+						Handle<Value> argv[1];
 
 						auto Dimension = Source->GetDimension();
 						auto Indices = (int32*)FMemory_Alloca(sizeof(int32) * Dimension);
 						if (Dimension == 1)
 						{
-#if V8_MAJOR_VERSION < 9
 							auto ab = ArrayBuffer::New(info.GetIsolate(), Source->GetMemory(nullptr), Source->GetSize(0));
-#else
-							auto backing_store = ArrayBuffer::NewBackingStore(Source->GetMemory(nullptr), Source->GetSize(0), v8::BackingStore::EmptyDeleter, nullptr);
-							auto ab = ArrayBuffer::New(info.GetIsolate(), std::move(backing_store));
-#endif
 							argv[0] = ab;
 
 							(void)function->Call(context, info.This(), 1, argv);
@@ -1709,12 +1961,7 @@ public:
 							for (auto Index = 0; Index < Outer; ++Index)
 							{
 								Indices[0] = Index;
-#if V8_MAJOR_VERSION < 9
 								auto ab = ArrayBuffer::New(info.GetIsolate(), Source->GetMemory(Indices), Inner);
-#else
-								auto backing_store = ArrayBuffer::NewBackingStore(Source->GetMemory(Indices), Inner, v8::BackingStore::EmptyDeleter, nullptr);
-								auto ab = ArrayBuffer::New(info.GetIsolate(), std::move(backing_store));
-#endif
 								(void)out_arr->Set(context, Index, ab);
 							}
 
@@ -1726,7 +1973,7 @@ public:
 					{
 						auto Source = reinterpret_cast<FJavascriptRawAccess*>(Memory);
 
-						v8::Handle<Value> argv[1];
+						Handle<Value> argv[1];
 
 						auto ProxyStruct = Source->GetScriptStruct(0);
 						auto Proxy = Source->GetData(0);
@@ -1771,39 +2018,20 @@ public:
 		return Text;
 	}
 
-	FString RunFile(const FString& Filename, const TArray<FString>& Args = TArray<FString>())
+	Local<Value> RunFile(const FString& Filename)
 	{
-		Isolate::Scope isolate_scope(isolate());
 		HandleScope handle_scope(isolate());
-		Context::Scope context_scope(context());
 
 		auto Script = ReadScriptFile(Filename);
 
 		auto ScriptPath = GetScriptFileFullPath(Filename);
-		FString Text;
-		if (Args.Num() > 0)
-		{
-			FString strArgs = FString::Printf(TEXT("\'%s\'"), *Args[0]);
-			for (int32 i = 1; i < Args.Num(); ++i)
-			{
-				strArgs += TEXT(", ");
-				strArgs +=  FString::Printf(TEXT("\'%s\'"), *Args[i]);
-			}
-
-			Text = FString::Printf(TEXT("(function (global,__filename,__dirname, ...args) { %s\n; }(this,'%s','%s', %s));"), *Script, *ScriptPath, *FPaths::GetPath(ScriptPath), *strArgs);
-		}
-		else
-		{
-			Text = FString::Printf(TEXT("(function (global,__filename,__dirname) { %s\n;}(this,'%s','%s'));"), *Script, *ScriptPath, *FPaths::GetPath(ScriptPath));
-		}
-
-		auto ret = RunScript(ScriptPath, Text, 0);
-		return ret.IsEmpty()? TEXT("(empty)") : StringFromV8(isolate(), ret);
+		auto Text = FString::Printf(TEXT("(function (global,__filename,__dirname) { %s\n;}(this,'%s','%s'));"), *Script, *ScriptPath, *FPaths::GetPath(ScriptPath));
+		return RunScript(ScriptPath, Text, 0);
 	}
 
-	FString Public_RunFile(const FString& Filename, const TArray<FString>& Args)
+	void Public_RunFile(const FString& Filename)
 	{
-		return RunFile(Filename, Args);
+		RunFile(Filename);
 	}
 
 	FString Public_RunScript(const FString& Script, bool bOutput = true)
@@ -1824,7 +2052,11 @@ public:
 
 	void RequestV8GarbageCollection()
 	{
-		isolate()->LowMemoryNotification();
+		//Isolate::Scope isolate_scope(isolate());
+		//Context::Scope context_scope(context());
+
+		// @todo: using 'ForTesting' function
+		isolate()->RequestGarbageCollectionForTesting(Isolate::kFullGarbageCollection);
 	}
 
 	// Should be guarded with proper handle scope
@@ -1847,7 +2079,7 @@ public:
 		auto source = V8_String(isolate(), Script);
 		auto path = V8_String(isolate(), LocalPathToURL(Path));
 		auto ctx = context();
-		ScriptOrigin origin(path, -line_offset);
+		ScriptOrigin origin(path, Integer::New(isolate(), -line_offset));
 		auto script = Script::Compile(ctx, source, &origin);
 		if (script.IsEmpty())
 		{
@@ -1932,10 +2164,9 @@ public:
 		{
 			const UClass* ClassToExport = it.Key();
 
-#if WITH_EDITORONLY_DATA
 			// Skip a generated class
 			if (ClassToExport->ClassGeneratedBy) continue;
-#endif
+
 			auto ClassName = FV8Config::Safeify(ClassToExport->GetName());
 
 			// Function with default value
@@ -1973,13 +2204,9 @@ public:
 									Context::Scope context_scope(ctx);
 
 									v8::Handle<Value> args[] = { DefaultValue };
-									auto maybe_ret = Packer->Call(ctx, Packer, 1, args);
-									if (!maybe_ret.IsEmpty())
-									{
-										auto ret = maybe_ret.ToLocalChecked();
-										auto Ret = StringFromV8(isolate(), ret);
-										ParameterWithValue = FString::Printf(TEXT("%s = %s"), *Parameter, *Ret);
-									}
+									auto ret = Packer->Call(ctx, Packer, 1, args).ToLocalChecked();
+									auto Ret = StringFromV8(isolate(), ret);
+									ParameterWithValue = FString::Printf(TEXT("%s = %s"), *Parameter, *Ret);
 								}
 
 								It->DestroyValue_InContainer(Parms);
@@ -2132,11 +2359,6 @@ public:
 
 		instance.Finalize();
 
-		FString Path, BaseFilename, Extension;
-		FPaths::Split(Filename, Path, BaseFilename, Extension);
-		auto GlobalNamePath = FPaths::Combine(*Path, TEXT("globals.js"));
-		instance.SaveGlobalNames(GlobalNamePath);
-
 		return instance.Save(Filename);
 #else
 		return false;
@@ -2268,7 +2490,7 @@ public:
 			{
 				auto function = func.As<Function>();
 
-				v8::Handle<Value> argv[1];
+				Handle<Value> argv[1];
 
 				argv[0] = V8_String(_isolate, Exception);
 
@@ -2284,15 +2506,18 @@ public:
 			return true;
 		}
 
-		if (TargetObj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
-		{
-			return true;
-		}
-
 		if (TargetObj->IsA(AActor::StaticClass()) || TargetObj->IsA(UWorld::StaticClass()) || TargetObj->IsA(ULevel::StaticClass()) || TargetObj->IsA(UActorComponent::StaticClass()))
 		{
 			return true;
 		}
+
+		/* WARNING: removed section
+		//Get package locks when attempting to find with JavascriptAsync and instance...
+		if (TargetObj->GetPackage()->HasAnyPackageFlags(PKG_PlayInEditor))
+		{
+			return true;
+		}*/
+		
 		else if (TargetObj->IsA(UBlueprint::StaticClass()))
 		{
 			UBlueprint* Blueprint = Cast<UBlueprint>(TargetObj);
@@ -2306,29 +2531,20 @@ public:
 		return false;
 	}
 
-	virtual void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources) override
-	{
-		for (auto It = ObjectToObjectMap.CreateIterator(); It; ++It)
-		{
-			auto Object = It.Key();
-
-			if (World == Object)
-			{
-				It.RemoveCurrent();
-			}
-		}
-	}
-
 	virtual bool IsExcludeGCStructTarget(UStruct* TargetStruct) override
 	{
-#if WITH_EDITORONLY_DATA
 		UClass* Class = Cast<UClass>(TargetStruct);
 
+//NOTE: temp disable for packaged build
+#if WITH_EDITOR
 		if (Class && Class->ClassGeneratedBy && Cast<UBlueprint>(Class->ClassGeneratedBy)->BlueprintType == EBlueprintType::BPTYPE_LevelScript)
 		{
 			return true;
 		}
+#else
+		UE_LOG(LogTemp, Warning, TEXT("IsExcludeGCStructTarget:: Attempted set ClassGeneratedBy in non-editor context. Future note: Fix methods to support this."));
 #endif
+
 		return false;
 	}
 };

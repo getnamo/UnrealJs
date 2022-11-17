@@ -5,15 +5,9 @@
 #ifndef V8_V8_PROFILER_H_
 #define V8_V8_PROFILER_H_
 
-#include <limits.h>
-
-#include <memory>
 #include <unordered_set>
 #include <vector>
-
-#include "v8-local-handle.h"       // NOLINT(build/include_directory)
-#include "v8-message.h"            // NOLINT(build/include_directory)
-#include "v8-persistent-handle.h"  // NOLINT(build/include_directory)
+#include "v8.h"  // NOLINT(build/include)
 
 /**
  * Profiler support for the V8 JavaScript engine.
@@ -22,19 +16,14 @@ namespace v8 {
 
 class HeapGraphNode;
 struct HeapStatsUpdate;
-class Object;
 
-using NativeObject = void*;
-using SnapshotObjectId = uint32_t;
+typedef uint32_t SnapshotObjectId;
+
 
 struct CpuProfileDeoptFrame {
   int script_id;
   size_t position;
 };
-
-namespace internal {
-class CpuProfile;
-}  // namespace internal
 
 }  // namespace v8
 
@@ -58,6 +47,75 @@ template class V8_EXPORT std::vector<v8::CpuProfileDeoptInfo>;
 
 namespace v8 {
 
+// TickSample captures the information collected for each sample.
+struct TickSample {
+  // Internal profiling (with --prof + tools/$OS-tick-processor) wants to
+  // include the runtime function we're calling. Externally exposed tick
+  // samples don't care.
+  enum RecordCEntryFrame { kIncludeCEntryFrame, kSkipCEntryFrame };
+
+  TickSample()
+      : state(OTHER),
+        pc(nullptr),
+        external_callback_entry(nullptr),
+        frames_count(0),
+        has_external_callback(false),
+        update_stats(true) {}
+
+  /**
+   * Initialize a tick sample from the isolate.
+   * \param isolate The isolate.
+   * \param state Execution state.
+   * \param record_c_entry_frame Include or skip the runtime function.
+   * \param update_stats Whether update the sample to the aggregated stats.
+   * \param use_simulator_reg_state When set to true and V8 is running under a
+   *                                simulator, the method will use the simulator
+   *                                register state rather than the one provided
+   *                                with |state| argument. Otherwise the method
+   *                                will use provided register |state| as is.
+   */
+  void Init(Isolate* isolate, const v8::RegisterState& state,
+            RecordCEntryFrame record_c_entry_frame, bool update_stats,
+            bool use_simulator_reg_state = true);
+  /**
+   * Get a call stack sample from the isolate.
+   * \param isolate The isolate.
+   * \param state Register state.
+   * \param record_c_entry_frame Include or skip the runtime function.
+   * \param frames Caller allocated buffer to store stack frames.
+   * \param frames_limit Maximum number of frames to capture. The buffer must
+   *                     be large enough to hold the number of frames.
+   * \param sample_info The sample info is filled up by the function
+   *                    provides number of actual captured stack frames and
+   *                    the current VM state.
+   * \param use_simulator_reg_state When set to true and V8 is running under a
+   *                                simulator, the method will use the simulator
+   *                                register state rather than the one provided
+   *                                with |state| argument. Otherwise the method
+   *                                will use provided register |state| as is.
+   * \note GetStackSample is thread and signal safe and should only be called
+   *                      when the JS thread is paused or interrupted.
+   *                      Otherwise the behavior is undefined.
+   */
+  static bool GetStackSample(Isolate* isolate, v8::RegisterState* state,
+                             RecordCEntryFrame record_c_entry_frame,
+                             void** frames, size_t frames_limit,
+                             v8::SampleInfo* sample_info,
+                             bool use_simulator_reg_state = true);
+  StateTag state;  // The state of the VM.
+  void* pc;        // Instruction pointer.
+  union {
+    void* tos;  // Top stack value (*sp).
+    void* external_callback_entry;
+  };
+  static const unsigned kMaxFramesCountLog2 = 8;
+  static const unsigned kMaxFramesCount = (1 << kMaxFramesCountLog2) - 1;
+  void* stack[kMaxFramesCount];                 // Call stack.
+  unsigned frames_count : kMaxFramesCountLog2;  // Number of captured frames.
+  bool has_external_callback : 1;
+  bool update_stats : 1;  // Whether the sample should update aggregated stats.
+};
+
 /**
  * CpuProfileNode represents a node in a call graph.
  */
@@ -69,20 +127,6 @@ class V8_EXPORT CpuProfileNode {
 
     /** The count of samples associated with the source line. */
     unsigned int hit_count;
-  };
-
-  // An annotation hinting at the source of a CpuProfileNode.
-  enum SourceType {
-    // User-supplied script with associated resource information.
-    kScript = 0,
-    // Native scripts and provided builtins.
-    kBuiltin = 1,
-    // Callbacks into native code.
-    kCallback = 2,
-    // VM-internal functions or state.
-    kInternal = 3,
-    // A node that failed to symbolize.
-    kUnresolved = 4,
   };
 
   /** Returns function name (empty string for anonymous functions.) */
@@ -107,12 +151,6 @@ class V8_EXPORT CpuProfileNode {
    * profile is deleted. The function is thread safe.
    */
   const char* GetScriptResourceNameStr() const;
-
-  /**
-   * Return true if the script from where the function originates is flagged as
-   * being shared cross-origin.
-   */
-  bool IsScriptSharedCrossOrigin() const;
 
   /**
    * Returns the number, 1-based, of the line where the function originates.
@@ -148,22 +186,19 @@ class V8_EXPORT CpuProfileNode {
     */
   unsigned GetHitCount() const;
 
+  /** Returns function entry UID. */
+  V8_DEPRECATE_SOON(
+      "Use GetScriptId, GetLineNumber, and GetColumnNumber instead.",
+      unsigned GetCallUid() const);
+
   /** Returns id of the node. The id is unique within the tree */
   unsigned GetNodeId() const;
-
-  /**
-   * Gets the type of the source which the node was captured from.
-   */
-  SourceType GetSourceType() const;
 
   /** Returns child nodes count of the node. */
   int GetChildrenCount() const;
 
   /** Retrieves a child node by index. */
   const CpuProfileNode* GetChild(int index) const;
-
-  /** Retrieves the ancestor node, or null if the root. */
-  const CpuProfileNode* GetParent() const;
 
   /** Retrieves deopt infos for the node. */
   const std::vector<CpuProfileDeoptInfo>& GetDeoptInfos() const;
@@ -234,88 +269,6 @@ enum CpuProfilingMode {
   kCallerLineNumbers,
 };
 
-// Determines how names are derived for functions sampled.
-enum CpuProfilingNamingMode {
-  // Use the immediate name of functions at compilation time.
-  kStandardNaming,
-  // Use more verbose naming for functions without names, inferred from scope
-  // where possible.
-  kDebugNaming,
-};
-
-enum CpuProfilingLoggingMode {
-  // Enables logging when a profile is active, and disables logging when all
-  // profiles are detached.
-  kLazyLogging,
-  // Enables logging for the lifetime of the CpuProfiler. Calls to
-  // StartRecording are faster, at the expense of runtime overhead.
-  kEagerLogging,
-};
-
-// Enum for returning profiling status. Once StartProfiling is called,
-// we want to return to clients whether the profiling was able to start
-// correctly, or return a descriptive error.
-enum class CpuProfilingStatus {
-  kStarted,
-  kAlreadyStarted,
-  kErrorTooManyProfilers
-};
-
-/**
- * Delegate for when max samples reached and samples are discarded.
- */
-class V8_EXPORT DiscardedSamplesDelegate {
- public:
-  DiscardedSamplesDelegate() {}
-
-  virtual ~DiscardedSamplesDelegate() = default;
-  virtual void Notify() = 0;
-};
-
-/**
- * Optional profiling attributes.
- */
-class V8_EXPORT CpuProfilingOptions {
- public:
-  // Indicates that the sample buffer size should not be explicitly limited.
-  static const unsigned kNoSampleLimit = UINT_MAX;
-
-  /**
-   * \param mode Type of computation of stack frame line numbers.
-   * \param max_samples The maximum number of samples that should be recorded by
-   *                    the profiler. Samples obtained after this limit will be
-   *                    discarded.
-   * \param sampling_interval_us controls the profile-specific target
-   *                             sampling interval. The provided sampling
-   *                             interval will be snapped to the next lowest
-   *                             non-zero multiple of the profiler's sampling
-   *                             interval, set via SetSamplingInterval(). If
-   *                             zero, the sampling interval will be equal to
-   *                             the profiler's sampling interval.
-   * \param filter_context If specified, profiles will only contain frames
-   *                       using this context. Other frames will be elided.
-   */
-  CpuProfilingOptions(
-      CpuProfilingMode mode = kLeafNodeLineNumbers,
-      unsigned max_samples = kNoSampleLimit, int sampling_interval_us = 0,
-      MaybeLocal<Context> filter_context = MaybeLocal<Context>());
-
-  CpuProfilingMode mode() const { return mode_; }
-  unsigned max_samples() const { return max_samples_; }
-  int sampling_interval_us() const { return sampling_interval_us_; }
-
- private:
-  friend class internal::CpuProfile;
-
-  bool has_filter_context() const { return !filter_context_.IsEmpty(); }
-  void* raw_filter_context() const;
-
-  CpuProfilingMode mode_;
-  unsigned max_samples_;
-  int sampling_interval_us_;
-  CopyablePersistentTraits<Context>::CopyablePersistent filter_context_;
-};
-
 /**
  * Interface for controlling CPU profiling. Instance of the
  * profiler can be created using v8::CpuProfiler::New method.
@@ -327,9 +280,7 @@ class V8_EXPORT CpuProfiler {
    * initialized. The profiler object must be disposed after use by calling
    * |Dispose| method.
    */
-  static CpuProfiler* New(Isolate* isolate,
-                          CpuProfilingNamingMode = kDebugNaming,
-                          CpuProfilingLoggingMode = kLazyLogging);
+  static CpuProfiler* New(Isolate* isolate);
 
   /**
    * Synchronously collect current stack sample in all profilers attached to
@@ -351,50 +302,44 @@ class V8_EXPORT CpuProfiler {
   void SetSamplingInterval(int us);
 
   /**
-   * Sets whether or not the profiler should prioritize consistency of sample
-   * periodicity on Windows. Disabling this can greatly reduce CPU usage, but
-   * may result in greater variance in sample timings from the platform's
-   * scheduler. Defaults to enabled. This method must be called when there are
-   * no profiles being recorded.
-   */
-  void SetUsePreciseSampling(bool);
-
-  /**
-   * Starts collecting a CPU profile. Title may be an empty string. Several
-   * profiles may be collected at once. Attempts to start collecting several
-   * profiles with the same title are silently ignored.
-   */
-  CpuProfilingStatus StartProfiling(
-      Local<String> title, CpuProfilingOptions options,
-      std::unique_ptr<DiscardedSamplesDelegate> delegate = nullptr);
-
-  /**
-   * Starts profiling with the same semantics as above, except with expanded
-   * parameters.
+   * Starts collecting CPU profile. Title may be an empty string. It
+   * is allowed to have several profiles being collected at
+   * once. Attempts to start collecting several profiles with the same
+   * title are silently ignored. While collecting a profile, functions
+   * from all security contexts are included in it. The token-based
+   * filtering is only performed when querying for a profile.
    *
    * |record_samples| parameter controls whether individual samples should
    * be recorded in addition to the aggregated tree.
-   *
-   * |max_samples| controls the maximum number of samples that should be
-   * recorded by the profiler. Samples obtained after this limit will be
-   * discarded.
    */
-  CpuProfilingStatus StartProfiling(
-      Local<String> title, CpuProfilingMode mode, bool record_samples = false,
-      unsigned max_samples = CpuProfilingOptions::kNoSampleLimit);
+  void StartProfiling(Local<String> title, CpuProfilingMode mode,
+                      bool record_samples = false);
   /**
    * The same as StartProfiling above, but the CpuProfilingMode defaults to
    * kLeafNodeLineNumbers mode, which was the previous default behavior of the
    * profiler.
    */
-  CpuProfilingStatus StartProfiling(Local<String> title,
-                                    bool record_samples = false);
+  void StartProfiling(Local<String> title, bool record_samples = false);
 
   /**
    * Stops collecting CPU profile with a given title and returns it.
    * If the title given is empty, finishes the last profile started.
    */
   CpuProfile* StopProfiling(Local<String> title);
+
+  /**
+   * Force collection of a sample. Must be called on the VM thread.
+   * Recording the forced sample does not contribute to the aggregated
+   * profile statistics.
+   */
+  V8_DEPRECATED("Use static CollectSample(Isolate*) instead.",
+                void CollectSample());
+
+  /**
+   * Tells the profiler whether the embedder is idle.
+   */
+  V8_DEPRECATED("Use Isolate::SetIdle(bool) instead.",
+                void SetIdle(bool is_idle));
 
   /**
    * Generate more detailed source positions to code objects. This results in
@@ -408,6 +353,7 @@ class V8_EXPORT CpuProfiler {
   CpuProfiler(const CpuProfiler&);
   CpuProfiler& operator=(const CpuProfiler&);
 };
+
 
 /**
  * HeapSnapshotEdge represents a directed connection between heap
@@ -499,7 +445,7 @@ class V8_EXPORT HeapGraphNode {
 /**
  * An interface for exporting data from V8, using "push" model.
  */
-class V8_EXPORT OutputStream {
+class V8_EXPORT OutputStream {  // NOLINT
  public:
   enum WriteResult {
     kContinue = 0,
@@ -525,6 +471,7 @@ class V8_EXPORT OutputStream {
     return kAbort;
   }
 };
+
 
 /**
  * HeapSnapshots record the state of the JS heap at some moment.
@@ -592,7 +539,7 @@ class V8_EXPORT HeapSnapshot {
  * An interface for reporting progress and controlling long-running
  * activities.
  */
-class V8_EXPORT ActivityControl {
+class V8_EXPORT ActivityControl {  // NOLINT
  public:
   enum ControlOption {
     kContinue = 0,
@@ -603,8 +550,9 @@ class V8_EXPORT ActivityControl {
    * Notify about current progress. The activity can be stopped by
    * returning kAbort as the callback result.
    */
-  virtual ControlOption ReportProgressValue(uint32_t done, uint32_t total) = 0;
+  virtual ControlOption ReportProgressValue(int done, int total) = 0;
 };
+
 
 /**
  * AllocationProfile is a sampled profile of allocations done by the program.
@@ -739,19 +687,6 @@ class V8_EXPORT EmbedderGraph {
  public:
   class Node {
    public:
-    /**
-     * Detachedness specifies whether an object is attached or detached from the
-     * main application state. While unkown in general, there may be objects
-     * that specifically know their state. V8 passes this information along in
-     * the snapshot. Users of the snapshot may use it to annotate the object
-     * graph.
-     */
-    enum class Detachedness : uint8_t {
-      kUnknown = 0,
-      kAttached = 1,
-      kDetached = 2,
-    };
-
     Node() = default;
     virtual ~Node() = default;
     virtual const char* Name() = 0;
@@ -770,20 +705,7 @@ class V8_EXPORT EmbedderGraph {
      */
     virtual const char* NamePrefix() { return nullptr; }
 
-    /**
-     * Returns the NativeObject that can be used for querying the
-     * |HeapSnapshot|.
-     */
-    virtual NativeObject GetNativeObject() { return nullptr; }
-
-    /**
-     * Detachedness state of a given object. While unkown in general, there may
-     * be objects that specifically know their state. V8 passes this information
-     * along in the snapshot. Users of the snapshot may use it to annotate the
-     * object graph.
-     */
-    virtual Detachedness GetDetachedness() { return Detachedness::kUnknown; }
-
+   private:
     Node(const Node&) = delete;
     Node& operator=(const Node&) = delete;
   };
@@ -834,17 +756,9 @@ class V8_EXPORT HeapProfiler {
                                              v8::EmbedderGraph* graph,
                                              void* data);
 
-  /**
-   * Callback function invoked during heap snapshot generation to retrieve
-   * the detachedness state of an object referenced by a TracedReference.
-   *
-   * The callback takes Local<Value> as parameter to allow the embedder to
-   * unpack the TracedReference into a Local and reuse that Local for different
-   * purposes.
-   */
-  using GetDetachednessCallback = EmbedderGraph::Node::Detachedness (*)(
-      v8::Isolate* isolate, const v8::Local<v8::Value>& v8_value,
-      uint16_t class_id, void* data);
+  /** TODO(addaleax): Remove */
+  typedef void (*LegacyBuildEmbedderGraphCallback)(v8::Isolate* isolate,
+                                                   v8::EmbedderGraph* graph);
 
   /** Returns the number of snapshots taken. */
   int GetSnapshotCount();
@@ -857,12 +771,6 @@ class V8_EXPORT HeapProfiler {
    * it has been seen by the heap profiler, kUnknownObjectId otherwise.
    */
   SnapshotObjectId GetObjectId(Local<Value> value);
-
-  /**
-   * Returns SnapshotObjectId for a native object referenced by |value| if it
-   * has been seen by the heap profiler, kUnknownObjectId otherwise.
-   */
-  SnapshotObjectId GetObjectId(NativeObject value);
 
   /**
    * Returns heap object with given SnapshotObjectId if the object is alive,
@@ -904,9 +812,7 @@ class V8_EXPORT HeapProfiler {
    */
   const HeapSnapshot* TakeHeapSnapshot(
       ActivityControl* control = nullptr,
-      ObjectNameResolver* global_object_name_resolver = nullptr,
-      bool treat_global_objects_as_roots = true,
-      bool capture_numeric_value = false);
+      ObjectNameResolver* global_object_name_resolver = nullptr);
 
   /**
    * Starts tracking of heap objects population statistics. After calling
@@ -992,12 +898,14 @@ class V8_EXPORT HeapProfiler {
    */
   void DeleteAllHeapSnapshots();
 
+  V8_DEPRECATED(
+      "Use AddBuildEmbedderGraphCallback to provide info about embedder nodes",
+      void SetBuildEmbedderGraphCallback(
+          LegacyBuildEmbedderGraphCallback callback));
   void AddBuildEmbedderGraphCallback(BuildEmbedderGraphCallback callback,
                                      void* data);
   void RemoveBuildEmbedderGraphCallback(BuildEmbedderGraphCallback callback,
                                         void* data);
-
-  void SetGetDetachednessCallback(GetDetachednessCallback callback, void* data);
 
   /**
    * Default value of persistent handle class ID. Must not be used to
@@ -1036,8 +944,7 @@ struct HeapStatsUpdate {
   V(LazyCompile)            \
   V(RegExp)                 \
   V(Script)                 \
-  V(Stub)                   \
-  V(Relocation)
+  V(Stub)
 
 /**
  * Note that this enum may be extended in the future. Please include a default
@@ -1070,12 +977,10 @@ class V8_EXPORT CodeEvent {
   const char* GetComment();
 
   static const char* GetCodeEventTypeName(CodeEventType code_event_type);
-
-  uintptr_t GetPreviousCodeStartAddress();
 };
 
 /**
- * Interface to listen to code creation and code relocation events.
+ * Interface to listen to code creation events.
  */
 class V8_EXPORT CodeEventHandler {
  public:
@@ -1087,26 +992,9 @@ class V8_EXPORT CodeEventHandler {
   explicit CodeEventHandler(Isolate* isolate);
   virtual ~CodeEventHandler();
 
-  /**
-   * Handle is called every time a code object is created or moved. Information
-   * about each code event will be available through the `code_event`
-   * parameter.
-   *
-   * When the CodeEventType is kRelocationType, the code for this CodeEvent has
-   * moved from `GetPreviousCodeStartAddress()` to `GetCodeStartAddress()`.
-   */
   virtual void Handle(CodeEvent* code_event) = 0;
 
-  /**
-   * Call `Enable()` to starts listening to code creation and code relocation
-   * events. These events will be handled by `Handle()`.
-   */
   void Enable();
-
-  /**
-   * Call `Disable()` to stop listening to code creation and code relocation
-   * events.
-   */
   void Disable();
 
  private:

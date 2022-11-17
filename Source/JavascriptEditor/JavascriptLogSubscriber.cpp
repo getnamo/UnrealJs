@@ -17,5 +17,5 @@ UJavascriptLogSubscriber::~UJavascriptLogSubscriber()
 
 void UJavascriptLogSubscriber::Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category)
 {
-	OnNewLogMessage.Broadcast(FString(V), FString(::ToString(Verbosity)), Category);
+	OnNewLogMessage.Broadcast(FString(V), FString(ToString(Verbosity)), Category);
 }

@@ -6,6 +6,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "UObject/ScriptMacros.h"
 #include "JavascriptIsolate.h"
+#include "JavascriptAsyncData.h"
 #include "JavascriptContext.generated.h"
 
 struct FJavascriptContext;
@@ -29,6 +30,10 @@ public:
 	virtual void BeginDestroy() override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// End UObject interface.
+
+	//needed to create clean variants
+	void Init();
+	void Init(TSharedPtr<FJavascriptContext> InPremadeContext);
 
 	TSharedPtr<FJavascriptContext> JavascriptContext;
 	TSharedPtr<FString> ContextId;
@@ -100,8 +105,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	void DestroyInspector();
 
-	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
-	void ResetUnrealConsoleDelegate();
+	UPROPERTY(BlueprintReadOnly, Category = "Scripting|Javascript")
+	EJavascriptAsyncOption Thread;
+
+	//UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	void ExposeGlobals();
+
+	void ExposeUModule();
+
+	void ExposeFeatures(TMap<FString, FString>& Features);
 
 	bool RemoveObjectInJavacontext(UObject* TargetObj);
 
