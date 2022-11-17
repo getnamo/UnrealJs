@@ -11,7 +11,7 @@ void UJavascriptGeneratedClass::InitPropertiesFromCustomList(uint8* DataPtr, con
 	}
 }
 
-void UJavascriptGeneratedClass::PostInitInstance(UObject* InObj)
+void UJavascriptGeneratedClass::PostInitInstance(UObject* InObj, FObjectInstancingGraph* InstanceGraph)
 {
 	Super::PostInitInstance(InObj);
 
@@ -22,7 +22,7 @@ void UJavascriptGeneratedClass::PostInitInstance(UObject* InObj)
 	}
 }
 
-void UJavascriptGeneratedClass_Native::PostInitInstance(UObject* InObj)
+void UJavascriptGeneratedClass_Native::PostInitInstance(UObject* InObj, FObjectInstancingGraph* InstanceGraph)
 {
 	Super::PostInitInstance(InObj);
 

@@ -66,7 +66,7 @@ TSharedRef<SDockTab> SpawnJavascriptLog( const FSpawnTabArgs& Args )
 			SNew(SJavascriptLog).Messages( JavascriptLogHistory->GetMessages() )
 		];
 
-	NewTab->SetTabIcon(FEditorStyle::GetBrush("Log.TabIcon"));
+	NewTab->SetTabIcon(FAppStyle::GetBrush("Log.TabIcon"));
 
 	return NewTab;
 }
