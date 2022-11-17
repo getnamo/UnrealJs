@@ -39,7 +39,7 @@ TSharedPtr< SWidget > FJavascriptCustomColumn::CreateColumnLabel(const TSharedRe
 		.AutoWidth()
 		[
 			SNew(STextBlock)
-			.Font(FEditorStyle::GetFontStyle(Style))
+			.Font(FAppStyle::GetFontStyle(Style))
 			.Text(Column->GetDisplayName())
 		];
 }

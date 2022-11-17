@@ -213,7 +213,7 @@ void UJavascriptEditorTab::Register(TSharedRef<FTabManager> TabManager, UObject*
 {
 	if (Icon.StyleSetName.IsNone())
 	{
-		Icon.StyleSetName = FEditorStyle::GetStyleSetName();
+		Icon.StyleSetName = FAppStyle::GetAppStyleSetName();
 		Icon.StyleName = "DeviceDetails.Tabs.ProfileEditor";
 	}
 
@@ -254,7 +254,7 @@ void UJavascriptEditorTab::InsertTo(TSharedRef<FTabManager> TabManager, UObject*
 {
 	if (Icon.StyleSetName.IsNone())
 	{
-		Icon.StyleSetName = FEditorStyle::GetStyleSetName();
+		Icon.StyleSetName = FAppStyle::GetAppStyleSetName();
 		Icon.StyleName = "DeviceDetails.Tabs.ProfileEditor";
 	}
 

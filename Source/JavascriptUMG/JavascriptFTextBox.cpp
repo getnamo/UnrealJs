@@ -89,10 +89,6 @@ public:
 		EditableTextBox->HandleOnNamespaceKeyChanged(OutStableNamespace, OutStableKey);
 	}
 
-	virtual void RequestRefresh() override
-	{
-	}
-
 private:
 	UJavascriptFTextBox* EditableTextBox;
 };

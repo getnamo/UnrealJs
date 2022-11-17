@@ -13,7 +13,7 @@ void UJavascriptGeneratedClass::InitPropertiesFromCustomList(uint8* DataPtr, con
 
 void UJavascriptGeneratedClass::PostInitInstance(UObject* InObj, FObjectInstancingGraph* InstanceGraph)
 {
-	Super::PostInitInstance(InObj);
+	Super::PostInitInstance(InObj, InstanceGraph);
 
 	auto Context = JavascriptContext.Pin();
 	if (Context.IsValid())
@@ -24,7 +24,7 @@ void UJavascriptGeneratedClass::PostInitInstance(UObject* InObj, FObjectInstanci
 
 void UJavascriptGeneratedClass_Native::PostInitInstance(UObject* InObj, FObjectInstancingGraph* InstanceGraph)
 {
-	Super::PostInitInstance(InObj);
+	Super::PostInitInstance(InObj, InstanceGraph);
 
 	auto Context = JavascriptContext.Pin();
 	if (Context.IsValid())

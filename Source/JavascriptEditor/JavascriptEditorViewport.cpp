@@ -128,7 +128,8 @@ public:
 
 	virtual bool InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.f, bool bGamepad = false)
 	{
-		FEditorViewportClient::InputKey(Viewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
+		FInputKeyEventArgs Args = FInputKeyEventArgs(Viewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
+		FEditorViewportClient::InputKey(Args);
 		if (Widget.IsValid() && Widget->OnInputKey.IsBound())
 		{
 			return Widget->OnInputKey.Execute(ControllerId, Key, Event, Widget.Get());
@@ -141,7 +142,7 @@ public:
 
 	virtual bool InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples = 1, bool bGamepad = false) override
 	{
-		FEditorViewportClient::InputAxis(Viewport, ControllerId, Key, Delta, DeltaTime, NumSamples, bGamepad);
+		FEditorViewportClient::InputAxis(Viewport, FInputDeviceId::CreateFromInternalId(ControllerId), Key, Delta, DeltaTime, NumSamples, bGamepad);
 		if (Widget.IsValid() && Widget->OnInputAxis.IsBound())
 		{
 			return Widget->OnInputAxis.Execute(ControllerId, Key, Delta, DeltaTime, Widget.Get());

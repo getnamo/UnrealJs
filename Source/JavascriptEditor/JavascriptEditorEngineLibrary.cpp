@@ -121,7 +121,7 @@ void UJavascriptEditorEngineLibrary::SetMaterial(UEditorEngine* Engine, UModel* 
 		Model->Surfs[SurfaceIndex].Material = Material;
 		const bool bUpdateTexCoords = false;
 		const bool bOnlyRefreshSurfaceMaterials = true;
-		Engine->polyUpdateMaster(Model, SurfaceIndex, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);		
+		Engine->polyUpdateBrush(Model, SurfaceIndex, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 	}
 	Model->MarkPackageDirty();
 }

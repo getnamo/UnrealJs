@@ -65,7 +65,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 	static const FName NAME_NoBorder("NoBorder");
 	TSharedRef<SWidget> PinStatusIndicator =
 		SNew(SButton)
-		.ButtonStyle(FEditorStyle::Get(), NAME_NoBorder)
+		.ButtonStyle(FAppStyle::Get(), NAME_NoBorder)
 		.Visibility(this, &ThisClass::GetPinStatusIconVisibility)
 		.ContentPadding(0)
 		.OnClicked(this, &ThisClass::ClickedOnPinStatusIcon)
@@ -84,7 +84,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 
 	TSharedRef<SWidget> InLabelWidget = SNew(STextBlock)
 		.Text(this, &ThisClass::GetPinLabel)
-		.TextStyle(FEditorStyle::Get(), InArgs._PinLabelStyle)
+		.TextStyle(FAppStyle::Get(), InArgs._PinLabelStyle)
 		.Visibility(this, &ThisClass::GetPinLabelVisibility)
 		.ColorAndOpacity(this, &ThisClass::GetPinTextColor);
 	TSharedRef<SWidget> InValueWidget = SNew(SBox);
@@ -261,7 +261,7 @@ const FSlateBrush* SJavascriptGraphPin::GetPinBorder() const
 		FName SlateBrushName = GraphSchema->OnGetSlateBrushName.Execute(IsHovered(), FJavascriptEdGraphPin{ const_cast<UEdGraphPin*>(GraphPinObj) });
 		if (SlateBrushName.IsNone() == false)
 		{
-			return FEditorStyle::GetBrush(SlateBrushName);
+			return FAppStyle::GetBrush(SlateBrushName);
 		}
 	}
 
@@ -345,11 +345,11 @@ const FSlateBrush* SJavascriptGraphPin::GetPinIcon() const
 	{
 		if (IsConnected())
 		{
-			return IsHovered() ? FEditorStyle::GetBrush(TEXT("Graph.ExecPin.ConnectedHovered")) : FEditorStyle::GetBrush(TEXT("Graph.ExecPin.Connected"));
+			return IsHovered() ? FAppStyle::GetBrush(TEXT("Graph.ExecPin.ConnectedHovered")) : FAppStyle::GetBrush(TEXT("Graph.ExecPin.Connected"));
 		}
 		else
 		{
-			return IsHovered() ? FEditorStyle::GetBrush(TEXT("Graph.ExecPin.DisconnectedHovered")) : FEditorStyle::GetBrush(TEXT("Graph.ExecPin.Disconnected"));
+			return IsHovered() ? FAppStyle::GetBrush(TEXT("Graph.ExecPin.DisconnectedHovered")) : FAppStyle::GetBrush(TEXT("Graph.ExecPin.Disconnected"));
 		}
 	}
 

@@ -79,7 +79,7 @@ TSharedRef<SWidget> UJavascriptClassViewer::RebuildWidget()
 						.ButtonContent()
 						[
 							SNew(STextBlock)
-							.Font(FEditorStyle::GetFontStyle("PropertyWindow.NormalFont"))
+							.Font(FAppStyle::GetFontStyle("PropertyWindow.NormalFont"))
 							.Text(TAttribute<FText>::Create([this]() { return OnGetComboTextValue(); }))
 							.ToolTipText(TAttribute<FText>::Create([this]() { return GetObjectToolTip(); }))
 						]
@@ -92,13 +92,13 @@ TSharedRef<SWidget> UJavascriptClassViewer::RebuildWidget()
 					.VAlign(VAlign_Center)
 					[
 						SNew(SButton)
-						.ButtonStyle(FEditorStyle::Get(), "SimpleButton")
+						.ButtonStyle(FAppStyle::Get(), "SimpleButton")
 						.OnClicked(FOnClicked::CreateLambda([this]() { return OnClickUse(); }))
 						.ContentPadding(1.f)
 						.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Use_Tooltip", "Use asset browser selection"))
 						[
 							SNew(SImage)
-							.Image(FEditorStyle::GetBrush(TEXT("Icons.Use")))
+							.Image(FAppStyle::GetBrush(TEXT("Icons.Use")))
 						]
 					]
 					// Browse button
@@ -108,13 +108,13 @@ TSharedRef<SWidget> UJavascriptClassViewer::RebuildWidget()
 					.VAlign(VAlign_Center)
 					[
 						SNew(SButton)
-						.ButtonStyle(FEditorStyle::Get(), "SimpleButton")
+						.ButtonStyle(FAppStyle::Get(), "SimpleButton")
 						.OnClicked(FOnClicked::CreateLambda([this]() { return OnClickBrowse(); }))
 						.ContentPadding(0)
 						.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Browse_Tooltip", "Browse"))
 						[
 							SNew(SImage)
-							.Image(FEditorStyle::GetBrush(TEXT("Icons.BrowseContent")))
+							.Image(FAppStyle::GetBrush(TEXT("Icons.BrowseContent")))
 						]
 					]
 				]
@@ -209,7 +209,7 @@ TSharedRef<SWidget> UJavascriptClassViewer::GeneratePathPicker()
 		.WidthOverride(300)
 		[
 			SNew(SBorder)
-			.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+			.BorderImage(FAppStyle::GetBrush("Menu.Background"))
 			[
 				ClassViewerModule.CreateClassViewer(Options,
 					FOnClassPicked::CreateLambda([&](UClass* InChosenClass)
