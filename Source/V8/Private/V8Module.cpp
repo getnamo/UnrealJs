@@ -116,17 +116,19 @@ public:
 #if V8_MAJOR_VERSION < 9
 	virtual void CallOnForegroundThread(Isolate* isolate, Task* task)
 	{
-		std::shared_ptr<v8::TaskRunner> taskrunner =
+		/*std::shared_ptr<v8::TaskRunner> taskrunner =
 			platform_->GetForegroundTaskRunner(isolate);
-		taskrunner->PostTask(std::make_unique<Task>(task));
+		taskrunner->PostTask(std::make_unique<Task>(task));*/
+		platform_->CallOnForegroundThread(isolate, task);
 	}
 
 	virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task,
 		double delay_in_seconds)
 	{
-		std::shared_ptr<v8::TaskRunner> taskrunner =
+		/*std::shared_ptr<v8::TaskRunner> taskrunner =
 			platform_->GetForegroundTaskRunner(isolate);
-		taskrunner->PostDelayedTask(std::make_unique<Task>(task), delay_in_seconds);
+		taskrunner->PostDelayedTask(std::make_unique<Task>(task), delay_in_seconds);*/
+		platform_->CallOnForegroundThread(isolate, task);
 	}
 
 	virtual void CallIdleOnForegroundThread(Isolate* isolate, IdleTask* task)
