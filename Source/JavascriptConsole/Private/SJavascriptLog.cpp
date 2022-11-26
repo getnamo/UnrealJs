@@ -665,7 +665,19 @@ void FJavascriptLogTextLayoutMarshaller::AppendMessageToTextLayout(const TShared
 	TArray<TSharedRef<IRun>> Runs;
 	Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, MessageTextStyle));
 
-	TextLayout->AddLine(FSlateTextLayout::FNewLineData(MoveTemp(LineText), MoveTemp(Runs)));
+	FSlateTextLayout::FNewLineData NewLineData = FSlateTextLayout::FNewLineData(MoveTemp(LineText), MoveTemp(Runs));
+
+	if (IsInGameThread()) 
+	{
+		TextLayout->AddLine(NewLineData);
+	}
+	else
+	{
+		FFunctionGraphTask::CreateAndDispatchWhenReady([&, NewLineData]
+		{
+			TextLayout->AddLine(NewLineData);
+		}, TStatId(), nullptr, ENamedThreads::GameThread);
+	}
 }
 
 void FJavascriptLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray<TSharedPtr<FLogMessage>>& InMessages)
