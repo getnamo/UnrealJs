@@ -59,6 +59,7 @@ public:
 	virtual void SetAvailableFeatures(TMap<FString, FString>& Features) = 0;
 	virtual int IsExcludeGCUClassTarget(UClass* TargetUClass) { return INDEX_NONE; }
 	virtual ~FJavascriptIsolate() {}
+	virtual void ResetUnrealConsoleDelegate() {}
 };
 
 struct FJavascriptIsolateConstant

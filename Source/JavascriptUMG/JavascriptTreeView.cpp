@@ -68,33 +68,32 @@ TSharedRef<STableViewBase> UJavascriptTreeView::RebuildListWidget()
 		.OnGetChildren(BIND_UOBJECT_DELEGATE(STreeView< UObject* >::FOnGetChildren, HandleOnGetChildren))
 		.OnExpansionChanged(BIND_UOBJECT_DELEGATE(STreeView< UObject* >::FOnExpansionChanged, HandleOnExpansionChanged))
 		.OnSelectionChanged_Lambda([this](UObject* Object, ESelectInfo::Type SelectInfo)
-			{
-				UE_LOG(LogSlate, Log, TEXT("OnSelection...."));
-				OnSelectionChanged(Object, SelectInfo);
-			})
+		{
+			UE_LOG(LogSlate, Log, TEXT("OnSelection...."));
+			OnSelectionChanged(Object, SelectInfo);
+		})
 		.OnMouseButtonDoubleClick_Lambda([this](UObject* Object)
-			{
-				OnDoubleClick(Object);
-			})
-				.HeaderRow(GetHeaderRowWidget());
+		{
+			OnDoubleClick(Object);
+		})
+		.HeaderRow(GetHeaderRowWidget());
 
+	if (OnContextMenuOpening.IsBound())
+	{
+		MyTreeView->SetOnContextMenuOpening(::FOnContextMenuOpening::CreateLambda([this]()
+		{
 			if (OnContextMenuOpening.IsBound())
 			{
-				MyTreeView->SetOnContextMenuOpening(::FOnContextMenuOpening::CreateLambda([this]()
-					{
-						if (OnContextMenuOpening.IsBound())
-						{
-							auto Widget = OnContextMenuOpening.Execute(this);
-							if (Widget)
-							{
-								return Widget->TakeWidget();
-							}
-						}
-						return SNullWidget::NullWidget;
-					}));
+				auto Widget = OnContextMenuOpening.Execute(this);
+				if (Widget)
+				{
+					return Widget->TakeWidget();
+				}
 			}
-
-			return MyTreeView.ToSharedRef();
+			return SNullWidget::NullWidget;
+		}));
+	}
+	return MyTreeView.ToSharedRef();
 }
 
 void UJavascriptTreeView::ProcessEvent(UFunction* Function, void* Parms)

@@ -66,7 +66,7 @@ TSharedRef<SDockTab> SpawnJavascriptLog( const FSpawnTabArgs& Args )
 			SNew(SJavascriptLog).Messages( JavascriptLogHistory->GetMessages() )
 		];
 
-	NewTab->SetTabIcon(FEditorStyle::GetBrush("Log.TabIcon"));
+	NewTab->SetTabIcon(FAppStyle::GetBrush("Log.TabIcon"));
 
 	return NewTab;
 }
@@ -77,7 +77,7 @@ void FJavascriptConsoleModule::StartupModule()
 		.SetDisplayName(NSLOCTEXT("UnrealEditor", "JavascriptLogTab", "Javascript Console"))
 		.SetTooltipText(NSLOCTEXT("UnrealEditor", "JavascriptLogTooltipText", "Open the Javascript Console tab."))
 		.SetGroup( WorkspaceMenu::GetMenuStructure().GetDeveloperToolsLogCategory() )
-		.SetIcon( FSlateIcon(FEditorStyle::GetStyleSetName(), "Log.TabIcon") );
+		.SetIcon( FSlateIcon(FAppStyle::GetAppStyleSetName(), "Log.TabIcon") );
 	
 	JavascriptLogHistory = MakeShareable(new FJavascriptLogHistory);
 }

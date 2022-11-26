@@ -83,7 +83,7 @@ public class V8 : ModuleRules
             bHasZlib = true;
 
         }
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+        else if (Target.Platform == UnrealTargetPlatform.Linux)
         {
             PlatformSubdir = Path.Combine(PlatformSubdir, Target.Architecture);
         }
@@ -153,19 +153,19 @@ public class V8 : ModuleRules
         else if (Target.Platform == UnrealTargetPlatform.Android)
         {
             string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARM64");
-			//string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARMv7");
+            //string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARMv7");
 
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_init.a"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_initializers.a"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base.a"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libbase.a"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libplatform.a"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_nosnapshot.a"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libsampler.a"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_initializers.a"));
-			PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_init.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_initializers.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libbase.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libplatform.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_nosnapshot.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libsampler.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_initializers.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector.a"));
 
-			PublicDefinitions.Add(string.Format("WITH_V8=1"));
+            PublicDefinitions.Add(string.Format("WITH_V8=1"));
 
             return true;
         }

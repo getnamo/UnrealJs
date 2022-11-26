@@ -1,12 +1,22 @@
 ﻿#pragma once
 
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "GameFramework/GameModeBase.h"	
 #include "JavascriptProfile.h"
 #include "JavascriptIsolate.h"
 #include "Engine/StreamableManager.h"
 #include "IPAddress.h"
 #include "NavMesh/RecastNavMesh.h"
 #include "JavascriptLibrary.generated.h"
+
+USTRUCT(BlueprintType)
+struct FJavascriptRow
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<FString> Values;
+};
 
 USTRUCT(BlueprintType)
 struct FReadStringFromFileHandle
@@ -34,7 +44,7 @@ struct V8_API FDirectoryItem
 	FString Name;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scripting | Javascript")
-	bool bIsDirectory;
+	bool bIsDirectory = false;
 };
 
 #if STATS
@@ -175,6 +185,16 @@ enum class ELogVerbosity_JS : uint8
 	VeryVerbose
 };
 
+UENUM()
+enum class EFileRead_JS : uint8
+{
+	FILEREAD_None = 0,
+	FILEREAD_NoFail = 1,
+	FILEREAD_Silent = 2,
+	FILEREAD_NotUsedDummy = 3,
+	FILEREAD_AllowWrite = 4
+};
+
 USTRUCT(BlueprintType)
 struct FJavascriptLogCategory
 {
@@ -296,6 +316,9 @@ public:
 	static void RequestAsyncLoad(const FJavascriptStreamableManager& Manager, const TArray<FSoftObjectPath>& TargetsToStream, FJavascriptFunction DelegateToCall, int32 Priority);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	static bool V8_IsEnableHotReload();
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	static void V8_SetFlagsFromString(const FString& V8Flags);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
@@ -379,8 +402,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	static UDynamicBlueprintBinding* GetDynamicBinding(UClass* Outer, TSubclassOf<UDynamicBlueprintBinding> BindingObjectClass);
 
-	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
-	static void HandleSeamlessTravelPlayer(AGameModeBase* GameMode, AController*& C);
+	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")	
+	static void HandleSeamlessTravelPlayer(class AGameModeBase* GameMode, AController*& C);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	static void SetRootComponent(AActor* Actor, USceneComponent* Component);
@@ -398,7 +421,7 @@ public:
 	static FReadStringFromFileHandle ReadStringFromFileAsync(UObject* Object, FString Filename, FJavascriptFunction Function);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
-	static FString ReadStringFromFile(UObject* Object, FString Filename);
+	static FString ReadStringFromFile(UObject* Object, FString Filename, EFileRead_JS ReadFlags = EFileRead_JS::FILEREAD_None);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
 	static bool WriteStringToFile(UObject* Object, FString Filename, const FString& Data, EJavascriptEncodingOptions::Type EncodingOptions);
@@ -470,9 +493,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static int32 GetHitCount(FJavascriptProfileNode Node);
-
-	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
-	static int32 GetCallUid(FJavascriptProfileNode Node);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static int32 GetNodeId(FJavascriptProfileNode Node);
@@ -565,6 +585,9 @@ public:
 	static TArray<FJavscriptProperty> GetStructProperties(const FString StructName, bool bIncludeSuper);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static TArray<FString> GetEnumListByEnumName(const FString EnumName);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static int32 GetFunctionParmsSize(UFunction* Function);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
@@ -609,6 +632,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, CustomThunk, Category = "Scripting | Javascript", meta = (CustomStructureParam = "CustomStruct"))
 	static void CallJS(FJavascriptFunction Function, const FJavascriptStubStruct& CustomStruct);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static bool ReadCSV(const FString& InPath, TArray<FJavascriptRow>& OutData, EFileRead_JS ReadFlags);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static bool WriteCSV(const FString& InPath, TArray<FJavascriptRow>& InData, EJavascriptEncodingOptions::Type EncodingOptions);
 
 #if USE_STABLE_LOCALIZATION_KEYS
 	// copy from STextPropertyEditableTextBox.cpp

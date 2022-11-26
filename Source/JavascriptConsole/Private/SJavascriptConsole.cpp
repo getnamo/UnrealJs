@@ -38,7 +38,7 @@ void SJavascriptConsole::Construct( const FArguments& InArgs, const EJavascriptC
 					.HeightOverride( 200.0f )
 					[
 						SNew( SBorder )
-							.BorderImage( FEditorStyle::GetBrush( "ToolPanel.GroupBorder" ) )
+							.BorderImage( FAppStyle::GetBrush( "ToolPanel.GroupBorder" ) )
 							.ColorAndOpacity( this, &SJavascriptConsole::GetAnimatedColorAndOpacity )
 							.BorderBackgroundColor( this, &SJavascriptConsole::GetAnimatedSlateColor )
 							[
@@ -58,7 +58,7 @@ void SJavascriptConsole::Construct( const FArguments& InArgs, const EJavascriptC
 			[
 				SNew( SBorder )
 				.Padding( FMargin(2) )
-				.BorderImage( FEditorStyle::GetBrush( "JavascriptConsole.Background" ) )
+				.BorderImage( FAppStyle::GetBrush( "JavascriptConsole.Background" ) )
 				.ColorAndOpacity( this, &SJavascriptConsole::GetAnimatedColorAndOpacity )
 				.BorderBackgroundColor( this, &SJavascriptConsole::GetAnimatedSlateColor )
 				[

@@ -30,7 +30,7 @@ UJavascriptGraphEdGraph* UJavascriptGraphEdNode::GetGenericGraphEdGraph()
 	return Cast<UJavascriptGraphEdGraph>(GetGraph());
 }
 
-TSharedPtr<SJavascriptGraphEdNode> UJavascriptGraphEdNode::GetNodeSlateWidget() const
+TSharedPtr<SGraphNode> UJavascriptGraphEdNode::GetNodeSlateWidget() const
 {
 	return SlateGraphNode.Pin();
 }
@@ -191,6 +191,17 @@ void UJavascriptGraphEdNode::SetTitleSelectionMode(float InTitleHeight)
 void UJavascriptGraphEdNode::ResetTitleSelectionMode()
 {
 	this->bTitleSelectionOnly = false;
+}
+
+void UJavascriptGraphEdNode::SetRenderOpacity(float Opacity)
+{
+	RenderOpacity = Opacity;
+
+	auto MyWidget = SlateGraphNode.Pin();
+	if (MyWidget.IsValid())
+	{
+		MyWidget->SetRenderOpacity(Opacity);
+	}
 }
 
 void UJavascriptGraphEdNode::ResizeNode(const FVector2D& NewSize)

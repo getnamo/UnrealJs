@@ -1,4 +1,4 @@
-﻿PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
 #include "JavascriptContext_Private.h"
 #include "JavascriptIsolate.h"
@@ -626,6 +626,19 @@ public:
 		DestroyInspector();
 
 		context_.Reset();
+	}
+
+	void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources) override
+	{
+		for (auto It = ObjectToObjectMap.CreateIterator(); It; ++It)
+		{
+			auto Object = It.Key();
+
+			if (World == Object)
+			{
+				It.RemoveCurrent();
+			}
+		}
 	}
 
 	void ReleaseAllPersistentHandles()
@@ -2194,7 +2207,7 @@ public:
 						{
 							const uint32 ExportFlags = PPF_None;
 							auto Buffer = It->ContainerPtrToValuePtr<uint8>(Parms);
-							const TCHAR* Result = It->ImportText(*MetadataCppDefaultValue, Buffer, ExportFlags, NULL);
+							const TCHAR* Result = It->ImportText_Direct(*MetadataCppDefaultValue, Buffer, ExportFlags, NULL);
 							if (Result)
 							{
 								bHasDefault = true;

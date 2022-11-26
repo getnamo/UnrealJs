@@ -17,7 +17,7 @@ UJavascriptEditorTab::UJavascriptEditorTab(const FObjectInitializer& ObjectIniti
 }
 
 #if WITH_EDITOR
-TSharedPtr<SDockTab> UJavascriptEditorTab::MajorTab;
+TSharedPtr<SDockTab> UJavascriptEditorTab::MajorTab = nullptr;
 
 void UJavascriptEditorTab::BeginDestroy()
 {
@@ -80,6 +80,11 @@ struct FJavascriptEditorTabTracker : public FGCObject
 	TArray<UWidget*> Widgets;
 	TArray<TWeakPtr<SDockTab>> Tabs;
 
+	virtual FString GetReferencerName() const
+	{
+		return "FJavascriptEditorTabTracker";
+	}
+
 	void OnTabClosed(UWidget* Widget)
 	{
 		for (int Index = Tabs.Num() - 1; Index >= 0; --Index)
@@ -114,9 +119,17 @@ struct FJavascriptEditorTabTracker : public FGCObject
 		}
 		Spawners[Index]->OnCloseTab.ExecuteIfBound(Widgets[Index]);
 
+		UWidget* ReleaseWidget = Widgets[Index];
+
 		Spawners.RemoveAt(Index, 1);
 		Tabs.RemoveAt(Index, 1);
 		Widgets.RemoveAt(Index, 1);
+
+		// Unlike general usage, widgets used to deliver slate to a jstab may not be descendants of UserWidget, so the tab must release them explicitly.
+		if (ReleaseWidget && !ReleaseWidget->IsA(UUserWidget::StaticClass()))
+		{
+			ReleaseWidget->ReleaseSlateResources(true);
+		}
 	}
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
@@ -193,6 +206,12 @@ TSharedPtr<SDockTab> UJavascriptEditorTab::FindDocktab(UWidget* Widget)
 
 void UJavascriptEditorTab::CloseTab(UWidget* Widget)
 {
+	TSharedPtr<SDockTab> ThisTabPtr = ThisTab.Pin();
+	if (ThisTabPtr.IsValid())
+	{
+		ThisTabPtr->RequestCloseTab();
+	}
+
 	GEditorTabTracker.OnTabClosed(Widget);
 }
 
@@ -200,7 +219,7 @@ void UJavascriptEditorTab::Register(TSharedRef<FTabManager> TabManager, UObject*
 {
 	if (Icon.StyleSetName.IsNone())
 	{
-		Icon.StyleSetName = FEditorStyle::GetStyleSetName();
+		Icon.StyleSetName = FAppStyle::GetAppStyleSetName();
 		Icon.StyleName = "DeviceDetails.Tabs.ProfileEditor";
 	}
 
@@ -217,14 +236,15 @@ void UJavascriptEditorTab::Register(TSharedRef<FTabManager> TabManager, UObject*
 
 		GEditorTabTracker.Add(this, Widget, MajorTab);
 
-		auto OldTab = UJavascriptEditorTab::MajorTab;
-		UJavascriptEditorTab::MajorTab = MajorTab;		 
+		//auto OldTab = UJavascriptEditorTab::MajorTab;
+		UJavascriptEditorTab::MajorTab = MajorTab;
+		ThisTab = MajorTab;
 		
 		MajorTab->SetContent(Widget->TakeWidget());
 		MajorTab->SetOnTabActivated(FOnTabActivatedCallback::CreateLambda([this](TSharedRef<SDockTab> Tab, ETabActivationCause Cause) {
 			this->TabActivatedCallback(Tab, Cause);
 		}));
-		UJavascriptEditorTab::MajorTab = OldTab;
+		UJavascriptEditorTab::MajorTab = nullptr;
 
 		return MajorTab;
 	});	
@@ -240,7 +260,7 @@ void UJavascriptEditorTab::InsertTo(TSharedRef<FTabManager> TabManager, UObject*
 {
 	if (Icon.StyleSetName.IsNone())
 	{
-		Icon.StyleSetName = FEditorStyle::GetStyleSetName();
+		Icon.StyleSetName = FAppStyle::GetAppStyleSetName();
 		Icon.StyleName = "DeviceDetails.Tabs.ProfileEditor";
 	}
 
@@ -253,16 +273,18 @@ void UJavascriptEditorTab::InsertTo(TSharedRef<FTabManager> TabManager, UObject*
 			GEditorTabTracker.OnTabClosed(ClosedTab);
 		});
 
+	MajorTab->SetTabIcon(Icon.GetSlateIcon().GetIcon());
+
 	GEditorTabTracker.Add(this, Widget, MajorTab);
 
-	auto OldTab = UJavascriptEditorTab::MajorTab;
-	UJavascriptEditorTab::MajorTab = MajorTab;		 
-		
+	UJavascriptEditorTab::MajorTab = MajorTab;
+	ThisTab = MajorTab;
+
 	MajorTab->SetContent(Widget->TakeWidget());
 	MajorTab->SetOnTabActivated(FOnTabActivatedCallback::CreateLambda([this](TSharedRef<SDockTab> Tab, ETabActivationCause Cause) {
 		this->TabActivatedCallback(Tab, Cause);
 	}));
-	UJavascriptEditorTab::MajorTab = OldTab;
+	UJavascriptEditorTab::MajorTab = nullptr;
 
 	TSharedPtr<FTabManager::FSearchPreference> SearchPreference = MakeShareable(new FTabManager::FLiveTabSearch(SearchForTabId));
 	TabManager->InsertNewDocumentTab(PlaceholderId, *SearchPreference, MajorTab);
@@ -278,6 +300,15 @@ void UJavascriptEditorTab::Unregister(TSharedRef<FTabManager> TabManager)
 	{
 		TabManager->UnregisterTabSpawner(TabId);
 	}	
+}
+
+void UJavascriptEditorTab::ActivateInParent()
+{
+	TSharedPtr<SDockTab> ThisTabPtr = ThisTab.Pin();
+	if (ThisTabPtr.IsValid())
+	{
+		ThisTabPtr->ActivateInParent(ETabActivationCause::SetDirectly);
+	}
 }
 
 void UJavascriptEditorTab::Register()

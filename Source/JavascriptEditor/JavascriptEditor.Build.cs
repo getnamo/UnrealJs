@@ -1,8 +1,9 @@
-﻿using UnrealBuildTool;
+﻿using System;
+using UnrealBuildTool;
 
 public class JavascriptEditor : ModuleRules
 {
-    public static bool IsVREditorNeeded()
+    public static Int32[] ParseEditorVersions()
     {
         string[] VersionHeader = Utils.ReadAllText("../Source/Runtime/Launch/Resources/Version.h").Replace("\r\n", "\n").Replace("\t", " ").Split('\n');
         string EngineVersionMajor = "4";
@@ -18,12 +19,13 @@ public class JavascriptEditor : ModuleRules
                 EngineVersionMinor = Line.Split(' ')[2];
             }
         }
-        return System.Int32.Parse(EngineVersionMajor) == 4 && System.Int32.Parse(EngineVersionMinor) >= 14;
+        return new Int32[] { System.Int32.Parse(EngineVersionMajor), System.Int32.Parse(EngineVersionMinor) };
     }
 
     public JavascriptEditor(ReadOnlyTargetRules Target) : base(Target)
 	{
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+
         PublicDependencyModuleNames.AddRange(
                 new string[]
 				{
@@ -41,9 +43,19 @@ public class JavascriptEditor : ModuleRules
                     "EditorStyle",
                     "UnrealEd",
                     "JavascriptUMG",
-                    "DetailCustomizations"
+                    "DetailCustomizations",
+                    "EditorWidgets"
                 }
-            );	// @todo Mac: for some reason CoreUObject and Engine are needed to link in debug on Mac
+            );  // @todo Mac: for some reason CoreUObject and Engine are needed to link in debug on Mac
+
+        var vers = ParseEditorVersions();
+        var EngineMajorVer = vers[0];
+        var EngineMinorVer = vers[1];
+
+        if (EngineMajorVer > 4)
+        {
+            PublicDependencyModuleNames.Add("BSPUtils");
+        }
 
         if (Target.bBuildEditor == true)
         {
@@ -54,7 +66,8 @@ public class JavascriptEditor : ModuleRules
                 }
             );
 
-            if (IsVREditorNeeded())
+            // Is VREditor Needed?
+            if (EngineMajorVer > 4 || EngineMinorVer >= 14)
             {
                 PrivateDependencyModuleNames.AddRange(new string []{ "LevelEditor", "ViewportInteraction", "VREditor" });
             }
@@ -93,22 +106,32 @@ public class JavascriptEditor : ModuleRules
 				        "DesktopPlatform",
                         "ToolMenus",
                         "SkeletalMeshEditor",
-                        "StaticMeshEditor"
+                        "StaticMeshEditor",
+                        "Media",
+                        "SlateNullRenderer",
+                        "SlateRHIRenderer",
+                        "SourceControl",
+                        "Sockets"
                     }
             );
+
+            if (EngineMajorVer > 4)
+            {
+                PrivateDependencyModuleNames.Add("EditorFramework");
+            }
         }
 
-		// Uncomment if you are using Slate UI
-		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+        // Uncomment if you are using Slate UI
+        // PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 
-		// Uncomment if you are using online features
-		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
-		// if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
-		// {
-		//		if (UEBuildConfiguration.bCompileSteamOSS == true)
-		//		{
-		//			DynamicallyLoadedModuleNames.Add("OnlineSubsystemSteam");
-		//		}
-		// }
-	}
+        // Uncomment if you are using online features
+        // PrivateDependencyModuleNames.Add("OnlineSubsystem");
+        // if (Target.IsInPlatformGroup(UnrealPlatformGroup.Windows))
+        // {
+        //		if (UEBuildConfiguration.bCompileSteamOSS == true)
+        //		{
+        //			DynamicallyLoadedModuleNames.Add("OnlineSubsystemSteam");
+        //		}
+        // }
+    }
 }

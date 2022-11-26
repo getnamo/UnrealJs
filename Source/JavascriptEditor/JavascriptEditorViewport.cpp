@@ -8,10 +8,19 @@
 #include "AssetViewerSettings.h"
 #include "Launch/Resources/Version.h"
 #include "Components/DirectionalLightComponent.h"
+#if ENGINE_MAJOR_VERSION > 4
+	#include "UnrealWidget.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "JavascriptEditor"
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+
+#if ENGINE_MAJOR_VERSION > 4
+	namespace WidgetAlias = UE::Widget;
+#else
+	using WidgetAlias = FWidget;
+#endif
 
 class FJavascriptPreviewScene : public FAdvancedPreviewScene
 {
@@ -57,20 +66,25 @@ public:
 
 class FCanvasOwner : public FGCObject
 {
-    
+	
 public:
-    FCanvasOwner(): FGCObject()
-    {
-        Canvas = nullptr;
-    }
-    
-    virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-    {
-        Collector.AddReferencedObject(Canvas);
-    }
-    
+	FCanvasOwner(): FGCObject()
+	{
+		Canvas = nullptr;
+	}
+	
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(Canvas);
+	}
+
+	virtual FString GetReferencerName() const
+	{
+		return "FCanvasOwner";
+	}
+	
 public:
-    UCanvas* Canvas;
+	UCanvas* Canvas;
 };
 
 #if WITH_EDITOR
@@ -114,7 +128,8 @@ public:
 
 	virtual bool InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.f, bool bGamepad = false)
 	{
-		FEditorViewportClient::InputKey(Viewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
+		FInputKeyEventArgs Args = FInputKeyEventArgs(Viewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
+		FEditorViewportClient::InputKey(Args);
 		if (Widget.IsValid() && Widget->OnInputKey.IsBound())
 		{
 			return Widget->OnInputKey.Execute(ControllerId, Key, Event, Widget.Get());
@@ -127,7 +142,7 @@ public:
 
 	virtual bool InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples = 1, bool bGamepad = false) override
 	{
-		FEditorViewportClient::InputAxis(Viewport, ControllerId, Key, Delta, DeltaTime, NumSamples, bGamepad);
+		FEditorViewportClient::InputAxis(Viewport, FInputDeviceId::CreateFromInternalId(ControllerId), Key, Delta, DeltaTime, NumSamples, bGamepad);
 		if (Widget.IsValid() && Widget->OnInputAxis.IsBound())
 		{
 			return Widget->OnInputAxis.Execute(ControllerId, Key, Delta, DeltaTime, Widget.Get());
@@ -187,39 +202,38 @@ public:
 			Widget->OnDraw.Execute(FJavascriptPDI(PDI),Widget.Get());
 		}
 	}
-    
-    virtual void DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas) override
-    {
-        FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
-        
-        if (Widget.IsValid() && Widget->OnDrawCanvas.IsBound())
-        {
-            if(CanvasOwner.Canvas == nullptr){
-                CanvasOwner.Canvas = NewObject<UCanvas>(Widget.Get());
-            }
-            
-            CanvasOwner.Canvas->Canvas = &Canvas;
-            CanvasOwner.Canvas->Init(View.UnscaledViewRect.Width(), View.UnscaledViewRect.Height(), const_cast<FSceneView*>(&View), &Canvas);
-            CanvasOwner.Canvas->ApplySafeZoneTransform();
-            
-            Widget->OnDrawCanvas.Execute(CanvasOwner.Canvas, Widget.Get());
-            
-            CanvasOwner.Canvas->PopSafeZoneTransform();
-        }
-    }
+	
+	virtual void DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas) override
+	{
+		FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
+		
+		if (Widget.IsValid() && Widget->OnDrawCanvas.IsBound())
+		{
+			if(CanvasOwner.Canvas == nullptr){
+				CanvasOwner.Canvas = NewObject<UCanvas>(Widget.Get());
+			}
+			
+			CanvasOwner.Canvas->Canvas = &Canvas;
+			CanvasOwner.Canvas->Init(View.UnscaledViewRect.Width(), View.UnscaledViewRect.Height(), const_cast<FSceneView*>(&View), &Canvas);
+			CanvasOwner.Canvas->ApplySafeZoneTransform();
+			
+			Widget->OnDrawCanvas.Execute(CanvasOwner.Canvas, Widget.Get());
+			
+			CanvasOwner.Canvas->PopSafeZoneTransform();
+		}
+	}
 
-	/* UE5HACK
-	virtual FWidget::EWidgetMode GetWidgetMode() const override
+	virtual WidgetAlias::EWidgetMode GetWidgetMode() const override
 	{
 		if (Widget.IsValid() && Widget->OnGetWidgetMode.IsBound())
 		{
-			return (FWidget::EWidgetMode)Widget->OnGetWidgetMode.Execute(Widget.Get());
+			return (WidgetAlias::EWidgetMode)Widget->OnGetWidgetMode.Execute(Widget.Get());
 		}
 		else
 		{
 			return FEditorViewportClient::GetWidgetMode();
-		}		
-	}*/	
+		}
+	}
 
 	virtual FVector GetWidgetLocation() const override
 	{
@@ -281,7 +295,7 @@ public:
 	FLinearColor BackgroundColor;
 
 private:
-    FCanvasOwner CanvasOwner;
+	FCanvasOwner CanvasOwner;
 };
 
 class SAutoRefreshEditorViewport : public SEditorViewport
@@ -338,7 +352,6 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 	{
 		EditorViewportClient->RemoveRealtimeOverride(SystemDisplayName);
 	}	
-
 	void SetBackgroundColor(const FLinearColor& BackgroundColor)
 	{
 		EditorViewportClient->BackgroundColor = BackgroundColor;
@@ -442,13 +455,13 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 	void SetWidgetMode(EJavascriptWidgetMode WidgetMode)
 	{
 		EditorViewportClient->SetWidgetMode(WidgetMode == EJavascriptWidgetMode::WM_None ? UE::Widget::EWidgetMode::WM_None : (UE::Widget::EWidgetMode)WidgetMode);
-    }
-    
-    EJavascriptWidgetMode GetWidgetMode()
-    {
+	}
+	
+	EJavascriptWidgetMode GetWidgetMode()
+	{
 		UE::Widget::EWidgetMode WidgetMode = EditorViewportClient->GetWidgetMode();
-        return UE::Widget::EWidgetMode::WM_None ? EJavascriptWidgetMode::WM_None : (EJavascriptWidgetMode)WidgetMode;
-    }
+		return UE::Widget::EWidgetMode::WM_None ? EJavascriptWidgetMode::WM_None : (EJavascriptWidgetMode)WidgetMode;
+	}
 
 	FString GetEngineShowFlags()
 	{
@@ -797,13 +810,13 @@ void UJavascriptEditorViewport::SetWidgetMode(EJavascriptWidgetMode WidgetMode)
 
 EJavascriptWidgetMode UJavascriptEditorViewport::GetWidgetMode()
 {
-    if (ViewportWidget.IsValid())
-    {
-        return ViewportWidget->GetWidgetMode();
-    }
-    else {
-        return EJavascriptWidgetMode::WM_None;
-    }
+	if (ViewportWidget.IsValid())
+	{
+		return ViewportWidget->GetWidgetMode();
+	}
+	else {
+		return EJavascriptWidgetMode::WM_None;
+	}
 }
 
 void UJavascriptEditorViewport::SetViewportType(ELevelViewportType InViewportType)
@@ -824,28 +837,27 @@ void UJavascriptEditorViewport::SetViewMode(EViewModeIndex InViewModeIndex)
 
 void UJavascriptEditorViewport::DeprojectScreenToWorld(const FVector2D &ScreenPosition, FVector &OutRayOrigin, FVector& OutRayDirection)
 {
-    if (ViewportWidget.IsValid())
-    {
-        FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
-        FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
+	if (ViewportWidget.IsValid())
+	{
+		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
+		FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
 		
 		const auto& InvViewProjMatrix = View->ViewMatrices.GetInvViewProjectionMatrix();
 
-        FSceneView::DeprojectScreenToWorld(ScreenPosition, View->UnscaledViewRect, InvViewProjMatrix, OutRayOrigin, OutRayDirection);
-    }
+		FSceneView::DeprojectScreenToWorld(ScreenPosition, View->UnscaledViewRect, InvViewProjMatrix, OutRayOrigin, OutRayDirection);
+	}
 }
 
 void UJavascriptEditorViewport::ProjectWorldToScreen(const FVector &WorldPosition, FVector2D &OutScreenPosition)
 {
-    if (ViewportWidget.IsValid())
-    {
-        FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
-        FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
-
+	if (ViewportWidget.IsValid())
+	{
+		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
+		FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
 		const auto& ViewProjMatrix = View->ViewMatrices.GetViewProjectionMatrix();
-        
-        FSceneView::ProjectWorldToScreen(WorldPosition, View->UnscaledViewRect, ViewProjMatrix, OutScreenPosition);
-    }
+		
+		FSceneView::ProjectWorldToScreen(WorldPosition, View->UnscaledViewRect, ViewProjMatrix, OutScreenPosition);
+	}
 }
 
 FString UJavascriptEditorViewport::GetEngineShowFlags()

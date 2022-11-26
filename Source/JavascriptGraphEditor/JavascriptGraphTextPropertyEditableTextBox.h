@@ -1,10 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Components/Widget.h"
 #include "Types/SlateStructs.h"
-#include "JavascriptGraphEditorLibrary.h"
+#include "JavascriptUMG/JavascriptUMGLibrary.h"
 #include "JavascriptGraphTextPropertyEditableTextBox.generated.h"
 
 class FJavascriptEditableTextGraphPin;

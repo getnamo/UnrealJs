@@ -1,12 +1,37 @@
 ﻿#include "JavascriptEditorGlobalDelegates.h"
-#include "AssetRegistryModule.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Interfaces/IMainFrameModule.h"
 #include "EditorSupportDelegates.h"
 #include "Editor/EditorEngine.h"
 #include "Editor.h"
 #include "GameDelegates.h"
+#include "Engine/Selection.h"
 
 #if WITH_EDITOR
+struct FJavascriptSupportDelegates
+{
+	/**  */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnConsoleCommandJSDelegate, const TArray<FString>&, UWorld*);
+
+	static FOnConsoleCommandJSDelegate OnConsoleCommandJS;
+};
+
+FJavascriptSupportDelegates::FOnConsoleCommandJSDelegate FJavascriptSupportDelegates::OnConsoleCommandJS;
+
+void JSConsoleCmd(const TArray<FString>& Args, UWorld* InWorld)
+{
+	if (FJavascriptSupportDelegates::OnConsoleCommandJS.IsBound())
+	{
+		FJavascriptSupportDelegates::OnConsoleCommandJS.Broadcast(Args, InWorld);
+	}	
+}
+
+static FAutoConsoleCommandWithWorldAndArgs AddJSConsoleCmd(
+	TEXT("jsc"),
+	TEXT("javascript console command. ex)jsc command arg1.."),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&JSConsoleCmd)
+);
+
 void UJavascriptEditorGlobalDelegates::BeginDestroy()
 {
 	Super::BeginDestroy();
@@ -32,11 +57,14 @@ OP_REFLECT(DisplayLoadErrors)\
 OP_REFLECT(PreBeginPIE)\
 OP_REFLECT(BeginPIE)\
 OP_REFLECT(PostPIEStarted)\
+OP_REFLECT(PrePIEEnded)\
 OP_REFLECT(EndPIE)\
 OP_REFLECT(ResumePIE)\
 OP_REFLECT(SingleStepPIE)\
 OP_REFLECT(PropertySelectionChange)\
 OP_REFLECT(PostLandscapeLayerUpdated)\
+OP_REFLECT(PreSaveWorldWithContext)\
+OP_REFLECT(PostSaveWorldWithContext)\
 OP_REFLECT(OnFinishPickingBlueprintClass)\
 OP_REFLECT(OnConfigureNewAssetProperties)\
 OP_REFLECT(OnNewAssetCreated)\
@@ -93,7 +121,9 @@ OP_REFLECT_ASSETREGISTRY(OnFileLoadProgressUpdated)
 OP_REFLECT_EDITORENGINE(OnBlueprintPreCompile)\
 OP_REFLECT_EDITORENGINE(OnBlueprintCompiled)\
 OP_REFLECT_EDITORENGINE(OnBlueprintReinstanced)\
-OP_REFLECT_EDITORENGINE(OnClassPackageLoadedOrUnloaded)
+OP_REFLECT_EDITORENGINE(OnClassPackageLoadedOrUnloaded)\
+OP_REFLECT_EDITORENGINE(OnLevelActorAdded)\
+OP_REFLECT_EDITORENGINE(OnLevelActorDeleted)
 
 #define DO_REFLECT_SUPPORT() \
 OP_REFLECT_SUPPORT(RedrawAllViewports)\
@@ -102,6 +132,14 @@ OP_REFLECT_SUPPORT(WorldChange)
 
 #define DO_REFLECT_GAME() \
 OP_REFLECT_GAME(EndPlayMapDelegate)
+
+#define DO_REFLECT_SELECTION() \
+OP_REFLECT_SELECTION(SelectionChangedEvent)\
+OP_REFLECT_SELECTION(SelectObjectEvent)\
+OP_REFLECT_SELECTION(SelectNoneEvent)\
+
+#define DO_REFLECT_JAVASCRIPT() \
+OP_REFLECT_JAVASCRIPT(OnConsoleCommandJS) \
 
 FJavascriptAssetData::FJavascriptAssetData(const FAssetData& Source)
 	: ObjectPath(Source.ObjectPath), PackageName(Source.PackageName), PackagePath(Source.PackagePath), AssetName(Source.AssetName), AssetClass(Source.AssetClass), ChunkIDs(Source.ChunkIDs), PackageFlags((int32)Source.PackageFlags), SourceAssetData(Source)
@@ -122,6 +160,8 @@ void UJavascriptEditorGlobalDelegates::Bind(FString Key)
 #define OP_REFLECT_EDITORENGINE(x) else if (Key == #x) { Handle = Cast<UEditorEngine>(GEngine)->x().AddUObject(this, &UJavascriptEditorGlobalDelegates::x); }
 #define OP_REFLECT_SUPPORT(x) else if (Key == #x) { Handle = FEditorSupportDelegates::x.AddUObject(this, &UJavascriptEditorGlobalDelegates::x); }
 #define OP_REFLECT_GAME(x) else if (Key == #x) { Handle = FGameDelegates::Get().Get##x().AddUObject(this, &UJavascriptEditorGlobalDelegates::x); }
+#define OP_REFLECT_SELECTION(x) else if (Key == #x) { Handle = USelection::x.AddUObject(this, &UJavascriptEditorGlobalDelegates::x); }
+#define OP_REFLECT_JAVASCRIPT(x) else if (Key == #x) { Handle = FJavascriptSupportDelegates::x.AddUObject(this, &UJavascriptEditorGlobalDelegates::x); }
 	if (false) {}
 		DO_REFLECT()
 		DO_REFLECT_IMPORT_SUBSYS()
@@ -130,6 +170,8 @@ void UJavascriptEditorGlobalDelegates::Bind(FString Key)
 		DO_REFLECT_EDITORENGINE()
 		DO_REFLECT_SUPPORT()
 		DO_REFLECT_GAME()
+		DO_REFLECT_SELECTION()
+		DO_REFLECT_JAVASCRIPT()
 		;
 
 	if (Handle.IsValid())
@@ -144,6 +186,7 @@ void UJavascriptEditorGlobalDelegates::Bind(FString Key)
 #undef OP_REFLECT_EDITORENGINE
 #undef OP_REFLECT_SUPPORT
 #undef OP_REFLECT_GAME
+#undef OP_REFLECT_SELECTION
 }
 
 void UJavascriptEditorGlobalDelegates::UnbindAll()
@@ -166,6 +209,7 @@ void UJavascriptEditorGlobalDelegates::Unbind(FString Key)
 #define OP_REFLECT_EDITORENGINE(x) else if (Key == #x) { Cast<UEditorEngine>(GEngine)->x().Remove(Handle); }
 #define OP_REFLECT_SUPPORT(x) else if (Key == #x) { FEditorSupportDelegates::x.Remove(Handle); }
 #define OP_REFLECT_GAME(x) else if (Key == #x) { FGameDelegates::Get().Get##x().Remove(Handle); }
+#define OP_REFLECT_SELECTION(x) else if (Key == #x) { USelection::x.Remove(Handle); }
 	if (false) {}
 		DO_REFLECT()
 		DO_REFLECT_IMPORT_SUBSYS()
@@ -174,6 +218,7 @@ void UJavascriptEditorGlobalDelegates::Unbind(FString Key)
 		DO_REFLECT_EDITORENGINE()
 		DO_REFLECT_SUPPORT()
 		DO_REFLECT_GAME()
+		DO_REFLECT_SELECTION()
 		;
 
 	Handles.Remove(Key);
@@ -185,5 +230,6 @@ void UJavascriptEditorGlobalDelegates::Unbind(FString Key)
 #undef OP_REFLECT_EDITORENGINE
 #undef OP_REFLECT_SUPPORT
 #undef OP_REFLECT_GAME
+#undef OP_REFLECT_SELECTION
 }
 #endif

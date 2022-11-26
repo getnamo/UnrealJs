@@ -40,6 +40,11 @@ public:
 		: Parent(InParent)
 	{}
 
+	virtual FString GetReferencerName() const
+	{
+		return "FJavascriptEdToolkit";
+	}
+
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		Collector.AddReferencedObject(Parent);
@@ -356,6 +361,11 @@ public:
 	FJavascriptEdModeFactory(UJavascriptEdMode* InParent)
 		: Parent(InParent)
 	{}
+
+	virtual FString GetReferencerName() const
+	{
+		return "FJavascriptEdModeFactory";
+	}
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{

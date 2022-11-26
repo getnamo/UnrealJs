@@ -27,14 +27,14 @@ public:
 		return WeakObject.IsValid();
 	}
 
+	virtual FString GetReferencerName() const
+	{
+		return "FJavascriptDelegate";
+	}
+
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		Collector.AddReferencedObjects(DelegateObjects);
-	}
-
-	virtual FString GetReferencerName() const
-	{
-		return TEXT("FJavascriptDelegate");
 	}
 
 	FJavascriptDelegate(UObject* InObject, FProperty* InProperty)
@@ -232,7 +232,6 @@ public:
 			{
 				FScriptDelegate Delegate;
 				Delegate.BindUFunction(DelegateObject, NAME_Fire);
-
 				p->AddDelegate(Delegate, WeakObject.Get());
 			}
 			else if (auto p = CastField<FDelegateProperty>(Property))
@@ -329,10 +328,14 @@ struct FDelegateManager : IDelegateManager
 
 	FDelegateManager(Isolate* isolate)
 		: isolate_(isolate)
-	{}
+	{
+		FCoreUObjectDelegates::GetPostGarbageCollect().AddRaw(this, &FDelegateManager::OnPostGarbageCollect);
+	}
 
 	virtual ~FDelegateManager()
 	{
+		FCoreUObjectDelegates::GetPostGarbageCollect().RemoveAll(this);
+
 		PurgeAllDelegates();
 	}
 
@@ -342,6 +345,12 @@ struct FDelegateManager : IDelegateManager
 	}
 
 	TSet<TSharedPtr<FJavascriptDelegate>> Delegates;
+	bool bGarbageCollected = false;
+
+	void OnPostGarbageCollect()
+	{
+		bGarbageCollected = true;
+	}
 
 	void CollectGarbageDelegates()
 	{
@@ -367,8 +376,12 @@ struct FDelegateManager : IDelegateManager
 
 	Local<Object> CreateDelegate(UObject* Object, FProperty* Property)
 	{
-		//@HACK
-		CollectGarbageDelegates();
+		if (bGarbageCollected)
+		{
+			//@HACK
+			CollectGarbageDelegates();
+			bGarbageCollected = false;
+		}
 
 		TSharedPtr<FJavascriptDelegate> payload = MakeShareable(new FJavascriptDelegate(Object, Property));
 		auto created = payload->Initialize(isolate_->GetCurrentContext());

@@ -23,6 +23,7 @@
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
 #include "Async/Async.h"
+#include "Serialization/Csv/CsvParser.h"
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "EngineUtils.h"
@@ -327,7 +328,7 @@ FReadStringFromFileHandle UJavascriptLibrary::ReadStringFromFileAsync(UObject* O
 	return Handle;
 }
 
-FString UJavascriptLibrary::ReadStringFromFile(UObject* Object, FString Filename)
+FString UJavascriptLibrary::ReadStringFromFile(UObject* Object, FString Filename, EFileRead_JS ReadFlags)
 {
 	FString Result;
 	FFileHelper::LoadFileToString(Result, *Filename);
@@ -813,6 +814,21 @@ TArray<FJavscriptProperty> UJavascriptLibrary::GetStructProperties(const FString
     return Properties;
 }
 
+TArray<FString> UJavascriptLibrary::GetEnumListByEnumName(const FString EnumName)
+{
+	TArray<FString> EnumList;
+	UEnum* Enum = FindObjectFast<UEnum>(NULL, *EnumName, false, true);
+	if (Enum != nullptr)
+	{
+		int32 length = Enum->NumEnums();
+		for (int32 i = 0; i < length; i++)
+		{
+			EnumList.Push(Enum->GetNameStringByIndex(i));
+		}
+	}
+	return EnumList;
+}
+
 int32 UJavascriptLibrary::GetFunctionParmsSize(UFunction* Function)
 {
 	return Function->ParmsSize;
@@ -1047,4 +1063,70 @@ TArray<UActorComponent*> UJavascriptLibrary::GetComponentsByClass(AActor* Actor,
 		TArray<UActorComponent*> Components;
 		return Components;
 	}
+}
+
+bool UJavascriptLibrary::V8_IsEnableHotReload()
+{
+	return IV8::Get().IsEnableHotReload();
+}
+
+bool UJavascriptLibrary::ReadCSV(const FString& InPath, TArray<FJavascriptRow>& OutData, EFileRead_JS ReadFlags)
+{
+	FString CSVStr;
+	if (false == FFileHelper::LoadFileToString(CSVStr, *InPath, FFileHelper::EHashOptions::None, (uint32)ReadFlags))
+	{
+		return false;
+	}
+
+	const FCsvParser CSvParser(CSVStr);
+	const FCsvParser::FRows& Rows = CSvParser.GetRows();
+
+	if (Rows.Num() <= 0)
+	{
+		return false;
+	}
+
+	for (int32 StartIndex = 0; StartIndex < Rows.Num(); ++StartIndex)
+	{
+		FJavascriptRow JavascriptRow;
+		TArray<const TCHAR*> RowData = Rows[StartIndex];
+		for (int32 RowDataIndex = 0; RowDataIndex < RowData.Num(); ++RowDataIndex)
+		{
+			JavascriptRow.Values.Add(RowData[RowDataIndex]);
+		}
+		OutData.Add(JavascriptRow);
+	}
+
+	return true;
+}
+
+bool UJavascriptLibrary::WriteCSV(const FString& InPath, TArray<FJavascriptRow>& InData, EJavascriptEncodingOptions::Type EncodingOptions)
+{
+	FString CSVStr;
+	for (int32 StartIndex = 0; StartIndex < InData.Num(); ++StartIndex)
+	{
+		TArray<FString> RowData = InData[StartIndex].Values;
+		for (int32 RowDataIndex = 0; RowDataIndex < RowData.Num(); ++RowDataIndex)
+		{
+			FString ValueString = RowData[RowDataIndex];
+			if (INDEX_NONE != ValueString.Find(TEXT(",")) || INDEX_NONE != ValueString.Find(TEXT("\n")))
+			{
+				ValueString.InsertAt(0, TEXT("\""));
+				ValueString.InsertAt(ValueString.Len(), TEXT("\""));
+			}
+			CSVStr += ValueString;
+
+			if (RowDataIndex != RowData.Num() - 1)
+			{
+				CSVStr += TEXT(",");
+			}
+		}
+
+		if (StartIndex != InData.Num() - 1)
+		{
+			CSVStr += TEXT("\n");
+		}
+	}
+
+	return WriteStringToFile(nullptr, *InPath, CSVStr, EncodingOptions);
 }

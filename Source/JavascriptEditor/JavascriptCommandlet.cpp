@@ -1,4 +1,4 @@
-#include "JavascriptCommandlet.h"
+﻿#include "JavascriptCommandlet.h"
 #include "JavascriptIsolate.h"
 #include "JavascriptContext.h"
 
@@ -27,13 +27,19 @@ int32 UJavascriptCommandlet::Main(const FString& Params)
 		JavascriptContext->AddToRoot();
 
 		JavascriptContext->SetContextId(TEXT("Commandlet"));
-		
+
 		{
 			FEditorScriptExecutionGuard ScriptGuard;
 
 			if (CmdLineTokens.Num())
 			{
-				JavascriptContext->RunFile(CmdLineTokens[0]);
+				FString FileName = CmdLineTokens[0];
+				CmdLineTokens.RemoveAt(0);				
+				FString result = JavascriptContext->RunFileWithArgs(FileName, CmdLineTokens);
+				if (result == TEXT("true"))
+				{
+					bSuccess = true;
+				}
 			}
 		}
 
@@ -41,7 +47,7 @@ int32 UJavascriptCommandlet::Main(const FString& Params)
 
 		JavascriptContext->RemoveFromRoot();
 	}
-#else	
+#else
 	bSuccess = false;
 #endif
 

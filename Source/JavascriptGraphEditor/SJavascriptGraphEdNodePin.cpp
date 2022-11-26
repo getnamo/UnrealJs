@@ -7,6 +7,8 @@
 #include "Widgets/SBoxPanel.h"
 #include "Components/Widget.h"
 
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+
 void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 {
 	this->SetCursor(EMouseCursor::Default);
@@ -63,7 +65,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 	static const FName NAME_NoBorder("NoBorder");
 	TSharedRef<SWidget> PinStatusIndicator =
 		SNew(SButton)
-		.ButtonStyle(FEditorStyle::Get(), NAME_NoBorder)
+		.ButtonStyle(FAppStyle::Get(), NAME_NoBorder)
 		.Visibility(this, &ThisClassPin::GetPinStatusIconVisibility)
 		.ContentPadding(0)
 		.OnClicked(this, &ThisClassPin::ClickedOnPinStatusIcon)
@@ -82,7 +84,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 
 	TSharedRef<SWidget> InLabelWidget = SNew(STextBlock)
 		.Text(this, &ThisClassPin::GetPinLabel)
-		.TextStyle(FEditorStyle::Get(), InArgs._PinLabelStyle)
+		.TextStyle(FAppStyle::Get(), InArgs._PinLabelStyle)
 		.Visibility(this, &ThisClassPin::GetPinLabelVisibility)
 		.ColorAndOpacity(this, &ThisClassPin::GetPinTextColor);
 	TSharedRef<SWidget> InValueWidget = SNew(SBox);
@@ -150,6 +152,12 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 			];
 	}
 
+	float SideMargin = 0.f;
+	if (GraphSchema->OnGetSideMarginInPin.IsBound())
+	{
+		SideMargin = GraphSchema->OnGetSideMarginInPin.Execute(FJavascriptEdGraphPin{ const_cast<UEdGraphPin*>(GraphPinObj) });
+	}
+	
 	TSharedPtr<SHorizontalBox> PinContent;
 	if (bIsInput)
 	{
@@ -159,7 +167,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
-			.Padding(0, 0, InArgs._SideToSideMargin, 0)
+			.Padding(SideMargin, 0, InArgs._SideToSideMargin, 0)
 			[
 				ActualPinWidget
 			]
@@ -183,7 +191,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 		+ SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
-			.Padding(InArgs._SideToSideMargin, 0, 0, 0)
+			.Padding(InArgs._SideToSideMargin, 0, SideMargin, 0)
 			[
 				ActualPinWidget
 			];
@@ -197,15 +205,14 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 		[
 			SNew(SLevelOfDetailBranchNode)
 			.UseLowDetailSlot(this, &ThisClassPin::UseLowDetailPinNames)
-		.LowDetail()
-		[
-			//@TODO: Try creating a pin-colored line replacement that doesn't measure text / call delegates but still renders
-			ActualPinWidget
-		]
-	.HighDetail()
-		[
-			PinContent.ToSharedRef()
-		]
+			.LowDetail()
+			[
+				SNew(SSpacer)
+			]
+			.HighDetail()
+			[
+				PinContent.ToSharedRef()
+			]
 		]
 	);
 
@@ -240,7 +247,7 @@ const FSlateBrush* SJavascriptGraphPin::GetPinBorder() const
 		FName SlateBrushName = GraphSchema->OnGetSlateBrushName.Execute(IsHovered(), FJavascriptEdGraphPin{ const_cast<UEdGraphPin*>(GraphPinObj) });
 		if (SlateBrushName.IsNone() == false)
 		{
-			return FEditorStyle::GetBrush(SlateBrushName);
+			return FAppStyle::GetBrush(SlateBrushName);
 		}
 	}
 
@@ -324,11 +331,11 @@ const FSlateBrush* SJavascriptGraphPin::GetPinIcon() const
 	{
 		if (IsConnected())
 		{
-			return IsHovered() ? FEditorStyle::GetBrush(TEXT("Graph.ExecPin.ConnectedHovered")) : FEditorStyle::GetBrush(TEXT("Graph.ExecPin.Connected"));
+			return IsHovered() ? FAppStyle::GetBrush(TEXT("Graph.ExecPin.ConnectedHovered")) : FAppStyle::GetBrush(TEXT("Graph.ExecPin.Connected"));
 		}
 		else
 		{
-			return IsHovered() ? FEditorStyle::GetBrush(TEXT("Graph.ExecPin.DisconnectedHovered")) : FEditorStyle::GetBrush(TEXT("Graph.ExecPin.Disconnected"));
+			return IsHovered() ? FAppStyle::GetBrush(TEXT("Graph.ExecPin.DisconnectedHovered")) : FAppStyle::GetBrush(TEXT("Graph.ExecPin.Disconnected"));
 		}
 	}
 

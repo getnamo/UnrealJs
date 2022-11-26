@@ -18,7 +18,7 @@ public class JavascriptWebSocket : ModuleRules
         });
 
         bool bPlatformSupportsLibWebsockets =
-            Target.Platform == UnrealTargetPlatform.Win64 ||
+            Target.IsInPlatformGroup(UnrealPlatformGroup.Windows) ||
             Target.Platform == UnrealTargetPlatform.Android ||
             Target.Platform == UnrealTargetPlatform.Mac ||
             Target.IsInPlatformGroup(UnrealPlatformGroup.Unix);
@@ -40,7 +40,7 @@ public class JavascriptWebSocket : ModuleRules
 
         bool bHasZlib = false;
 
-        if (Target.Platform == UnrealTargetPlatform.Win64)
+        if (Target.IsInPlatformGroup(UnrealPlatformGroup.Windows))
         {
             PlatformSubdir = Path.Combine(PlatformSubdir, "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
             bHasZlib = true;

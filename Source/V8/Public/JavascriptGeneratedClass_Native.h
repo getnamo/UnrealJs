@@ -21,13 +21,12 @@ public:
 	virtual void Serialize(FArchive& Ar) override { UClass::Serialize(Ar);  }
 	virtual void PostLoad() override { UClass::PostLoad(); }
 	virtual void PostInitProperties() override { UClass::PostInitProperties(); }
-	virtual void PostInitInstance(UObject* InObj) override;
+	virtual void PostInitInstance(UObject* InObj, FObjectInstancingGraph* InstanceGraph) override;
 	// End UObject interface
 
 	// UClass interface
 #if WITH_EDITOR
 	virtual UClass* GetAuthoritativeClass() override { return UClass::GetAuthoritativeClass();  }
-
 	virtual void ConditionalRecompileClass(FUObjectSerializeContext* InLoadContext) override { UClass::ConditionalRecompileClass(InLoadContext); }
 	virtual UObject* GetArchetypeForCDO() const override { return UClass::GetArchetypeForCDO();  }
 #endif //WITH_EDITOR

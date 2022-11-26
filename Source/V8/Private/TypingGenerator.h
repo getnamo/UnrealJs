@@ -365,7 +365,6 @@ struct TypingGenerator : TypingGeneratorBase
 		auto super_class = source->GetSuperStruct();
 
 		GlobalNames.Add(name);
-
 		w.tooltip("", source);
 
 		w.push("declare class ");

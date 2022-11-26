@@ -49,6 +49,25 @@ struct FJavascriptSlateIcon
 		return GetSlateIcon();
 	}
 };
+
+USTRUCT(BlueprintType)
+struct FJavascriptTextProperty
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString Key;
+
+	UPROPERTY()
+	FString Namespace;
+
+	UPROPERTY()
+	FString Value;
+
+	UPROPERTY()
+	FName TableId;
+};
+
 /**
  * 
  */
@@ -94,6 +113,12 @@ class JAVASCRIPTUMG_API UJavascriptUMGLibrary : public UBlueprintFunctionLibrary
 	static void AddFontInfo(FJavascriptSlateStyle StyleSet, FName PropertyName, const FSlateFontInfo& FontInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static void AddButtonStyle(FJavascriptSlateStyle StyleSet, FName PropertyName, const FButtonStyle& ButtonStyle);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static void SetParentStyleName(FJavascriptSlateStyle StyleSet, const FName& InParentStyleName);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static FJavascriptSlateWidget TakeWidget(class UWidget* Widget);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
@@ -113,4 +138,7 @@ class JAVASCRIPTUMG_API UJavascriptUMGLibrary : public UBlueprintFunctionLibrary
 
 	UFUNCTION(BlueprintCallable, Category = "Javascript | Editor")
 	static FVector2D GenerateDynamicImageResource(const FName InDynamicBrushName);
+
+	UFUNCTION(BlueprintPure, Category = "Scripting | Javascript")
+	static FGeometry GetUIGeometry(UWidget* Widget);
 };

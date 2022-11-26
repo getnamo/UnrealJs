@@ -16,12 +16,13 @@ TSharedRef<SWidget> UJavascriptGraphEditorWidget::RebuildWidget()
 	InEvents.OnNodeDoubleClicked = BIND_UOBJECT_DELEGATE(FSingleNodeEvent, HandleOnNodeDoubleClicked);
 	InEvents.OnDropActor = BIND_UOBJECT_DELEGATE(SGraphEditor::FOnDropActor, HandleDropActors);
 	InEvents.OnDisallowedPinConnection = BIND_UOBJECT_DELEGATE(SGraphEditor::FOnDisallowedPinConnection, HandleDisallowedPinConnection);
+	InEvents.OnTextCommitted = BIND_UOBJECT_DELEGATE(FOnNodeTextCommitted, HandleNodeTextCommitted);
 
 	if (!EdGraph) return SNew(SBox);
 
 	FGraphAppearanceInfo Info = AppearanceInfo;
 
-	return SNew(SGraphEditor)
+	TSharedRef<SGraphEditor> GraphEditor = SNew(SGraphEditor)
 		.AdditionalCommands(CommandList)
 		.IsEditable(true)
 		.Appearance(Info)
@@ -29,6 +30,23 @@ TSharedRef<SWidget> UJavascriptGraphEditorWidget::RebuildWidget()
 		.GraphEvents(InEvents)
 		.AutoExpandActionMenu(true)
 		.ShowGraphStateOverlay(false);
+
+	/** @NOTE The above code(SGraphEditorImpl) reserves the graph refresh. Therefore, graph nodes can be created twice if we add new nodes right after it.
+	 *        (It can make performance issues, or may work abnormally) That is, we need to know the graph refresh completion.
+	 *        It's safe to add/remove nodes after the completion.
+	 *        I wanted to use SGraphEditorImpl::OnUpdateGraphPanel, but it's completely hidden(also related all stuffs).
+	 *        Therefore, I chose the same way with SGraphEditorImpl::TriggerRefresh.
+	 *        It's not good but safe because widget active timers are hold in the TArray(First in, First evaluated).
+	 *  @REF SGraphEditorImpl::OnUpdateGraphPanel
+	 *  @REF SGraphEditorImpl::TriggerRefresh (SGraphEditorImpl::OnGraphChanged)
+	 *  @REF SWidget::ActiveTimers
+	 */
+	if (OnInitialGraphPanelUpdated.IsBound())
+	{
+		GraphEditor->RegisterActiveTimer(0.0f, BIND_UOBJECT_DELEGATE(FWidgetActiveTimerDelegate, HandleOnInitialGraphPanelUpdated));
+	}
+
+	return GraphEditor;
 }
 
 void UJavascriptGraphEditorWidget::SetGraph(UJavascriptGraphEdGraph* InEdGraph)
@@ -46,6 +64,12 @@ UJavascriptGraphEdGraph* UJavascriptGraphEditorWidget::NewGraph(UObject* ParentS
 	Schema->CreateDefaultNodesForGraph(*EdGraph);
 
 	return EdGraph;
+}
+
+EActiveTimerReturnType UJavascriptGraphEditorWidget::HandleOnInitialGraphPanelUpdated(double InCurrentTime, float InDeltaTime)
+{
+	OnInitialGraphPanelUpdated.ExecuteIfBound();
+	return EActiveTimerReturnType::Stop;
 }
 
 void UJavascriptGraphEditorWidget::HandleOnSelectedNodesChanged(const FGraphPanelSelectionSet& Selection)
@@ -179,6 +203,15 @@ void UJavascriptGraphEditorWidget::HandleDropActors(const TArray< TWeakObjectPtr
 void UJavascriptGraphEditorWidget::HandleDisallowedPinConnection(const UEdGraphPin* A, const UEdGraphPin* B)
 {
 	OnDisallowedPinConnection.ExecuteIfBound(const_cast<UEdGraphPin*>(A), const_cast<UEdGraphPin*>(B));
+}
+
+void UJavascriptGraphEditorWidget::HandleNodeTextCommitted(const FText& NewText, ETextCommit::Type CommitInfo, UEdGraphNode* NodeBeingChanged)
+{
+	if (::IsValid(NodeBeingChanged))
+	{
+		NodeBeingChanged->Modify();
+		NodeBeingChanged->OnRenameNode(NewText.ToString());
+	}
 }
 
 void UJavascriptGraphEditorWidget::NotifyGraphChanged()

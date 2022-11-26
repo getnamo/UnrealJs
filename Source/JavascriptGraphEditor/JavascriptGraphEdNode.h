@@ -51,13 +51,15 @@ public:
 	UPROPERTY()
 	FJavascriptFunction WidgetFinalized;
 
+	UPROPERTY()
+	float RenderOpacity = 1.f;
 public:
 	virtual void AllocateDefaultPins() override;
 	virtual void NodeConnectionListChanged() override;
 	virtual void PinConnectionListChanged(UEdGraphPin* Pin) override;
 
 	UJavascriptGraphEdGraph* GetGenericGraphEdGraph();
-	TSharedPtr<SJavascriptGraphEdNode> GetNodeSlateWidget() const;
+	TSharedPtr<SGraphNode> GetNodeSlateWidget() const;
 
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const;
 	virtual FText GetDescription() const;
@@ -106,6 +108,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	void ResetTitleSelectionMode();
 
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	void SetRenderOpacity(float Opacity);
+
 public:
 	UPROPERTY()
 	bool Bidirectional;
@@ -113,7 +118,10 @@ public:
 	UPROPERTY()
 	int32 PriorityOrder;
 
-	TWeakPtr<SJavascriptGraphEdNode> SlateGraphNode;
+	UPROPERTY()
+	TMap<FName, UObject*> PinRefMap;
+
+	TWeakPtr<SGraphNode> SlateGraphNode;
 
 	bool bTitleSelectionOnly;
 	float TitleHeight;

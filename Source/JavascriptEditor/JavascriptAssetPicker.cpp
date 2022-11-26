@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "JavascriptAssetPicker.h"
 #include "Modules/ModuleManager.h"
@@ -44,8 +44,7 @@ TSharedRef<SWidget> UJavascriptAssetPicker::RebuildWidget()
 	{
 		if (OnGetDefaultValue.IsBound())
 		{
-			UObject* InDefaultObject = OnGetDefaultValue.Execute();
-			DefaultObject = InDefaultObject;
+			DefaultObjectPath = OnGetDefaultValue.Execute();
 		}
 
 		return SNew(SHorizontalBox)
@@ -66,14 +65,14 @@ TSharedRef<SWidget> UJavascriptAssetPicker::RebuildWidget()
 					.MaxWidth(100.0f)
 					[
 						SAssignNew(AssetPickerAnchor, SComboButton)
-						.ButtonStyle(FEditorStyle::Get(), "PropertyEditor.AssetComboStyle")
+						.ButtonStyle(FAppStyle::Get(), "PropertyEditor.AssetComboStyle")
 						.ContentPadding(FMargin(2, 2, 2, 1))
 						.MenuPlacement(MenuPlacement_BelowAnchor)
 						.ButtonContent()
 						[									
 							SNew(STextBlock)
-							.TextStyle(FEditorStyle::Get(), "PropertyEditor.AssetClass")
-							.Font(FEditorStyle::GetFontStyle("PropertyWindow.NormalFont"))
+							.TextStyle(FAppStyle::Get(), "PropertyEditor.AssetClass")
+							.Font(FAppStyle::GetFontStyle("PropertyWindow.NormalFont"))
 							.Text(TAttribute<FText>::Create([this]() { return OnGetComboTextValue(); }))
 							.ToolTipText(TAttribute<FText>::Create([this]() { return GetObjectToolTip(); }))
 						]
@@ -86,13 +85,13 @@ TSharedRef<SWidget> UJavascriptAssetPicker::RebuildWidget()
 					.VAlign(VAlign_Center)
 					[
 						SNew(SButton)
-						.ButtonStyle(FEditorStyle::Get(), "NoBorder")
+						.ButtonStyle(FAppStyle::Get(), "SimpleButton")
 						.OnClicked(FOnClicked::CreateLambda([this]() { return OnClickUse(); }))
 						.ContentPadding(1.f)
 						.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Use_Tooltip", "Use asset browser selection"))
 						[
 							SNew(SImage)
-							.Image(FEditorStyle::GetBrush(TEXT("PropertyWindow.Button_Use")))
+							.Image(FAppStyle::GetBrush(TEXT("Icons.Use")))
 						]
 					]
 					// Browse button
@@ -102,13 +101,13 @@ TSharedRef<SWidget> UJavascriptAssetPicker::RebuildWidget()
 					.VAlign(VAlign_Center)
 					[
 						SNew(SButton)
-						.ButtonStyle(FEditorStyle::Get(), "NoBorder")
+						.ButtonStyle(FAppStyle::Get(), "SimpleButton")
 						.OnClicked(FOnClicked::CreateLambda([this]() { return OnClickBrowse(); }))
 						.ContentPadding(0)
 						.ToolTipText(NSLOCTEXT("GraphEditor", "ObjectGraphPin_Browse_Tooltip", "Browse"))
 						[
 							SNew(SImage)
-							.Image(FEditorStyle::GetBrush(TEXT("PropertyWindow.Button_Browse")))
+							.Image(FAppStyle::GetBrush(TEXT("Icons.BrowseContent")))
 						]
 					]
 				]
@@ -126,7 +125,7 @@ FReply UJavascriptAssetPicker::OnClickUse()
 		UObject* SelectedObject = GEditor->GetSelectedObjects()->GetTop(ObjectClass);
 		if (SelectedObject != NULL)
 		{
-			DefaultObject = SelectedObject;
+			DefaultObjectPath = SelectedObject->GetPathName();
 
 			if (OnSetDefaultValue.IsBound())
 			{
@@ -141,9 +140,9 @@ FReply UJavascriptAssetPicker::OnClickUse()
 FText UJavascriptAssetPicker::GetValue() const
 {
 	FText Value;
-	if (DefaultObject != NULL)
+	if (!DefaultObjectPath.IsEmpty())
 	{
-		Value = FText::FromString(DefaultObject->GetFullName());
+		Value = FText::FromString(DefaultObjectPath);
 	}
 	else
 	{
@@ -160,12 +159,17 @@ FText UJavascriptAssetPicker::GetObjectToolTip() const
 
 FReply UJavascriptAssetPicker::OnClickBrowse()
 {
-	if (DefaultObject != NULL)
+	if (!DefaultObjectPath.IsEmpty() && FPackageName::DoesPackageExist(DefaultObjectPath))
 	{
-		TArray<UObject*> Objects;
-		Objects.Add(DefaultObject);
+		FSoftObjectPath SoftObjectPath(DefaultObjectPath);
+		UObject* DefaultObject = SoftObjectPath.TryLoad();
+		if (DefaultObject != NULL)
+		{
+			TArray<UObject*> Objects;
+			Objects.Add(DefaultObject);
 
-		GEditor->SyncBrowserToObjects(Objects);
+			GEditor->SyncBrowserToObjects(Objects);
+		}
 	}
 
 	return FReply::Handled();
@@ -177,13 +181,25 @@ FText UJavascriptAssetPicker::OnGetComboTextValue() const
 
 	if (CategoryObject != NULL)
 	{
-		if (UField* Field = Cast<UField>(DefaultObject))
+		if (!DefaultObjectPath.IsEmpty())
 		{
-			Value = Field->GetDisplayNameText();
-		}
-		else if (DefaultObject != NULL)
-		{
-			Value = FText::FromString(DefaultObject->GetName());
+			FString LeftS, RightS;
+			if (DefaultObjectPath.Split(TEXT("/"), &LeftS, &RightS, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
+			{
+				FString PackS, AssetS;
+				if (RightS.Split(TEXT("."), &PackS, &AssetS, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
+				{
+					Value = FText::FromString(AssetS);
+				}
+				else
+				{
+					Value = FText::FromString(RightS);
+				}
+			}
+			else
+			{
+				Value = FText::FromString(DefaultObjectPath);
+			}
 		}
 	}
 
@@ -203,19 +219,25 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 
 	FAssetPickerConfig AssetPickerConfig;
-	AssetPickerConfig.Filter.ClassNames.Add(AllowedClass->GetFName());
+	AssetPickerConfig.Filter.ClassPaths.Add(FTopLevelAssetPath(AllowedClass->GetFName()));
 	AssetPickerConfig.bAllowNullSelection = true;
 	AssetPickerConfig.Filter.bRecursiveClasses = true;
-	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateLambda([this](const FAssetData& AssetData) { 
-		UObject* AssetObject = AssetData.GetAsset();
-		if (DefaultObject != AssetObject)
+	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateLambda([this](const FAssetData& AssetData) {
+		if (DefaultObjectPath != AssetData.GetObjectPathString())
 		{
 			const FScopedTransaction Transaction(NSLOCTEXT("GraphEditor", "ChangeObjectPinValue", "Change Object Pin Value"));
 
 			// Close the asset picker
 			AssetPickerAnchor->SetIsOpen(false);
 
-			DefaultObject = AssetObject;
+			if (AssetData.GetObjectPathString().IsEmpty())
+			{
+				DefaultObjectPath.Empty();
+			}
+			else
+			{
+				DefaultObjectPath = AssetData.GetObjectPathString();
+			}
 
 			if (OnSetDefaultValue.IsBound())
 			{
@@ -231,14 +253,14 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 	if (!ClassFilterString.IsEmpty())
 	{
 		// Clear out the allowed class names and have the pin's metadata override.
-		AssetPickerConfig.Filter.ClassNames.Empty();
+		AssetPickerConfig.Filter.ClassPaths.Empty();
 
 		// Parse and add the classes from the metadata
 		TArray<FString> CustomClassFilterNames;
 		ClassFilterString.ParseIntoArray(CustomClassFilterNames, TEXT(","), true);
 		for (auto It = CustomClassFilterNames.CreateConstIterator(); It; ++It)
 		{
-			AssetPickerConfig.Filter.ClassNames.Add(FName(**It));
+			AssetPickerConfig.Filter.ClassPaths.Add(FTopLevelAssetPath(FName(**It)));
 		}
 	}
 
@@ -248,7 +270,7 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 		.WidthOverride(300)
 		[
 			SNew(SBorder)
-			.BorderImage(FEditorStyle::GetBrush("Menu.Background"))
+			.BorderImage(FAppStyle::GetBrush("Menu.Background"))
 			[
 				ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
 			]

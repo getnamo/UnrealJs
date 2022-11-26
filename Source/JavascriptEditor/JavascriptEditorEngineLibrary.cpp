@@ -1,4 +1,4 @@
-#include "JavascriptEditorEngineLibrary.h"
+﻿#include "JavascriptEditorEngineLibrary.h"
 #include "AssetToolsModule.h"
 #include "JavascriptContext.h"
 #include "ObjectTools.h"
@@ -79,6 +79,11 @@ void UJavascriptEditorEngineLibrary::SelectNone(UEditorEngine* Engine, bool bNot
 	Engine->SelectNone(bNoteSelectionChange, bDeselectBSPSurfs, WarnAboutManyActors);
 }
 
+class USelection* UJavascriptEditorEngineLibrary::GetSelectedActors(UEditorEngine* Engine)
+{
+	return Engine->GetSelectedActors();
+}
+
 class USelection* UJavascriptEditorEngineLibrary::GetSelectedComponents(UEditorEngine* Engine)
 {
 	return Engine->GetSelectedComponents();
@@ -116,7 +121,7 @@ void UJavascriptEditorEngineLibrary::SetMaterial(UEditorEngine* Engine, UModel* 
 		Model->Surfs[SurfaceIndex].Material = Material;
 		const bool bUpdateTexCoords = false;
 		const bool bOnlyRefreshSurfaceMaterials = true;
-		Engine->polyUpdateMaster(Model, SurfaceIndex, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);		
+		Engine->polyUpdateBrush(Model, SurfaceIndex, bUpdateTexCoords, bOnlyRefreshSurfaceMaterials);
 	}
 	Model->MarkPackageDirty();
 }

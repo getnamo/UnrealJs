@@ -1,8 +1,10 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "EdGraph/EdGraphNode.h"
 #include "EdGraphUtilities.h"
 #include "IJavascriptGraphEditor.h"
 #include "JavascriptGraphEdNode.h"
+#include "SJavascriptGraphNodeComment.h"
+#include "JavascriptGraphEdNode_Comment.h"
 
 DEFINE_LOG_CATEGORY(JavascriptGraphEditor)
 
@@ -10,11 +12,24 @@ class FGraphPanelNodeFactory_GenericGraph : public FGraphPanelNodeFactory
 {
 	virtual TSharedPtr<class SGraphNode> CreateNode(UEdGraphNode* Node) const override
 	{
-		if (UJavascriptGraphEdNode* GraphEdNode = Cast<UJavascriptGraphEdNode>(Node))
+		TSharedPtr<SGraphNode> GraphNode;
+
+		if (UJavascriptGraphEdNode_Comment* GraphEdCommentNode = Cast<UJavascriptGraphEdNode_Comment>(Node))
 		{
-			return SNew(SJavascriptGraphEdNode, GraphEdNode);
+			SAssignNew(GraphNode, SJavascriptGraphNodeComment, GraphEdCommentNode);
 		}
-		return nullptr;
+		else if (UJavascriptGraphEdNode* GraphEdNode = Cast<UJavascriptGraphEdNode>(Node))
+		{
+			SAssignNew(GraphNode, SJavascriptGraphEdNode, GraphEdNode);
+		}
+		else
+		{
+			return nullptr;
+		}
+
+		GraphNode->SlatePrepass();
+
+		return GraphNode;
 	}
 };
 

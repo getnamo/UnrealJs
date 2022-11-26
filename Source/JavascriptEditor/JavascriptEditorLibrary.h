@@ -226,8 +226,11 @@ class JAVASCRIPTEDITOR_API UJavascriptEditorLibrary : public UBlueprintFunctionL
 	UFUNCTION(BlueprintCallable, Category = "Javascript | Editor")
 	static bool GetLandscapeExtent(ULandscapeInfo* LandscapeInfo, int32& MinX, int32& MinY, int32& MaxX, int32& MaxY);
 
-	UFUNCTION(BlueprintCallable, Category = "Javascript | Editor")
-	static void OpenPopupWindow(UWidget* Widget, const FVector2D& PopupDesiredSize, const FText& HeadingText);
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static void GetAllTagsByAssetData(const FAssetData& AssetData, TArray<FName>& OutArray);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static bool GetTagValueByAssetData(const FAssetData& AssetData, const FName& Name, FString& OutValue);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static void GetAllTags(const FJavascriptAssetData& AssetData, TArray<FName>& OutArray);
@@ -507,6 +510,9 @@ class JAVASCRIPTEDITOR_API UJavascriptEditorLibrary : public UBlueprintFunctionL
 	static int32 ReplaceAnimNotifyClass(class UAnimSequenceBase* Sequence, FString NotifyName, FString NewNotifyName, UObject* NewNotifyClass);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static void DownloadImageFromUrl(const FString& ImageUrl, class UAsyncTaskDownloadImage* Callback);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static bool LoadImageFromDiskAsync(const FString& ImagePath, class UAsyncTaskDownloadImage* Callback);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
@@ -514,6 +520,9 @@ class JAVASCRIPTEDITOR_API UJavascriptEditorLibrary : public UBlueprintFunctionL
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static bool OpenDirectoryDialog(const class UJavascriptWindow* WindowHandle, const FString& DialogTitle, const FString& DefaultPath, FString& OutFolderName);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static bool SaveFileDialog(const class UJavascriptWindow* WindowHandle, const FString& DialogTitle, const FString& DefaultPath, const FString& DefaultFile, const FString& FileTypes, int32 Flags, TArray<FString>& OutFilenames);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static bool LoadFileToIntArray(FString Path, TArray<uint8>& FileData);
@@ -540,6 +549,9 @@ class JAVASCRIPTEDITOR_API UJavascriptEditorLibrary : public UBlueprintFunctionL
 	static void AddRichCurve(UCurveTable* InCurveTable, const FName& Key, const FRichCurve& InCurve);
 
 	UFUNCTION()
+	static bool FindRichCurve(UCurveTable* InCurveTable, const FName& Key, FRichCurve& OutCurve);
+
+	UFUNCTION()
 	static void NotifyUpdateCurveTable(UCurveTable* InCurveTable);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
@@ -559,5 +571,32 @@ class JAVASCRIPTEDITOR_API UJavascriptEditorLibrary : public UBlueprintFunctionL
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static void SetActorLabelUnique(AActor* Actor, const FString& NewActorLabel, const TArray<FString>& InExistingActorLabels);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static bool EditorExec(UWorld* World, FString Cmd);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static FJavascriptTextProperty FromStringTable(const FName InTableId, const FString& InKey);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static float GetAverageFPS();
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static float GetAverageMS();
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static bool CheckActivatedStatGroup(FName GroupName);
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static FString GetSourceControlStatusText();
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static class UJavascriptEditorObjectManager* GetEditorObjectManager();
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static FString GetHostName();
+
+	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
+	static FString GetIPAddress();
 #endif
 };

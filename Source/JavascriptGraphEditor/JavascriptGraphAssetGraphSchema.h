@@ -38,7 +38,7 @@ struct FJavascriptPinConnectionResponse
 	FText Message;
 
 	UPROPERTY()
-	TEnumAsByte<enum ECanCreateConnectionResponse> Response;
+	TEnumAsByte<enum ECanCreateConnectionResponse> Response = ECanCreateConnectionResponse::CONNECT_RESPONSE_MAKE;
 };
 
 USTRUCT()
@@ -47,16 +47,16 @@ struct FPerformActionContext
 	GENERATED_BODY()
 
 	UPROPERTY()
-	class UEdGraph* ParentGraph;
+	class UEdGraph* ParentGraph = nullptr;
 
 	UPROPERTY()
 	TArray<FJavascriptEdGraphPin> FromPins;
 
 	UPROPERTY()
-	FVector2D Location;
+	FVector2D Location = FVector2D::ZeroVector;
 
 	UPROPERTY()
-	bool bSelectNewNode;
+	bool bSelectNewNode = false;
 };
 
 UCLASS(MinimalAPI)
@@ -132,6 +132,8 @@ public:
 
 	DECLARE_DYNAMIC_DELEGATE_RetVal(bool, FOnShouldAlwaysPurgeOnModification);
 
+	DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(float, FOnGetSideMarginInPin, FJavascriptEdGraphPin, Pin);
+
 	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
 	FOnGetPinColor OnGetPinColor;
 
@@ -188,6 +190,9 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
 	FOnGetBooleanWidget OnDisableMakePins;
+
+	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
+	FOnGetBoolean_GraphPin OnEnablePin;
 
 	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
 	FOnGetBoolean_GraphPin OnUsingDefaultPin;
@@ -281,6 +286,9 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
 	FOnMouseDragEvent OnDrop;
+
+	UPROPERTY(EditAnywhere, Category = Events, meta = (IsBindableEvent = "True"))
+	FOnGetSideMarginInPin OnGetSideMarginInPin;
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	void BreakPinLinks(FJavascriptEdGraphPin TargetPin, bool bSendsNodeNotifcation);

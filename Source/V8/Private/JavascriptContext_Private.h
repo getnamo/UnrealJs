@@ -15,6 +15,7 @@ struct FJavascriptContext : TSharedFromThis<FJavascriptContext>
 	/** A map from Unreal UObject to V8 Object */
 	TMap< UObject*, v8::UniquePersistent<v8::Value> > ObjectToObjectMap;
 
+
 	struct FExportedStructMemoryInfo
 	{
 		FExportedStructMemoryInfo() = default;
@@ -38,6 +39,8 @@ struct FJavascriptContext : TSharedFromThis<FJavascriptContext>
 
 	/** A map from Struct buffer to V8 Object */
 	TMap<FStructMemoryInstance*, FExportedStructMemoryInfo> MemoryToObjectMap;
+
+	FDelegateHandle PostWorldCleanupHandle;
 
 	virtual ~FJavascriptContext() {}
 	virtual void Expose(FString RootName, UObject* Object) = 0;
@@ -75,4 +78,6 @@ struct FJavascriptContext : TSharedFromThis<FJavascriptContext>
 
 	virtual bool IsExcludeGCObjectTarget(UObject* TargetObj) { return false; }
 	virtual bool IsExcludeGCStructTarget(UStruct* TargetStruct) { return false; }
+
+	virtual void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources) = 0;
 };

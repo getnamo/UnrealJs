@@ -38,10 +38,29 @@ using namespace v8;
 
 static float GV8IdleTaskBudget = 1 / 60.0f;
 
+static FAutoConsoleCommand ToggleEnableV8Hotreload(
+	TEXT("v8.ToggleHotReload"),
+	TEXT("Toggle HotReload Flags when changed watching files."),
+	FConsoleCommandDelegate::CreateLambda(
+		[]()
+		{
+			bool bFlag = !IV8::Get().IsEnableHotReload();
+			IV8::Get().SetEnableHotReload(bFlag);
+			FName NAME_JavascriptCmd("JavascriptCmd");
+			GLog->Log(NAME_JavascriptCmd, ELogVerbosity::Log, *FString::Printf(TEXT("v8 hotreload %s"), bFlag ? TEXT("on") : TEXT("off")));
+		}
+	)
+);
+
 UJavascriptSettings::UJavascriptSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	V8Flags = TEXT("--harmony --harmony-shipping --es-staging --expose-gc");
+#if PLATFORM_IOS
+	V8Flags = TEXT("--harmony --harmony-shipping --expose-gc --jitless");
+#else
+	V8Flags = TEXT("--harmony --harmony-shipping --expose-gc");
+#endif
+	bEnableHotReload = true;
 }
 
 void UJavascriptSettings::Apply() const
@@ -53,9 +72,11 @@ class FUnrealJSPlatform : public v8::Platform
 {
 private:
 	std::unique_ptr<v8::Platform> platform_;
+#if V8_MAJOR_VERSION < 9
 	TQueue<v8::IdleTask*> IdleTasks;
 	FTickerDelegate TickDelegate;
 	FTSTicker::FDelegateHandle TickHandle;
+#endif
 	bool bActive{ true };
 
 public:
@@ -66,8 +87,10 @@ public:
 	FUnrealJSPlatform() 
 		: platform_(platform::NewDefaultPlatform(0, platform::IdleTaskSupport::kEnabled))
 	{
+#if V8_MAJOR_VERSION < 9
 		TickDelegate = FTickerDelegate::CreateRaw(this, &FUnrealJSPlatform::HandleTicker);
 		TickHandle = FTSTicker::GetCoreTicker().AddTicker(TickDelegate);
+#endif
 	}
 
 	~FUnrealJSPlatform()
@@ -79,7 +102,9 @@ public:
 	void Shutdown()
 	{
 		bActive = false;
+#if V8_MAJOR_VERSION < 9
 		RunIdleTasks(FLT_MAX);
+#endif
 	}
 	virtual int NumberOfWorkerThreads() { return platform_->NumberOfWorkerThreads(); }
 
@@ -88,10 +113,40 @@ public:
 		return platform_->GetForegroundTaskRunner(isolate);
 	}
 
+#if V8_MAJOR_VERSION < 9
 	virtual void CallOnForegroundThread(Isolate* isolate, Task* task)
 	{
+		/*std::shared_ptr<v8::TaskRunner> taskrunner =
+			platform_->GetForegroundTaskRunner(isolate);
+		taskrunner->PostTask(std::make_unique<Task>(task));*/
 		platform_->CallOnForegroundThread(isolate, task);
 	}
+
+	virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task,
+		double delay_in_seconds)
+	{
+		/*std::shared_ptr<v8::TaskRunner> taskrunner =
+			platform_->GetForegroundTaskRunner(isolate);
+		taskrunner->PostDelayedTask(std::make_unique<Task>(task), delay_in_seconds);*/
+		platform_->CallOnForegroundThread(isolate, task);
+	}
+
+	virtual void CallIdleOnForegroundThread(Isolate* isolate, IdleTask* task)
+	{
+		IdleTasks.Enqueue(task);
+	}
+#else
+	std::unique_ptr<JobHandle> PostJob(
+		TaskPriority priority, std::unique_ptr<JobTask> job_task) override
+	{
+		return platform_->PostJob(priority, std::move(job_task));
+	}
+
+	virtual ZoneBackingAllocator* GetZoneBackingAllocator() override
+	{
+		return platform_->GetZoneBackingAllocator();
+	}
+#endif
 
 	virtual void CallOnWorkerThread(std::unique_ptr<Task> task)
 	{
@@ -101,18 +156,7 @@ public:
 	virtual void CallDelayedOnWorkerThread(std::unique_ptr<Task> task,
 		double delay_in_seconds)
 	{
-		platform_->CallOnWorkerThread(std::move(task));
-	}
-
-	virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task,
-		double delay_in_seconds)
-	{
-		platform_->CallOnForegroundThread(isolate, task);
-	}
-
-	virtual void CallIdleOnForegroundThread(Isolate* isolate, IdleTask* task) 
-	{
-		IdleTasks.Enqueue(task);
+		platform_->CallDelayedOnWorkerThread(std::move(task), delay_in_seconds);
 	}
 
 	virtual bool IdleTasksEnabled(Isolate* isolate) 
@@ -139,6 +183,7 @@ public:
 	}
 #endif
 
+#if V8_MAJOR_VERSION < 9
 	void RunIdleTasks(float Budget)
 	{
 		float Start = FPlatformTime::Seconds();
@@ -167,6 +212,7 @@ public:
 		RunIdleTasks(FMath::Max<float>(0, GV8IdleTaskBudget - DeltaTime));
 		return true;
 	}
+#endif
 };
 
 class FV8Module : public IV8
@@ -389,6 +435,18 @@ public:
 	virtual void SetFlagsFromString(const FString& V8Flags) override
 	{
 		V8::SetFlagsFromString(TCHAR_TO_ANSI(*V8Flags), strlen(TCHAR_TO_ANSI(*V8Flags)));
+	}
+
+	virtual bool IsEnableHotReload() const override
+	{
+		const UJavascriptSettings& Settings = *GetDefault<UJavascriptSettings>();
+		return Settings.bEnableHotReload;
+	}
+
+	virtual void SetEnableHotReload(bool bEnable) override
+	{		
+		UJavascriptSettings& Settings = *GetMutableDefault<UJavascriptSettings>();
+		Settings.bEnableHotReload = bEnable;
 	}
 
 	virtual void SetIdleTaskBudget(float BudgetInSeconds) override

@@ -230,12 +230,19 @@ FString UJavascriptContext::ReadScriptFile(FString Filename)
 	return TEXT("");
 }
 
-void UJavascriptContext::RunFile(FString Filename)
+FString UJavascriptContext::RunFile(FString Filename)
+{
+	return RunFileWithArgs(Filename, TArray<FString>());
+}
+
+FString UJavascriptContext::RunFileWithArgs(FString Filename, const TArray<FString>& Args)
 {
 	if (JavascriptContext.IsValid())
 	{
-		JavascriptContext->Public_RunFile(Filename);
+		JavascriptContext->Public_RunFile(Filename);// , Args);
 	}
+
+	return TEXT("undefined");
 }
 
 FString UJavascriptContext::RunScript(FString Script, bool bOutput)
@@ -330,6 +337,18 @@ void UJavascriptContext::ExposeUModule()
 	if (JavascriptContext.IsValid())
 	{
 		JavascriptContext->ExposeUModule();
+	}
+}
+
+void UJavascriptContext::ResetUnrealConsoleDelegate()
+{
+	if (JavascriptContext.IsValid())
+	{
+		FJavascriptIsolate* pIsolate = JavascriptContext->Environment.Get();
+		if (pIsolate)
+		{
+			pIsolate->ResetUnrealConsoleDelegate();
+		}
 	}
 }
 

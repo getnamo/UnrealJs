@@ -1,4 +1,5 @@
 #include "JavascriptLogSubscriber.h"
+#include "Logging/LogVerbosity.h"
 
 UJavascriptLogSubscriber::UJavascriptLogSubscriber()
 {

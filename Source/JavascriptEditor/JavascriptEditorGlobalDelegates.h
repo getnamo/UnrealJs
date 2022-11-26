@@ -1,10 +1,11 @@
 ﻿#pragma once
 #if WITH_EDITOR
-#include "AssetData.h"
-#include "IAssetRegistry.h"
+#include "AssetRegistry/AssetData.h"
+#include "AssetRegistry/IAssetRegistry.h"
 #include "Editor/UnrealEdTypes.h"
 #include "Widgets/SWindow.h"
 #endif
+#include "UObject/ObjectSaveContext.h"
 #include "UObject/ScriptMacros.h"
 #include "JavascriptEditorGlobalDelegates.generated.h"
 
@@ -120,17 +121,17 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
 	void PreSaveWorld_Friendly(int32 SaveFlags, UWorld* World);
 
-	void PreSaveWorld(uint32 SaveFlags, UWorld* World)
+	void PreSaveWorldWithContext(UWorld* World, FObjectPreSaveContext ObjectSaveContext)
 	{
-		PreSaveWorld_Friendly((int32)SaveFlags, World);
+		PreSaveWorld_Friendly(ObjectSaveContext.GetSaveFlags(), World);
 	}
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
 	void PostSaveWorld_Friendly(int32 SaveFlags, UWorld* World, bool bSuccess);
 
-	void PostSaveWorld(uint32 SaveFlags, UWorld* World, bool bSuccess)
+	void PostSaveWorldWithContext(UWorld* World, FObjectPostSaveContext ObjectSaveContext)
 	{
-		PostSaveWorld_Friendly(SaveFlags, World, bSuccess);
+		PostSaveWorld_Friendly(ObjectSaveContext.GetSaveFlags(), World, ObjectSaveContext.SaveSucceeded());
 	}
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
@@ -246,6 +247,9 @@ public:
 	void PostPIEStarted(const bool bIsSimulating);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
+	void PrePIEEnded(const bool bIsSimulating);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
 	void EndPIE(const bool bIsSimulating);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
@@ -317,6 +321,12 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
 	void OnClassPackageLoadedOrUnloaded();
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
+	void OnLevelActorAdded(AActor* Actor);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
+	void OnLevelActorDeleted(AActor* Actor);
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript", meta = (DeprecatedFunction, DeprecationMessage = "OnObjectReimported is deprecated with UEditorEngine::OnObjectReimported. Use OnAssetReimport instead."))
 	void OnObjectReimported(UObject* Object);
 	
@@ -335,6 +345,19 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
 	void EndPlayMapDelegate();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
+	void SelectionChangedEvent(UObject* Object);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
+	void SelectObjectEvent(UObject* Object);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
+	void SelectNoneEvent();
+
+	// FJavascriptSupportDelegates
+	UFUNCTION(BlueprintImplementableEvent, Category = "Scripting | Javascript")
+	void OnConsoleCommandJS(const TArray<FString>& Args, UWorld* InWorld);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	void Bind(FString Key);

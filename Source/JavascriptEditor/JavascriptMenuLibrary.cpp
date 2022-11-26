@@ -28,7 +28,8 @@ void UJavascriptMenuLibrary::CreateToolbarBuilder(FJavascriptUICommandList Comma
 {
 	FJavascriptMenuBuilder Out;
 	FToolBarBuilder Builder(CommandList.Handle, FMultiBoxCustomization::None, nullptr);
-	Out.MultiBox = Out.ToolBar = &Builder;
+	FVerticalToolBarBuilder VTBuilder(CommandList.Handle, FMultiBoxCustomization::None, nullptr);
+	Out.MultiBox = Out.ToolBar = (Orientation == Orient_Horizontal) ? &Builder : &VTBuilder;
 	Function.Execute(FJavascriptMenuBuilder::StaticStruct(), &Out);
 }
 
@@ -152,7 +153,6 @@ void UJavascriptMenuLibrary::AddMenuEntry(FJavascriptMenuBuilder& Builder, UJava
 		DefaultAction.CanExecuteAction = FCanExecuteAction::CreateUObject(Object, &UJavascriptMenuContext::Public_CanExecute);
 		DefaultAction.ExecuteAction = FExecuteAction::CreateUObject(Object, &UJavascriptMenuContext::Public_Execute);
 		DefaultAction.GetActionCheckState = FGetActionCheckState::CreateUObject(Object, &UJavascriptMenuContext::Public_GetActionCheckState);
-
 		const EUserInterfaceActionType CommandType = EUserInterfaceActionType(Object->ActionType.GetValue());
 		Builder.Menu->AddMenuEntry(
 			Object->Description,

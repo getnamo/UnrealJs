@@ -1,4 +1,4 @@
-#include "V8PCH.h"
+﻿#include "V8PCH.h"
 #include "../../Launch/Resources/Version.h"
 
 #ifndef THIRD_PARTY_INCLUDES_START
@@ -8,7 +8,7 @@
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 14) || ENGINE_MAJOR_VERSION > 4
 static const int32 CONTEXT_GROUP_ID = 1;
 
 #if PLATFORM_WINDOWS
@@ -176,7 +176,8 @@ namespace {
 
 		virtual void PostReceiveMessage() override
 		{
-			platform_->CallOnForegroundThread(isolate_, new DispatchOnInspectorBackendTask(AsShared()));
+			std::shared_ptr<v8::TaskRunner> taskrunner = platform_->GetForegroundTaskRunner(isolate_);
+			taskrunner->PostTask(std::make_unique<DispatchOnInspectorBackendTask>(AsShared()));
 			isolate_->RequestInterrupt(InterruptCallback, new AgentRef{AsShared()});
 		}
 
@@ -414,7 +415,7 @@ public:
 
 	FString DevToolsFrontEndUrl() const
 	{
-		return FString::Printf(TEXT("chrome-devtools://devtools/bundled/inspector.html?experiments=true&v8only=true&ws=127.0.0.1:%d"), Port);
+		return FString::Printf(TEXT("devtools://devtools/bundled/inspector.html?v8only=true&ws=127.0.0.1:%d"), Port);
 	}
 
 	FInspector(v8::Platform* platform, int32 InPort, Local<Context> InContext)
@@ -440,7 +441,6 @@ public:
 		v8inspector->contextCreated(v8_inspector::V8ContextInfo(InContext, CONTEXT_GROUP_ID, context_name));
 
 		Install(InPort);
-
 		{
 			Isolate::Scope isolate_scope(isolate_);
 			Context::Scope context_scope(InContext);
@@ -451,7 +451,6 @@ public:
 			auto script = v8::Script::Compile(context(), I.String(source)).ToLocalChecked();
 			auto result = script->Run(context());
 		}
-
 		UE_LOG(Javascript, Log, TEXT("open %s"), *DevToolsFrontEndUrl());
 
 		InstallRelay();
@@ -515,14 +514,14 @@ public:
 
 					if (Verbosity == ELogVerbosity::Display)
 					{
-						Handle<Value> argv[2];
+						v8::Handle<v8::Value> argv[2];
 						argv[0] = I.String(FString::Printf(TEXT("%%c%s: %s"), *Category.ToString(), V));
 						argv[1] = I.String(TEXT("color:gray"));
 						(void)function->Call(context(), console, 2, argv);
 					}
 					else
 					{
-						Handle<Value> argv[1];
+						v8::Handle<v8::Value> argv[1];
 						argv[0] = I.String(FString::Printf(TEXT("%s: %s"), *Category.ToString(), V));
 						(void)function->Call(context(), console, 1, argv);
 					}
@@ -654,9 +653,9 @@ public:
 							TEXT("\"description\": \"unreal.js instance\",\r\n")
 							TEXT("\"devtoolsFrontendUrl\": \"%s\",\r\n")
 							TEXT("\"type\":\"node\",\r\n")
-							TEXT("\"id\": 0,\r\n")
+							TEXT("\"id\": \"C889497F-7C93-433D-A1F1-08F93A2F12E2\",\r\n")
 							TEXT("\"title\": \"unreal.js\",\r\n")
-							TEXT("\"webSocketDebuggerUrl\": \"%s\"\r\n")
+							TEXT("\"webSocketDebuggerUrl\": \"%s/C889497F-7C93-433D-A1F1-08F93A2F12E2\"\r\n")
 							TEXT("}]"),
 							*DevToolsFrontEndUrl(), *WebSocketDebuggerUrl());
 
