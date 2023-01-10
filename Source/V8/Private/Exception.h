@@ -12,7 +12,7 @@ struct FV8Exception
 	static auto GuardLambda(T&& f)
 	{
 		static T fn = std::forward<T>(f); //@hack: exploiting lambda signature's uniqueness
-		return [](const FunctionCallbackInfo<Value>& info)
+		return [](const v8::FunctionCallbackInfo<v8::Value>& info)
 		{
 #if PLATFORM_WINDOWS && !PLATFORM_SEH_EXCEPTIONS_DISABLED
 			__try
