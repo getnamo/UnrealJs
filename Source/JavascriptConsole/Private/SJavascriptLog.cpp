@@ -581,6 +581,7 @@ protected:
 
 	FTextLayout* TextLayout;
 
+	FDelegateHandle EndDelegate;
 	bool bValidLogContext;
 };
 
@@ -593,12 +594,18 @@ TSharedRef< FJavascriptLogTextLayoutMarshaller > FJavascriptLogTextLayoutMarshal
 
 void FJavascriptLogTextLayoutMarshaller::InitDelegates()
 {
+	EndDelegate = FCoreDelegates::OnPreExit.AddLambda([&]
+		{
+			UE_LOG(LogTemp, Log, TEXT("OnPreExit"));
+			bValidLogContext = false;
+		});
 	bValidLogContext = true;
 }
 
 FJavascriptLogTextLayoutMarshaller::~FJavascriptLogTextLayoutMarshaller()
 {
 	bValidLogContext = false;
+	FCoreDelegates::OnPreExit.Remove(EndDelegate);
 }
 
 void FJavascriptLogTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout& TargetTextLayout)
