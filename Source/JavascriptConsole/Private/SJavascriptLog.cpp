@@ -556,6 +556,8 @@ public:
 	int32 GetNumMessages() const;
 	int32 GetNumFilteredMessages();
 
+	void InitDelegates();
+
 	void MarkMessagesCacheAsDirty();
 
 protected:
@@ -578,15 +580,25 @@ protected:
 	FJavascriptLogFilter* Filter;
 
 	FTextLayout* TextLayout;
+
+	bool bValidLogContext;
 };
 
 TSharedRef< FJavascriptLogTextLayoutMarshaller > FJavascriptLogTextLayoutMarshaller::Create(TArray< TSharedPtr<FLogMessage> > InMessages, FJavascriptLogFilter* InFilter)
 {
-	return MakeShareable(new FJavascriptLogTextLayoutMarshaller(MoveTemp(InMessages), InFilter));
+	TSharedRef< FJavascriptLogTextLayoutMarshaller > Marshaller =  MakeShareable(new FJavascriptLogTextLayoutMarshaller(MoveTemp(InMessages), InFilter));
+	Marshaller->InitDelegates();
+	return Marshaller;
+}
+
+void FJavascriptLogTextLayoutMarshaller::InitDelegates()
+{
+	bValidLogContext = true;
 }
 
 FJavascriptLogTextLayoutMarshaller::~FJavascriptLogTextLayoutMarshaller()
 {
+	bValidLogContext = false;
 }
 
 void FJavascriptLogTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout& TargetTextLayout)
@@ -675,7 +687,10 @@ void FJavascriptLogTextLayoutMarshaller::AppendMessageToTextLayout(const TShared
 	{
 		FFunctionGraphTask::CreateAndDispatchWhenReady([&, NewLineData]
 		{
-			TextLayout->AddLine(NewLineData);
+			if (bValidLogContext)
+			{
+				TextLayout->AddLine(NewLineData);
+			}
 		}, TStatId(), nullptr, ENamedThreads::GameThread);
 	}
 }
@@ -765,6 +780,8 @@ int32 FJavascriptLogTextLayoutMarshaller::GetNumFilteredMessages()
 
 	return CachedNumMessages;
 }
+
+
 
 void FJavascriptLogTextLayoutMarshaller::MarkMessagesCacheAsDirty()
 {
@@ -890,6 +907,7 @@ void SJavascriptLog::Construct( const FArguments& InArgs )
 	
 	GLog->AddOutputDevice(this);
 
+
 	bIsUserScrolled = false;
 	RequestForceScroll();
 }
@@ -918,7 +936,8 @@ bool SJavascriptLog::CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verb
 		FName Style;
 		if (Category == NAME_JavascriptCmd)
 		{
-			Style = FName(TEXT("Log.Command"));
+			//Style = FName(TEXT("Log.Command"));
+			Style = FName(TEXT("Log.Normal"));
 		}
 		else if (Verbosity == ELogVerbosity::Error)
 		{
@@ -965,11 +984,7 @@ bool SJavascriptLog::CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verb
 
 			if (Verbosity != ELogVerbosity::Log)
 			{
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION < 13
-				Format += FString(VerbosityToString(Verbosity)) + TEXT(": ");
-#else
 				Format += FString(::ToString(Verbosity)) + TEXT(": ");
-#endif
 			}			
 			
 			if (Message)
@@ -980,18 +995,7 @@ bool SJavascriptLog::CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verb
 		};
 
 		bool bIsFirstLineInMessage = true;
-		//for (const FTextRange& LineRange : LineRanges)
-		//{
-		//	if (!LineRange.IsEmpty())
-		//	{
-		//		FString Line = CurrentLogDump.Mid(LineRange.BeginIndex, LineRange.Len());
-		//		Line = Line.ConvertTabsToSpaces(4);
-		//		
-		//		OutMessages.Add(MakeShareable(new FLogMessage(MakeShareable(new FString((bIsFirstLineInMessage) ? FormatLogLine(Verbosity, Category, *Line) : Line)), Style)));
 
-		//		bIsFirstLineInMessage = false;
-		//	}
-		//}
 		for (const FTextRange& LineRange : LineRanges)
 		{
 			if (!LineRange.IsEmpty())
