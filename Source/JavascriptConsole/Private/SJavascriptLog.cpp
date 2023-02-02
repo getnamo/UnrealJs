@@ -581,7 +581,6 @@ protected:
 
 	FTextLayout* TextLayout;
 
-	FDelegateHandle EndDelegate;
 	bool bValidLogContext;
 };
 
@@ -594,18 +593,12 @@ TSharedRef< FJavascriptLogTextLayoutMarshaller > FJavascriptLogTextLayoutMarshal
 
 void FJavascriptLogTextLayoutMarshaller::InitDelegates()
 {
-	EndDelegate = FCoreDelegates::OnPreExit.AddLambda([&]
-		{
-			UE_LOG(LogTemp, Log, TEXT("OnPreExit"));
-			bValidLogContext = false;
-		});
 	bValidLogContext = true;
 }
 
 FJavascriptLogTextLayoutMarshaller::~FJavascriptLogTextLayoutMarshaller()
 {
 	bValidLogContext = false;
-	FCoreDelegates::OnPreExit.Remove(EndDelegate);
 }
 
 void FJavascriptLogTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout& TargetTextLayout)
@@ -1049,7 +1042,8 @@ void SJavascriptLog::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, c
 		// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
 		if( !bIsUserScrolled )
 		{
-			MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));
+			MessagesTextBox->ScrollTo(ETextLocation::EndOfDocument);	//backup scrolling method for 5.16
+			MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));	//in 5.1 this kind of broke, so we're using the above fallback
 		}
 	}
 }
