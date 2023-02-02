@@ -1,12 +1,10 @@
-[![star this repo](http://githubbadges.com/star.svg?user=ncsoft&repo=Unreal.js&style=default)](https://github.com/ncsoft/Unreal.js)
-[![fork this repo](http://githubbadges.com/fork.svg?user=ncsoft&repo=Unreal.js&style=default)](https://github.com/ncsoft/Unreal.js/fork)
-# Unreal.js Plugin
-
-- core component of [Unreal.js project](https://github.com/ncsoft/Unreal.js)
-
-## getnamo fork
+# Unreal.js Plugin - getnamo fork
 
 Some opinionated changes to add certain features for live gameplay coding. Not all upstream functionality is guaranteed, but best effort is used when upgrading engine versions.
+
+See upstream for wiki/instructions, API is largely the same: https://github.com/ncsoft/Unreal.js
+
+## Fork Changes
 
 ### Async
 
