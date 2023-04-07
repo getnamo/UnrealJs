@@ -1043,7 +1043,7 @@ void SJavascriptLog::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, c
 		if( !bIsUserScrolled )
 		{
 			MessagesTextBox->ScrollTo(ETextLocation::EndOfDocument);	//backup scrolling method for 5.16
-			MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));	//in 5.1 this kind of broke, so we're using the above fallback
+			//MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));	//in 5.1 this kind of broke, so we're using the above fallback
 		}
 	}
 }
