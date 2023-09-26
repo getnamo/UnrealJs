@@ -1,0 +1,1 @@
+place inside Plugins\getnamo\unreal.js-core\ThirdParty\v8 next to include
