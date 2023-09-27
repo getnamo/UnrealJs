@@ -310,11 +310,11 @@ static FProperty* CreateProperty(T* Outer, FName Name, const TArray<FString>& De
 				UObject* TypeObject = nullptr;
 				for (auto PackageToSearch : PackagesToSearch)
 				{
-					TypeObject = StaticFindObject(UObject::StaticClass(), (UObject*)ANY_PACKAGE, *FString::Printf(TEXT("/Script/%s.%s"), PackageToSearch, ObjectName));
+					TypeObject = StaticFindObject(UObject::StaticClass(), nullptr, *FString::Printf(TEXT("/Script/%s.%s"), PackageToSearch, ObjectName));
 					if (TypeObject) return TypeObject;
 				}
 
-				TypeObject = StaticFindObject(UObject::StaticClass(), (UObject*)ANY_PACKAGE, ObjectName);
+				TypeObject = StaticFindFirstObject(UObject::StaticClass(), ObjectName);
 				if (TypeObject) return TypeObject;
 
 				TypeObject = StaticLoadObject(UObject::StaticClass(), nullptr, ObjectName);
