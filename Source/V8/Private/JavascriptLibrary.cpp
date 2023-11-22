@@ -678,7 +678,7 @@ void UJavascriptLibrary::Log(const FJavascriptLogCategory& Category, ELogVerbosi
 		FMsg::Logf_Internal(TCHAR_TO_ANSI(*FileName), LineNumber, Category.Handle->GetCategoryName(), Verbosity, TEXT("%s"), *Message);
 		if (Verbosity == ELogVerbosity::Fatal)
 		{
-			_DebugBreakAndPromptForRemote();
+			UE_DEBUG_BREAK_AND_PROMPT_FOR_REMOTE();
 			FDebug::AssertFailed("", TCHAR_TO_ANSI(*FileName), LineNumber, *Message);
 		}
 	}
@@ -786,7 +786,7 @@ TArray<FJavscriptProperty> UJavascriptLibrary::GetStructProperties(const FString
 {
 	TArray<FJavscriptProperty> Properties;
 
-	UStruct* Struct = FindObjectFast<UStruct>(NULL, *StructName, false, true);
+	UStruct* Struct = FindFirstObject<UStruct>(*StructName);
 	if (Struct != nullptr)
 	{
 		// Make sure each field gets allocated into the array
@@ -817,7 +817,7 @@ TArray<FJavscriptProperty> UJavascriptLibrary::GetStructProperties(const FString
 TArray<FString> UJavascriptLibrary::GetEnumListByEnumName(const FString EnumName)
 {
 	TArray<FString> EnumList;
-	UEnum* Enum = FindObjectFast<UEnum>(NULL, *EnumName, false, true);
+	UEnum* Enum = FindFirstObject<UEnum>(*EnumName);
 	if (Enum != nullptr)
 	{
 		int32 length = Enum->NumEnums();

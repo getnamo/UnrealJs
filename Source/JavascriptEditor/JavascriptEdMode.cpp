@@ -4,7 +4,7 @@
 
 #if WITH_EDITOR
 #include "Components/Widget.h"
-#include "EditorFramework/Public/Toolkits/ToolkitManager.h"
+#include "Toolkits/ToolkitManager.h"
 #include "EditorModeManager.h"
 #include "EdMode.h"
 #include "Engine/Canvas.h"

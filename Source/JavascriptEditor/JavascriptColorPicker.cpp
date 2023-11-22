@@ -25,7 +25,7 @@ TSharedRef<SWidget> UJavascriptColorPicker::RebuildWidget()
 				PickerArgs.bIsModal = true;
 				PickerArgs.ParentWidget = MyColorBlock;
 				PickerArgs.DisplayGamma = TAttribute<float>::Create(TAttribute<float>::FGetter::CreateUObject(GEngine, &UEngine::GetDisplayGamma));
-				PickerArgs.LinearColorArray = &LinearColorArray;
+				//PickerArgs.LinearColorArray = &LinearColorArray;	//potentially breaking
 				PickerArgs.OnColorCommitted = FOnLinearColorValueChanged::CreateLambda([this](FLinearColor color) {
 					SelectedColor = color;
 					OnColorChanged.Broadcast(SelectedColor);

@@ -53,8 +53,7 @@ void UJavascriptInstanceComponent::RunFile(const FString& FilePath)
 
 UClass* UJavascriptInstanceComponent::ClassByName(const FString& ClassName)
 {
-	UObject* ClassPackage = ANY_PACKAGE;
-	return FindObject<UClass>(ClassPackage, *ClassName);
+	return FindFirstObject<UClass>(*ClassName);
 }
 
 void UJavascriptInstanceComponent::StartupInstanceAndRun()

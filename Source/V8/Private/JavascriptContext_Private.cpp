@@ -2207,7 +2207,7 @@ public:
 						{
 							const uint32 ExportFlags = PPF_None;
 							auto Buffer = It->ContainerPtrToValuePtr<uint8>(Parms);
-							const TCHAR* Result = It->ImportText_Direct(*MetadataCppDefaultValue, Buffer, ExportFlags, NULL);
+							const TCHAR* Result = It->ImportText_Direct(*MetadataCppDefaultValue, Buffer, nullptr, ExportFlags, NULL);
 							if (Result)
 							{
 								bHasDefault = true;

@@ -142,8 +142,11 @@ OP_REFLECT_SELECTION(SelectNoneEvent)\
 OP_REFLECT_JAVASCRIPT(OnConsoleCommandJS) \
 
 FJavascriptAssetData::FJavascriptAssetData(const FAssetData& Source)
-	: ObjectPath(Source.ObjectPath), PackageName(Source.PackageName), PackagePath(Source.PackagePath), AssetName(Source.AssetName), AssetClass(Source.AssetClass), ChunkIDs(Source.ChunkIDs), PackageFlags((int32)Source.PackageFlags), SourceAssetData(Source)
-{
+	: ObjectPath(*Source.GetSoftObjectPath().ToString())
+	, PackageName(Source.PackageName), PackagePath(Source.PackagePath), AssetName(Source.AssetName)
+	, AssetClass(*Source.AssetClassPath.ToString())
+	, ChunkIDs(Source.GetChunkIDs())
+	, PackageFlags((int32)Source.PackageFlags), SourceAssetData(Source){
 }
 
 void UJavascriptEditorGlobalDelegates::Bind(FString Key)

@@ -1063,7 +1063,7 @@ TArray<FAssetData> UJavascriptEditorLibrary::GetAssetsByType(const TArray<FStrin
 	FARFilter Filter;
 	for (auto& Type : Types)
 	{
-		Filter.ClassNames.Add(FName(*Type));
+		Filter.ClassPaths.Add(FTopLevelAssetPath(Type));
 	}
 	Filter.bRecursiveClasses = bRecursiveClasses;
 	TArray<FAssetData> AssetList;

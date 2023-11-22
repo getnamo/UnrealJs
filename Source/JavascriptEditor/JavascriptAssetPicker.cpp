@@ -140,9 +140,9 @@ FReply UJavascriptAssetPicker::OnClickUse()
 FText UJavascriptAssetPicker::GetValue() const
 {
 	FText Value;
-	if (!DefaultObjectPath.IsEmpty())
+	if (DefaultObjectPath.IsValid())
 	{
-		Value = FText::FromString(DefaultObjectPath);
+		Value = FText::FromString(DefaultObjectPath.ToString());
 	}
 	else
 	{
@@ -159,7 +159,7 @@ FText UJavascriptAssetPicker::GetObjectToolTip() const
 
 FReply UJavascriptAssetPicker::OnClickBrowse()
 {
-	if (!DefaultObjectPath.IsEmpty() && FPackageName::DoesPackageExist(DefaultObjectPath))
+	if (DefaultObjectPath.IsValid() && FPackageName::DoesPackageExist(DefaultObjectPath.ToString()))
 	{
 		FSoftObjectPath SoftObjectPath(DefaultObjectPath);
 		UObject* DefaultObject = SoftObjectPath.TryLoad();
@@ -179,12 +179,14 @@ FText UJavascriptAssetPicker::OnGetComboTextValue() const
 {
 	FText Value = LOCTEXT("DefaultComboText", "Select Asset");
 
-	if (CategoryObject != NULL)
+	if (CategoryObject != nullptr)
 	{
-		if (!DefaultObjectPath.IsEmpty())
+		auto DefaultObjectPathString = DefaultObjectPath.ToString();
+
+		if (!DefaultObjectPathString.IsEmpty())
 		{
 			FString LeftS, RightS;
-			if (DefaultObjectPath.Split(TEXT("/"), &LeftS, &RightS, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
+			if (DefaultObjectPathString.Split(TEXT("/"), &LeftS, &RightS, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
 			{
 				FString PackS, AssetS;
 				if (RightS.Split(TEXT("."), &PackS, &AssetS, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
@@ -198,7 +200,7 @@ FText UJavascriptAssetPicker::OnGetComboTextValue() const
 			}
 			else
 			{
-				Value = FText::FromString(DefaultObjectPath);
+				Value = FText::FromString(DefaultObjectPathString);
 			}
 		}
 	}
@@ -211,7 +213,7 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 	// This class and its children are the classes that we can show objects for
 	UClass* AllowedClass = Cast<UClass>(CategoryObject);
 
-	if (AllowedClass == NULL)
+	if (AllowedClass == nullptr)
 	{
 		AllowedClass = UObject::StaticClass();
 	}
@@ -219,24 +221,26 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 
 	FAssetPickerConfig AssetPickerConfig;
-	AssetPickerConfig.Filter.ClassPaths.Add(FTopLevelAssetPath(AllowedClass->GetFName()));
+	AssetPickerConfig.Filter.ClassPaths.Add(FTopLevelAssetPath(AllowedClass));
 	AssetPickerConfig.bAllowNullSelection = true;
 	AssetPickerConfig.Filter.bRecursiveClasses = true;
 	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateLambda([this](const FAssetData& AssetData) {
-		if (DefaultObjectPath != AssetData.GetObjectPathString())
+
+		auto ObjectPath = AssetData.GetSoftObjectPath().GetAssetPath();
+		if (DefaultObjectPath != ObjectPath)
 		{
 			const FScopedTransaction Transaction(NSLOCTEXT("GraphEditor", "ChangeObjectPinValue", "Change Object Pin Value"));
 
 			// Close the asset picker
 			AssetPickerAnchor->SetIsOpen(false);
 
-			if (AssetData.GetObjectPathString().IsEmpty())
+			if (!ObjectPath.IsValid())
 			{
-				DefaultObjectPath.Empty();
+				DefaultObjectPath = FTopLevelAssetPath();
 			}
 			else
 			{
-				DefaultObjectPath = AssetData.GetObjectPathString();
+				DefaultObjectPath = ObjectPath;
 			}
 
 			if (OnSetDefaultValue.IsBound())
@@ -244,7 +248,7 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 				OnSetDefaultValue.Execute(this->GetValue());
 			}
 		}
-	});
+		});
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 	AssetPickerConfig.bAllowDragging = false;
 
@@ -252,6 +256,7 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 	FString ClassFilterString = AllowedClasses;
 	if (!ClassFilterString.IsEmpty())
 	{
+
 		// Clear out the allowed class names and have the pin's metadata override.
 		AssetPickerConfig.Filter.ClassPaths.Empty();
 
@@ -260,7 +265,7 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 		ClassFilterString.ParseIntoArray(CustomClassFilterNames, TEXT(","), true);
 		for (auto It = CustomClassFilterNames.CreateConstIterator(); It; ++It)
 		{
-			AssetPickerConfig.Filter.ClassPaths.Add(FTopLevelAssetPath(FName(**It)));
+			AssetPickerConfig.Filter.ClassPaths.Add(FTopLevelAssetPath(**It));
 		}
 	}
 
@@ -270,10 +275,10 @@ TSharedRef<SWidget> UJavascriptAssetPicker::GenerateAssetPicker()
 		.WidthOverride(300)
 		[
 			SNew(SBorder)
-			.BorderImage(FAppStyle::GetBrush("Menu.Background"))
-			[
-				ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
-			]
+			.BorderImage(FAppStyle::Get().GetBrush("Menu.Background"))
+		[
+			ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
+		]
 		];
 }
 

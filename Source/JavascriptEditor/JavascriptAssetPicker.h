@@ -56,5 +56,5 @@ protected:
 	
 	TSharedPtr< class SMenuAnchor > AssetPickerAnchor;
 
-	FString DefaultObjectPath;
+	FTopLevelAssetPath DefaultObjectPath;
 };

@@ -604,7 +604,7 @@ public:
 			{
 				if (p->IsInteger())
 				{
-					const UEnum* BitmaskEnum = FindObject<UEnum>(ANY_PACKAGE, *BitmaskEnumName);
+					const UEnum* BitmaskEnum = FindFirstObject<UEnum>(*BitmaskEnumName);
 					int32 EnumCount = BitmaskEnum->NumEnums();
 
 					auto Value = p->GetSignedIntPropertyValue(Property->ContainerPtrToValuePtr<int64>(Buffer));
@@ -894,7 +894,7 @@ public:
 			{
 				if (p->IsInteger())
 				{
-					const UEnum* BitmaskEnum = FindObject<UEnum>(ANY_PACKAGE, *BitmaskEnumName);
+					const UEnum* BitmaskEnum = FindFirstObject<UEnum>(*BitmaskEnumName);
 					auto Str = StringFromV8(isolate_, Value);
 					TArray<FString> EnumStrings;
 					Str.ParseIntoArray(EnumStrings, TEXT(","));
@@ -2159,7 +2159,17 @@ public:
 			if (info.Length() == 2 && info[1]->IsString())
 			{
 				auto Outer = UObjectFromV8(isolate->GetCurrentContext(), info[0]);
-				auto obj = StaticFindObject(ClassToExport, Outer ? Outer : ANY_PACKAGE, *StringFromV8(isolate, info[1]->ToString(isolate->GetCurrentContext()).ToLocalChecked()));
+				auto ObjectName = StringFromV8(isolate, info[1]->ToString(isolate->GetCurrentContext()).ToLocalChecked());
+				UObject* obj = nullptr;
+				if (Outer != nullptr)
+				{
+					obj = StaticFindObject(ClassToExport, Outer, *ObjectName);
+				}
+				else
+				{
+					obj = StaticFindFirstObject(ClassToExport, *ObjectName);
+				}
+
 				auto out = GetSelf(isolate)->ExportObject(obj);
 				info.GetReturnValue().Set(out);
 			}
