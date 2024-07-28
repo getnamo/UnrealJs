@@ -482,6 +482,8 @@ public:
 
 	virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category) override
 	{
+		//temp disable - start pt
+		
 		static FName NAME_Javascript("Javascript");
 
 		if (Category != NAME_Javascript)
@@ -494,8 +496,10 @@ public:
 			Context::Scope context_scope(context_);
 
 			TryCatch try_catch(isolate_);
-
-			auto maybe_console = context_->Global()->Get(context_, I.Keyword("console"));
+			
+			
+			v8::MaybeLocal<v8::Value> maybe_console = context_->Global()->Get(context_, I.Keyword("console"));
+			
 			if (!maybe_console.IsEmpty())
 			{
 				auto console = maybe_console.ToLocalChecked().As<v8::Object>();
@@ -506,6 +510,7 @@ public:
 					Verbosity == ELogVerbosity::Display ? I.Keyword("info") :
 					I.Keyword("$log");
 
+				
 				auto maybe_function = console->Get(context_, method);
 
 				if (!maybe_function.IsEmpty())
@@ -528,6 +533,7 @@ public:
 				}
 			}
 		}
+		/* Disable above when you need to test inspector */
 	}
 
 	virtual void Destroy() override

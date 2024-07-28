@@ -92,6 +92,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Javascript")
 	UClass* ClassByName(const FString& ClassName);
 
+	UFUNCTION(BlueprintCallable, Category = "Javascript")
+	void CreateInspector(int32 Port);
+
 	// Begin UActorComponent interface.
 	virtual void InitializeComponent() override;
 	virtual void UninitializeComponent() override;

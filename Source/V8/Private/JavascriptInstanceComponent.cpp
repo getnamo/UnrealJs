@@ -57,6 +57,14 @@ UClass* UJavascriptInstanceComponent::ClassByName(const FString& ClassName)
 	return FindObject<UClass>(ClassPackage, *ClassName);
 }
 
+void UJavascriptInstanceComponent::CreateInspector(int32 Port)
+{
+	if (Instance.IsValid())
+	{
+		Instance->ContextSettings.Context->CreateInspector(InspectorPort);
+	}
+}
+
 void UJavascriptInstanceComponent::StartupInstanceAndRun()
 {
 	auto ContextOwner = GetOuter();
@@ -86,7 +94,7 @@ void UJavascriptInstanceComponent::StartupInstanceAndRun()
 			if (InstanceOptions.Features.FeatureMap.Contains("Context"))
 			{
 				Expose(TEXT("Context"), this);
-			}
+			}			
 			if (InstanceOptions.Features.FeatureMap.Contains("JsOwner"))
 			{
 				Expose(TEXT("JsOwner"), GetOwner());
@@ -188,6 +196,7 @@ void UJavascriptInstanceComponent::StartupInstanceAndRun()
 
 void UJavascriptInstanceComponent::ShutDownInstance()
 {
+
 	bShouldScriptRun = false;
 
 	OnEndPlay.ExecuteIfBound();
@@ -208,7 +217,13 @@ void UJavascriptInstanceComponent::ShutDownInstance()
 		bIsThreadRunning = false;
 		if (Instance->ContextSettings.Context.IsValid())
 		{
-			Instance->ContextSettings.Context->RequestV8GarbageCollection();
+			//Instance->ContextSettings.Context->PurgeModules();
+			//Instance->ContextSettings.Context->ReleaseAllPersistentHandles();
+			Instance->ContextSettings.Context->DestroyInspector();
+
+			//Instance->ContextSettings.Context->RequestV8GarbageCollection();
+			
+			Instance->ContextSettings.Context = nullptr;
 		}
 	}
 
