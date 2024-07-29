@@ -1399,17 +1399,32 @@ public:
 #endif
 	}
 
+	template <typename T>
+	void BindFunction(FIsolateHelper I, Local<FunctionTemplate> Template, const char* name, T&& fn)
+	{
+		Template->PrototypeTemplate()->Set(I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn)));
+	}
+
+	struct FunctionTemplateHelper
+	{
+		FIsolateHelper I;
+		Handle<FunctionTemplate> Template;
+
+		template <typename T>
+		void Set(const char* name, T&& fn)
+		{
+			Template->PrototypeTemplate()->Set(I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn)));
+		}
+	};
+
 	void ExportMemory(Local<ObjectTemplate> global_templ)
 	{
 		FIsolateHelper I(isolate_);
 
 		Local<FunctionTemplate> Template = I.FunctionTemplate();
+		FunctionTemplateHelper FnHelper{ I, Template };
 
-		auto add_fn = [&](const char* name, FunctionCallback fn) {
-			Template->PrototypeTemplate()->Set(I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn)));
-		};		
-
-		add_fn("access", [](const FunctionCallbackInfo<Value>& info)
+		FnHelper.Set("access", [](const FunctionCallbackInfo<Value>& info)
 		{
 			auto isolate = info.GetIsolate();
 
@@ -1432,7 +1447,7 @@ public:
 			I.Throw(TEXT("memory.fork requires JavascriptMemoryObject"));
 		});
 
-		add_fn("exec", [](const FunctionCallbackInfo<Value>& info)
+		FnHelper.Set("exec", [](const FunctionCallbackInfo<Value>& info)
 		{
 			auto isolate = info.GetIsolate();
 			FIsolateHelper I(isolate);
@@ -1459,7 +1474,7 @@ public:
 		});
 
 		// memory.bind
-		add_fn("bind", [](const FunctionCallbackInfo<Value>& info)
+		FnHelper.Set("bind", [](const FunctionCallbackInfo<Value>& info)
 		{
 			UE_LOG(Javascript, Warning, TEXT("memory.bind is deprecated. use memory.exec(ab,fn) instead."));
 			FIsolateHelper I(info.GetIsolate());
@@ -1479,7 +1494,7 @@ public:
 		});
 
 		// memory.unbind
-		add_fn("unbind", [](const FunctionCallbackInfo<Value>& info)
+		FnHelper.Set("unbind", [](const FunctionCallbackInfo<Value>& info)
 		{
 			FIsolateHelper I(info.GetIsolate());
 
@@ -1503,7 +1518,7 @@ public:
 		});
 
 		// console.void
-		add_fn("write", [](const FunctionCallbackInfo<Value>& info)
+		FnHelper.Set("write", [](const FunctionCallbackInfo<Value>& info)
 		{
 			auto isolate = info.GetIsolate();
 			FIsolateHelper I(isolate);
@@ -1535,7 +1550,7 @@ public:
 			info.GetReturnValue().Set(info.Holder());
 		});
 
-		add_fn("takeSnapshot", [](const FunctionCallbackInfo<Value>& info)
+		FnHelper.Set("takeSnapshot", [](const FunctionCallbackInfo<Value>& info)
 		{
 			auto isolate = info.GetIsolate();
 			FIsolateHelper I(isolate);
