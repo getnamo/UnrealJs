@@ -1878,6 +1878,18 @@ public:
 		*/
 	}
 
+	struct FunctionTemplateHelper
+	{
+		FIsolateHelper I;
+		Handle<FunctionTemplate> Template;
+
+		template <typename T>
+		void Set(const char* name, T&& fn)
+		{
+			Template->PrototypeTemplate()->Set(I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn)));
+		}
+	};
+
 	void ExposeMemory2()
 	{
 		FIsolateHelper I(isolate());
@@ -1885,12 +1897,13 @@ public:
 		auto global = ctx->Global();
 
 		Local<FunctionTemplate> Template = I.FunctionTemplate();
+		FunctionTemplateHelper FnHelper{ I, Template };
 
-		auto add_fn = [&](const char* name, FunctionCallback fn) {
+		/*auto add_fn = [&](const char* name, FunctionCallback fn) {
 			(void)global->Set(ctx, I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn))->GetFunction(ctx).ToLocalChecked());
-		};
+		};*/
 
-		add_fn("$memaccess", [](const FunctionCallbackInfo<Value>& info)
+		FnHelper.Set("$memaccess", [](const FunctionCallbackInfo<Value>& info)
 		{
 			auto isolate = info.GetIsolate();
 
