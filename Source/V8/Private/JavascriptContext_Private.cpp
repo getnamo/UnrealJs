@@ -2155,7 +2155,7 @@ public:
 
 	bool WriteAliases(const FString& Filename)
 	{
-#if WITH_EDITOR
+#if WITH_EDITOR && 0 //temp disable
 		struct TokenWriter
 		{
 			FString Text;
