@@ -13,6 +13,7 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SWindow.h"
+#include "SGraphPanel.h"
 #include "Widgets/SInvalidationPanel.h"
 
 TSharedRef<FDragJavascriptGraphNode> FDragJavascriptGraphNode::New(const TSharedRef<SGraphNode>& InDraggedNode)

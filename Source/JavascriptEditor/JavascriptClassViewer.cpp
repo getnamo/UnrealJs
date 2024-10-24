@@ -3,6 +3,7 @@
 #include "Modules/ModuleManager.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
+#include "Widgets/Layout/SWrapBox.h"
 
 #define LOCTEXT_NAMESPACE "JavascriptClassViewer"
 

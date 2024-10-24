@@ -41,4 +41,7 @@ class UJavascriptOnEditorCommandlet : public UCommandlet
 	void Terminate();
 
 	virtual int32 Main(const FString& Params) override;
+
+
+	static void PatchReimportRule();
 };

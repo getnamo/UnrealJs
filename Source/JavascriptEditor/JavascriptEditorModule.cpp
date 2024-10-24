@@ -15,6 +15,8 @@
 #endif
 #include "JavascriptEditorObjectManager.h"
 
+#include "JavascriptOnEditorCommandlet.h"
+
 #define LOCTEXT_NAMESPACE "UnrealJSEditor"
 
 class FJavascriptEditorModule : public IJavascriptEditorModule
@@ -103,39 +105,6 @@ void FJavascriptEditorModule::RemoveExtension(IEditorExtension* Extension)
 #endif
 }
 
-#if WITH_EDITOR
-static void PatchReimportRule()
-{
-	FAutoReimportWildcard WildcardToInject;
-	WildcardToInject.Wildcard = TEXT("Scripts/**.json");
-	WildcardToInject.bInclude = false;
-
-	auto Default = GetMutableDefault<UEditorLoadingSavingSettings>();
-	bool bHasChanged = false;
-	for (auto& Setting : Default->AutoReimportDirectorySettings)
-	{
-		bool bFound = false;
-		for (const auto& Wildcard : Setting.Wildcards)
-		{
-			if (Wildcard.Wildcard == WildcardToInject.Wildcard)
-			{
-				bFound = true;
-				break;
-			}
-		}
-		if (!bFound)
-		{
-			Setting.Wildcards.Add(WildcardToInject);
-			bHasChanged = true;
-		}
-	}
-	if (bHasChanged)
-	{
-		Default->PostEditChange();
-	}
-}
-#endif
-
 void FJavascriptEditorModule::GarbageCollect()
 {
 #if WITH_EDITOR
@@ -158,7 +127,7 @@ void FJavascriptEditorModule::Bootstrap()
 
 		RegisterSettings();
 
-		PatchReimportRule();
+		UJavascriptOnEditorCommandlet::PatchReimportRule();
 
 		auto Isolate = NewObject<UJavascriptIsolate>();
 		auto Features = UJavascriptIsolate::DefaultIsolateFeatures();

@@ -10,6 +10,7 @@
 //#include "TextWrapperHelpers.h"
 #include "TutorialMetaData.h"
 #include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "JavascriptGraphEditor/JavascriptGraphEdNode_Comment.h"
 
 namespace SCommentNodeDefs
 {

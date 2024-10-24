@@ -153,4 +153,37 @@ int32 UJavascriptOnEditorCommandlet::Main(const FString& Params)
 
 	return bSuccess ? 0 : 1;
 }
+void UJavascriptOnEditorCommandlet::PatchReimportRule()
+{
+#if WITH_EDITOR
+	FAutoReimportWildcard WildcardToInject;
+	WildcardToInject.Wildcard = TEXT("Scripts/**.json");
+	WildcardToInject.bInclude = false;
+
+	auto Default = GetMutableDefault<UEditorLoadingSavingSettings>();
+	bool bHasChanged = false;
+	for (auto& Setting : Default->AutoReimportDirectorySettings)
+	{
+		bool bFound = false;
+		for (const auto& Wildcard : Setting.Wildcards)
+		{
+			if (Wildcard.Wildcard == WildcardToInject.Wildcard)
+			{
+				bFound = true;
+				break;
+			}
+		}
+		if (!bFound)
+		{
+			Setting.Wildcards.Add(WildcardToInject);
+			bHasChanged = true;
+		}
+	}
+	if (bHasChanged)
+	{
+		Default->PostEditChange();
+	}
+#endif
+}
+
 #undef LOCTEXT_NAMESPACE

@@ -1,4 +1,5 @@
 #include "JavascriptInstanceComponent.h"
+#include "JavascriptContext_Private.h"
 #include "JavascriptInstance.h"
 #include "Async/Async.h"
 #include "JavascriptAsync.h"
@@ -53,16 +54,7 @@ void UJavascriptInstanceComponent::RunFile(const FString& FilePath)
 
 UClass* UJavascriptInstanceComponent::ClassByName(const FString& ClassName)
 {
-	UObject* ClassPackage = ANY_PACKAGE;
-	return FindObject<UClass>(ClassPackage, *ClassName);
-}
-
-void UJavascriptInstanceComponent::CreateInspector(int32 Port)
-{
-	if (Instance.IsValid())
-	{
-		Instance->ContextSettings.Context->CreateInspector(InspectorPort);
-	}
+	return FindFirstObject<UClass>(*ClassName);
 }
 
 void UJavascriptInstanceComponent::CreateInspector(int32 Port)

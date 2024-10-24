@@ -1,4 +1,5 @@
 #include "JavascriptAsync.h"
+#include "JavascriptContext_Private.h"
 #include "Async/Async.h"
 #include "JavascriptInstance.h"
 #include "JavascriptInstanceHandler.h"
