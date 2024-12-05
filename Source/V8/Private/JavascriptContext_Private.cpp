@@ -2185,7 +2185,7 @@ public:
 		auto Packer = RunScript(TEXT(""),TEXT("JSON.stringify")).As<Function>();
 
 		if (Packer.IsEmpty() || !Packer->IsFunction()) {
-			UE_LOG(LogTemp, Warning, TEXT("Packer is not a valid function."));
+			UE_LOG(Javascript, Warning, TEXT("WriteAliases:: Packer is not a valid function."));
 			return false;
 		}
 
@@ -2236,7 +2236,7 @@ public:
 									
 									if (ctx.IsEmpty()) 
 									{
-										UE_LOG(LogTemp, Warning, TEXT("Context is invalid or empty for %s."), *Function->GetName());
+										UE_LOG(Javascript, Warning, TEXT("WriteAliases:: Context is invalid or empty for %s."), *Function->GetName());
 										continue;
 									}
 									Context::Scope context_scope(ctx);
@@ -2244,7 +2244,7 @@ public:
 									v8::Handle<Value> args[] = { DefaultValue };
 									if (DefaultValue.IsEmpty())
 									{
-										UE_LOG(LogTemp, Warning, TEXT("DefaultValue is invalid or empty for %s"), *Function->GetName());
+										UE_LOG(Javascript, Warning, TEXT("WriteAliases:: DefaultValue is invalid or empty for %s"), *Function->GetName());
 										continue;
 									}
 
@@ -2253,7 +2253,7 @@ public:
 									if (maybeResult.IsEmpty()) 
 									{
 										v8::String::Utf8Value error(isolate(), try_catch.Exception());
-										UE_LOG(LogTemp, Warning, TEXT("Empty Packer call for <%s> Error Stack:%s"), *Function->GetName(), *FString(*error));
+										UE_LOG(Javascript, Warning, TEXT("WriteAliases:: Empty packer call for <%s>."), *Function->GetName());
 										continue;
 									}
 
