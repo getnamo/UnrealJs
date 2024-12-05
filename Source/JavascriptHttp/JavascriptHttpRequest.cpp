@@ -77,7 +77,7 @@ void UJavascriptHttpRequest::EndProcessing()
 	Processor = nullptr;
 
 	Request->OnProcessRequestComplete().Unbind();
-	Request->OnRequestProgress().Unbind();
+	Request->OnRequestProgress64().Unbind();
 }
 
 FString UJavascriptHttpRequest::GetVerb()
@@ -176,7 +176,7 @@ bool UJavascriptHttpRequest::ProcessRequest()
 		EndProcessing();
 	});
 
-	Request->OnRequestProgress().BindLambda([&](FHttpRequestPtr, int32 sent, int32 recv){
+	Request->OnRequestProgress64().BindLambda([&](FHttpRequestPtr, uint64 sent, uint64 recv){
 		OnProgress.ExecuteIfBound(sent,recv);
 	});
 	

@@ -15,9 +15,9 @@ struct FJavascriptAutomatedTestImpl : FAutomationTestBase, TSharedFromThis<FJava
 		: FAutomationTestBase(InRecipe.Name, InRecipe.bComplexTask), Recipe(InRecipe)
 	{}
 
-	virtual uint32 GetTestFlags() const override
+	virtual EAutomationTestFlags GetTestFlags() const override
 	{
-		return Recipe.TestFlags;
+		return (EAutomationTestFlags)Recipe.TestFlags;
 	}
 
 	virtual uint32 GetRequiredDeviceNum() const
