@@ -2249,16 +2249,16 @@ public:
 									}
 
 									v8::TryCatch try_catch(isolate());
-									auto maybeResult = Packer->Call(ctx, Packer, 1, args);
-									if (maybeResult.IsEmpty()) 
+									auto MaybeResult = Packer->Call(ctx, Packer, 1, args);
+									if (MaybeResult.IsEmpty()) 
 									{
 										v8::String::Utf8Value error(isolate(), try_catch.Exception());
-										UE_LOG(Javascript, Warning, TEXT("WriteAliases:: Empty packer call for <%s>."), *Function->GetName());
+										UE_LOG(Javascript, Warning, TEXT("WriteAliases:: Empty packer call result for <%s>."), *Function->GetName());
 										continue;
 									}
 
-									auto ret = Packer->Call(ctx, Packer, 1, args).ToLocalChecked();
-									auto Ret = StringFromV8(isolate(), ret);
+									auto PackerRet = MaybeResult.ToLocalChecked();
+									auto Ret = StringFromV8(isolate(), PackerRet);
 									ParameterWithValue = FString::Printf(TEXT("%s = %s"), *Parameter, *Ret);
 								}
 

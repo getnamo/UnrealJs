@@ -696,7 +696,7 @@ public:
 
 				if (!InternalTextData)
 				{
-					UE_LOG(LogTemp, Warning, TEXT("Failed: to parse (!Flags.Alternative) named: %s"), *p->GetNameCPP());
+					UE_LOG(Javascript, Warning, TEXT("AddReferencedObjects:: Failed to parse (!Flags.Alternative) named: %s"), *p->GetNameCPP());
 					return V8_String(isolate_, TEXT(""));
 				}
 
