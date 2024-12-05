@@ -76,8 +76,8 @@ bool UV8Config::CanExportProperty(const UStruct* Class, const FProperty* Propert
 {
 	// Skip unsupported static array and interface.
 	if (Property->ArrayDim > 1 ||
-		Property->IsA(FInterfaceProperty::StaticClass()) ||
-		Class->GetName() == TEXT("PyTestStruct"))	//This struct causes null reference in side
+		Property->IsA(FInterfaceProperty::StaticClass()))// ||
+		//Class->GetName() == TEXT("PyTestStruct"))	//This struct causes null reference in side
 	{
 		return false;
 	}
