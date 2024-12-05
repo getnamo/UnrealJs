@@ -53,7 +53,7 @@ TSharedRef<SWidget> UJavascriptAssetPicker::RebuildWidget()
 			.VAlign(VAlign_Center)
 			[
 				SNew(SWrapBox)
-				.PreferredWidth(150.f)
+				.PreferredSize(150.f)
 				+ SWrapBox::Slot()
 				.Padding(FMargin(0, 0, 5.0f, 0))
 				.VAlign(VAlign_Center)

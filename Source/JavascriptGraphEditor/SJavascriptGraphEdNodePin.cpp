@@ -97,7 +97,7 @@ void SJavascriptGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin
 		}
 	}
 	// Create the widget used for the pin body (status indicator, label, and value)
-	LabelAndValue = SNew(SWrapBox).PreferredWidth(150.f);
+	LabelAndValue = SNew(SWrapBox).PreferredSize(150.f);
 
 	if (bIsInput)
 	{
