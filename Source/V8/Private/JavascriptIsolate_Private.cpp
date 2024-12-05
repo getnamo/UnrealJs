@@ -684,10 +684,24 @@ public:
 		else if (auto p = CastField<FTextProperty>(Property))
 		{
 			//NB: PyTestStruct will fail here unless blocked from export
-			const FText& Data = p->GetPropertyValue_InContainer(Buffer);
+			const FText& Data = p->GetPropertyValue_InContainer(Buffer);	
 
 			if (!Flags.Alternative)
 			{
+				//guard against corrupted data
+				const FText* DataPtr = p->ContainerPtrToValuePtr<FText>(Buffer);
+
+				//We can get a corrupted FText, check first internal pointer
+				const void* InternalTextData = *((void**)(DataPtr));
+
+				if (!InternalTextData)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Failed: to parse (!Flags.Alternative) named: %s"), *p->GetNameCPP());
+					return V8_String(isolate_, TEXT(""));
+				}
+
+				//Uncomment to help debug above case
+				//UE_LOG(LogTemp, Warning, TEXT("Found (!Flags.Alternative) case %s"), *Data.ToString());
 				return V8_String(isolate_, Data.ToString());
 			}
 			else
