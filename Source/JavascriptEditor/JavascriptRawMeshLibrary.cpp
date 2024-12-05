@@ -2,6 +2,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "Engine/SkeletalMesh.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/SkeletalBodySetup.h"
 #include "Components/StaticMeshComponent.h"
 
 #if WITH_EDITOR
@@ -55,7 +56,7 @@ UBodySetup* UJavascriptRawMeshLibrary::GetPhysicsBodySetupFromMesh(USkeletalMesh
 		int32 BodyIndex = PhysicsAsset->FindBodyIndex(FName(*InName));
 		if (BodyIndex != INDEX_NONE)
 		{
-			return PhysicsAsset->SkeletalBodySetups[BodyIndex];
+			return Cast<UBodySetup>(PhysicsAsset->SkeletalBodySetups[BodyIndex].Get());
 		}
 	}
 
@@ -83,7 +84,7 @@ UBodySetup* UJavascriptRawMeshLibrary::GetPhysicsBodySetup(USkeletalMeshComponen
 		int32 BodyIndex = PhysicsAsset->FindBodyIndex(FName(*InName));
 		if (BodyIndex != INDEX_NONE)
 		{
-			return PhysicsAsset->SkeletalBodySetups[BodyIndex];
+			return Cast<UBodySetup>(PhysicsAsset->SkeletalBodySetups[BodyIndex]);
 		}
 	}
 
