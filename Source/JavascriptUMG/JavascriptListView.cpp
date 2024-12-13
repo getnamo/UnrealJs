@@ -11,7 +11,7 @@ TSharedRef<STableViewBase> UJavascriptListView::RebuildListWidget()
 	SAssignNew(MyListView, SJavascriptListView)
 		.SelectionMode(SelectionMode)
 		.ListItemsSource(&Items)
-		.ItemHeight(ItemHeight)
+		//.ItemHeight(ItemHeight) //5.5 complains about this
 		.OnGenerateRow(BIND_UOBJECT_DELEGATE(SListView< UObject* >::FOnGenerateRow, HandleOnGenerateRow))
 		.OnSelectionChanged_Lambda([this](UObject* Object, ESelectInfo::Type SelectInfo)
 		{
