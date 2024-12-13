@@ -275,13 +275,13 @@ public:
 		if (!GIntraFrameDebuggingGameThread)
 		{
 			// Begin Play
-			if (!PreviewScene->GetWorld()->bBegunPlay)
+			if (!PreviewScene->GetWorld()->GetBegunPlay())
 			{
 				for (FActorIterator It(PreviewScene->GetWorld()); It; ++It)
 				{
 					It->DispatchBeginPlay();
 				}
-				PreviewScene->GetWorld()->bBegunPlay = true;
+				PreviewScene->GetWorld()->SetBegunPlay(true);
 			}
 
 			// Tick
