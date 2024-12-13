@@ -1044,7 +1044,7 @@ FText UJavascriptLibrary::UpdateLocalizationText(const FJavascriptText& JText, c
 		NewKey);
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
-	FText CachedText = FInternationalization::Get().ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*TextSource, *NewNamespace, *NewKey);
+	FText CachedText = FText::AsLocalizable_Advanced(*NewNamespace, *NewKey, *TextSource);
 	return FText::ChangeKey(NewNamespace, NewKey, CachedText);
 #else
 	return FText::FromString(JText.String);

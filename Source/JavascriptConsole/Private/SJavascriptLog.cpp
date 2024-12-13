@@ -181,7 +181,6 @@ void SJavascriptConsoleInputBox::Construct( const FArguments& InArgs )
 								.SelectionMode( ESelectionMode::Single )							// Ideally the mouse over would not highlight while keyboard controls the UI
 								.OnGenerateRow(this, &SJavascriptConsoleInputBox::MakeSuggestionListItemWidget)
 								.OnSelectionChanged(this, &SJavascriptConsoleInputBox::SuggestionSelectionChanged)
-								.ItemHeight(18)
 						]
 					]
 				)
@@ -1380,7 +1379,7 @@ void FJavascriptLogFilter::ToggleLogCategory(const FName& LogCategory)
 	}
 	else
 	{
-		SelectedLogCategories.RemoveAt(FoundIndex, /*Count=*/1, /*bAllowShrinking=*/false);
+		SelectedLogCategories.RemoveAt(FoundIndex, /*Count=*/1, EAllowShrinking::No);
 	}
 }
 

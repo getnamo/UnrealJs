@@ -157,7 +157,7 @@ public:
 		return out;
 	}
 
-	TArray<UJavascriptDelegate*> DelegateObjects;
+	TArray<TObjectPtr<UJavascriptDelegate>> DelegateObjects;
 
 	void ClearDelegateObjects()
 	{

@@ -2630,13 +2630,14 @@ inline void FJavascriptContextImplementation::AddReferencedObjects(UObject * InT
 	for (auto It = ObjectToObjectMap.CreateIterator(); It; ++It)
 	{
 //		UE_LOG(Javascript, Log, TEXT("JavascriptContext referencing %s %s"), *(It.Key()->GetClass()->GetName()), *(It.Key()->GetName()));
-		auto Object = It.Key();
+		TObjectPtr<UObject> Object = It.Key();
 		if (!(::IsValid(Object)) || !Object->IsValidLowLevelFast() || Object->HasAnyFlags(RF_BeginDestroyed) || Object->HasAnyFlags(RF_FinishDestroyed))
 		{
 			It.RemoveCurrent();
 		}
 		else if (!IsExcludeGCObjectTarget(Object))
 		{
+			
 			Collector.AddReferencedObject(Object, InThis);
 		}
 	}
@@ -2651,7 +2652,8 @@ inline void FJavascriptContextImplementation::AddReferencedObjects(UObject * InT
 		}
 		else if (!IsExcludeGCStructTarget(StructScript->Struct))
 		{
-			Collector.AddReferencedObject(StructScript->Struct, InThis);
+			TObjectPtr<UScriptStruct> Struct = StructScript->Struct;
+			Collector.AddReferencedObject(Struct, InThis);
 		}
 	}
 }

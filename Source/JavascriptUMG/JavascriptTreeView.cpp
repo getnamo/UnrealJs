@@ -235,11 +235,11 @@ public:
 	}
 	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-		TArray<UWidget*> Widgets;
+		TArray<TObjectPtr<UWidget>> Widgets;
 
 private:
-	UObject* Object;
-	UJavascriptTreeView* TreeView;
+	TObjectPtr<UObject> Object;
+	TObjectPtr<UJavascriptTreeView> TreeView;
 };
 
 TSharedRef<ITableRow> UJavascriptTreeView::HandleOnGenerateRow(UObject* Item, const TSharedRef< STableViewBase >& OwnerTable)
@@ -386,7 +386,7 @@ bool UJavascriptTreeView::IsItemExpanded(UObject* InItem)
 
 void UJavascriptTreeView::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {
-	auto This = static_cast<UJavascriptTreeView*>(InThis);
+	TObjectPtr<UJavascriptTreeView> This = static_cast<UJavascriptTreeView*>(InThis);
 
 	if (This->MyTreeView.IsValid())
 	{
