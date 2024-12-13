@@ -76,8 +76,8 @@ void UJavascriptEditorTab::TabActivatedCallback(TSharedRef<SDockTab> Tab, ETabAc
 
 struct FJavascriptEditorTabTracker : public FGCObject
 {
-	TArray<UJavascriptEditorTab*> Spawners;
-	TArray<UWidget*> Widgets;
+	TArray<TObjectPtr<UJavascriptEditorTab>> Spawners;
+	TArray<TObjectPtr<UWidget>> Widgets;
 	TArray<TWeakPtr<SDockTab>> Tabs;
 
 	virtual FString GetReferencerName() const

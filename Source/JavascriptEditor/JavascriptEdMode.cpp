@@ -94,7 +94,7 @@ private:
 	/** Geometry tools widget */
 	TSharedPtr<class SWidget> Widget;
 
-	UJavascriptEdMode* Parent;
+	TObjectPtr<UJavascriptEdMode> Parent;
 };
 
 class FJavascriptEdModeInstance : public FEdMode
@@ -352,7 +352,7 @@ public:
 		FEdMode::Exit();
 	}
 
-	UJavascriptEdMode* Parent;
+	TObjectPtr<UJavascriptEdMode> Parent;
 };
 
 class FJavascriptEdModeFactory : public IEditorModeFactory, public FGCObject
@@ -403,7 +403,7 @@ public:
 	}
 #endif
 
-	UJavascriptEdMode* Parent;
+	TObjectPtr<UJavascriptEdMode> Parent;
 };
 
 void UJavascriptEdMode::Register()

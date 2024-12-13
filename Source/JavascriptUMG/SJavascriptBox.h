@@ -33,6 +33,6 @@ public:
 	}
 
 private:
-	UWidget* Widget;
+	TObjectPtr<UWidget> Widget;
 };
 

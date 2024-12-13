@@ -83,7 +83,7 @@ public:
 	}
 	
 public:
-	UCanvas* Canvas;
+	TObjectPtr<UCanvas> Canvas;
 };
 
 #if WITH_EDITOR
