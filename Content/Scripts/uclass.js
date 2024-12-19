@@ -122,6 +122,10 @@
             let properties = []
             let classFlags = (splits[3] || "").split('+').map((x) => x.trim())
 
+            console.log('template', JSON.stringify(template));
+            console.log('template.prototype', JSON.stringify(template.prototype));
+            console.log('className', className);
+
             function refactored(x) {
                 let m = /\s*(\w+)\;?\s*(\/\*([^\*]*)\*\/)?\s*/.exec(x);
                 if (m) {
@@ -189,16 +193,25 @@
 
                     let s = String(F)
 
+                    console.log('function string: ',s)
+
                     let matches = RE_func.exec(s)
                     if(!matches) throw "invalid function"
+
+                    console.log('Regex matches:', matches);
 
                     let functionName = matches[1]
                     s = matches[matches[3] ? 3 : 6]
                     let a = (s || '').split(/[\[\],]/).map((x) => x.trim())
+
+                    
+                    
+
                     a = _.compact(a)
                     let flags = _.filter(a, (a) => /^[\-\+]/.test(a))
                     a = _.filter(a, (a) => !/^[\-\+]/.test(a))
                     let args = ((matches[4] || '').split(',').map((x) => refactored(x.trim())))
+
                     F.IsUFUNCTION = false
                     if (_.every(args, (x) => !!x)) {
                         F.Signature = args
@@ -209,11 +222,22 @@
                     if (a.length > 0) {
                         F.IsUFUNCTION = true
                     }
+
+                    console.log('Parsed function args:', JSON.stringify(args));
+                    console.log('Function flags:', JSON.stringify(a));
+                    console.log('F.IsUFUNCTION?: ', F.IsUFUNCTION)
+                    console.log('F?: ', JSON.stringify(F))
+
                     if (/Binding$/i.test(a[0])) {
+
+                        console.log('Bindings test passed?');
+
                         F.IsUFUNCTION = true
                         let prefix = a[0].substr(0, a[0].length - 7)
                         let pattern = inputbinding_patterns[prefix]
                         if (!pattern) throw "Invalid binding pattern"
+
+                        console.log('pattern?', pattern);
 
                         let binding = {
                             type: prefix,
@@ -226,6 +250,9 @@
                     }
                 }
             })
+
+            console.log('bindings:', JSON.stringify(bindings));
+            console.log('properties:', JSON.stringify(properties));
 
             let thePackage = JavascriptLibrary.CreatePackage(null,'/Script/Javascript')
 
