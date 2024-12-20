@@ -193,12 +193,12 @@
 
                     let s = String(F)
 
-                    console.log('function string: ',s)
+                    //console.log('function string: ',s)
 
                     let matches = RE_func.exec(s)
                     if(!matches) throw "invalid function"
 
-                    console.log('Regex matches:', matches);
+                    // console.log('Regex matches:', matches);
 
                     let functionName = matches[1]
                     s = matches[matches[3] ? 3 : 6]
@@ -223,21 +223,21 @@
                         F.IsUFUNCTION = true
                     }
 
-                    console.log('Parsed function args:', JSON.stringify(args));
-                    console.log('Function flags:', JSON.stringify(a));
-                    console.log('F.IsUFUNCTION?: ', F.IsUFUNCTION)
-                    console.log('F?: ', JSON.stringify(F))
+                    // console.log('Parsed function args:', JSON.stringify(args));
+                    // console.log('Function flags:', JSON.stringify(a));
+                    // console.log('F.IsUFUNCTION?: ', F.IsUFUNCTION)
+                    // console.log('F?: ', JSON.stringify(F))
 
                     if (/Binding$/i.test(a[0])) {
 
-                        console.log('Bindings test passed?');
+                        // console.log('Bindings test passed?');
 
                         F.IsUFUNCTION = true
                         let prefix = a[0].substr(0, a[0].length - 7)
                         let pattern = inputbinding_patterns[prefix]
                         if (!pattern) throw "Invalid binding pattern"
 
-                        console.log('pattern?', pattern);
+                        // console.log('pattern?', pattern);
 
                         let binding = {
                             type: prefix,
@@ -251,8 +251,8 @@
                 }
             })
 
-            console.log('bindings:', JSON.stringify(bindings));
-            console.log('properties:', JSON.stringify(properties));
+            // console.log('bindings:', JSON.stringify(bindings));
+            // console.log('properties:', JSON.stringify(properties));
 
             let thePackage = JavascriptLibrary.CreatePackage(null,'/Script/Javascript')
 
