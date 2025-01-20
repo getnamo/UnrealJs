@@ -21,6 +21,7 @@
 #include "Settings/EditorStyleSettings.h"
 #include "../../Launch/Resources/Version.h"
 #include "Logging/LogVerbosity.h"
+#include "Async/Async.h"
 
 #define LOCTEXT_NAMESPACE "JavascriptConsole"
 
@@ -1038,11 +1039,25 @@ void SJavascriptLog::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, c
 {
 	if ( MessagesTextMarshaller->AppendMessage(V, Verbosity, Category) )
 	{
-		// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
-		if( !bIsUserScrolled )
+		if (IsInGameThread())
 		{
-			MessagesTextBox->ScrollTo(ETextLocation::EndOfDocument);	//backup scrolling method for 5.16
-			//MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));	//in 5.1 this kind of broke, so we're using the above fallback
+			// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
+			if (!bIsUserScrolled)
+			{
+				MessagesTextBox->ScrollTo(ETextLocation::EndOfDocument);	//backup scrolling method for 5.16
+				//MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));	//in 5.1 this kind of broke, so we're using the above fallback
+			}
+		}
+		else
+		{
+			AsyncTask(ENamedThreads::GameThread, [this]()
+			{
+				// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
+				if (!bIsUserScrolled)
+				{
+					MessagesTextBox->ScrollTo(ETextLocation::EndOfDocument);
+				}
+			});
 		}
 	}
 }
