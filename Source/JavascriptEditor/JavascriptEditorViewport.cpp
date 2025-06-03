@@ -125,13 +125,12 @@ public:
 		}
 	}
 
-	virtual bool InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.f, bool bGamepad = false)
+	virtual bool InputKey(const FInputKeyEventArgs& EventArgs)
 	{
-		FInputKeyEventArgs Args = FInputKeyEventArgs(Viewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
-		FEditorViewportClient::InputKey(Args);
+		FEditorViewportClient::InputKey(EventArgs);
 		if (Widget.IsValid() && Widget->OnInputKey.IsBound())
 		{
-			return Widget->OnInputKey.Execute(ControllerId, Key, Event, Widget.Get());
+			return Widget->OnInputKey.Execute(EventArgs.ControllerId, EventArgs.Key, EventArgs.Event, Widget.Get());
 		}
 		else
 		{
@@ -139,12 +138,12 @@ public:
 		}
 	}
 
-	virtual bool InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples = 1, bool bGamepad = false) override
+	virtual bool InputAxis(const FInputKeyEventArgs& Args) override
 	{
-		FEditorViewportClient::InputAxis(Viewport, FInputDeviceId::CreateFromInternalId(ControllerId), Key, Delta, DeltaTime, NumSamples, bGamepad);
-		if (Widget.IsValid() && Widget->OnInputAxis.IsBound())
+		FEditorViewportClient::InputAxis(Args);
+				if (Widget.IsValid() && Widget->OnInputAxis.IsBound())
 		{
-			return Widget->OnInputAxis.Execute(ControllerId, Key, Delta, DeltaTime, Widget.Get());
+			return Widget->OnInputAxis.Execute(Args.ControllerId, Args.Key, Args.AmountDepressed, Args.DeltaTime, Widget.Get());
 		}
 		else
 		{

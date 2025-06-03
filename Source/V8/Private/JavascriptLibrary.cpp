@@ -746,7 +746,7 @@ void UJavascriptLibrary::V8_SetIdleTaskBudget(float BudgetInSeconds)
 
 UObject* UJavascriptLibrary::TryLoadByPath(FString Path)
 {
-	return FStringAssetReference(*Path).TryLoad();
+	return FSoftObjectPath(*Path).TryLoad();
 }
 
 void UJavascriptLibrary::GenerateNavigation(UWorld* InWorld, ARecastNavMesh* NavData )
@@ -763,10 +763,10 @@ const FString& UJavascriptLibrary::GetMetaData(UField* Field, const FString Key)
 	UPackage* Package = Field->GetOutermost();
 	check(Package);
 
-	UMetaData* MetaData = Package->GetMetaData();
-	check(MetaData);
+	FMetaData MetaData = Package->GetMetaData();
+	
 
-	const FString& MetaDataString = MetaData->GetValue(Field, *Key);
+	const FString& MetaDataString = MetaData.GetValue(Field, *Key);
 
 	return MetaDataString;
 }

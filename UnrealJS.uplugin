@@ -3,7 +3,7 @@
   "FriendlyName": "Unreal.js - Javascript Runtime",
   "Version": 2,
   "VersionName": "0.11.0",
-  "EngineVersion": "5.5.0",
+  "EngineVersion": "5.6.0",
   "Description": "Javascript powered UnrealEngine",
   "Category": "Programming",
   "CreatedBy": "NCSOFT Corporation, Getnamo & Contributors",

@@ -104,7 +104,7 @@ public:
 
 	DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FOnGetBooleanWidget, UJavascriptGraphEdNode*, Instance);
 
-	DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FOnGetBooleanMoveTo, UJavascriptGraphEdNode*, Instance, const FVector2D&, NewPosition);
+	DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FOnGetBooleanMoveTo, UJavascriptGraphEdNode*, Instance, const FVector2f&, NewPosition);
 
 	DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(FName, FOnGetSlateBrushName, bool, bHovered, FJavascriptEdGraphPin, Pin);
 

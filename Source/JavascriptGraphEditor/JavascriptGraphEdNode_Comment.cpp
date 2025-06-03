@@ -34,6 +34,7 @@ void UJavascriptGraphEdNode_Comment::AddReferencedObjects(UObject* InThis, FRefe
 	UJavascriptGraphEdNode_Comment* This = CastChecked<UJavascriptGraphEdNode_Comment>(InThis);
 	for (auto It = This->NodesUnderComment.CreateIterator(); It; ++It)
 	{
+		
 		Collector.AddReferencedObject(*It, This);
 	}
 
