@@ -28,7 +28,7 @@ DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 				const bool bHasReturnParam = Function->ReturnValueOffset != MAX_uint16;
 				uint8* ReturnValueAdress = bHasReturnParam ? (Stack.Locals + Function->ReturnValueOffset) : nullptr;
 				if (ReturnValueAdress)
-					FMemory::Memcpy(RESULT_PARAM, ReturnValueAdress, ReturnProp->ArrayDim * ReturnProp->ElementSize);
+					FMemory::Memcpy(RESULT_PARAM, ReturnValueAdress, ReturnProp->ArrayDim * ReturnProp->GetElementSize());
 			}
 
 			bool bHasAnyOutParams = false;
@@ -63,7 +63,7 @@ DEFINE_FUNCTION(UJavascriptGeneratedFunction::Thunk)
 							if (Property != nullptr)
 							{
 								auto ValueAddress = Property->ContainerPtrToValuePtr<uint8>(Stack.Locals);
-								FMemory::Memcpy(OutParm->PropAddr, ValueAddress, Property->ArrayDim * Property->ElementSize);
+								FMemory::Memcpy(OutParm->PropAddr, ValueAddress, Property->ArrayDim * Property->GetElementSize());
 							}
 						}
 

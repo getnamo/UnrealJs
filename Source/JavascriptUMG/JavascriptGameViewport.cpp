@@ -106,13 +106,13 @@ void FJavascriptUMGViewportClient::Tick(float InDeltaTime)
 	if (!GIntraFrameDebuggingGameThread)
 	{
 		// Begin Play
-		if (!GameScene->GetWorld()->bBegunPlay)
+		if (!GameScene->GetWorld()->GetBegunPlay())
 		{
 			for (FActorIterator It(GameScene->GetWorld()); It; ++It)
 			{
 				It->DispatchBeginPlay();
 			}
-			GameScene->GetWorld()->bBegunPlay = true;
+			GameScene->GetWorld()->SetBegunPlay(true);
 		}
 
 		// Tick

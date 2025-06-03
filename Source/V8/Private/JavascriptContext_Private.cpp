@@ -2185,7 +2185,7 @@ public:
 		auto Packer = RunScript(TEXT(""),TEXT("JSON.stringify")).As<Function>();
 
 		if (Packer.IsEmpty() || !Packer->IsFunction()) {
-			UE_LOG(LogTemp, Error, TEXT("Packer is not a valid function."));
+			UE_LOG(Javascript, Warning, TEXT("WriteAliases:: Packer is not a valid function."));
 			return false;
 		}
 
@@ -2236,7 +2236,7 @@ public:
 									
 									if (ctx.IsEmpty()) 
 									{
-										UE_LOG(LogTemp, Error, TEXT("Context is invalid or empty for %s."), *Function->GetName());
+										UE_LOG(Javascript, Warning, TEXT("WriteAliases:: Context is invalid or empty for %s."), *Function->GetName());
 										continue;
 									}
 									Context::Scope context_scope(ctx);
@@ -2244,21 +2244,21 @@ public:
 									v8::Handle<Value> args[] = { DefaultValue };
 									if (DefaultValue.IsEmpty())
 									{
-										UE_LOG(LogTemp, Error, TEXT("DefaultValue is invalid or empty for %s"), *Function->GetName());
+										UE_LOG(Javascript, Warning, TEXT("WriteAliases:: DefaultValue is invalid or empty for %s"), *Function->GetName());
 										continue;
 									}
 
 									v8::TryCatch try_catch(isolate());
-									auto maybeResult = Packer->Call(ctx, Packer, 1, args);
-									if (maybeResult.IsEmpty()) 
+									auto MaybeResult = Packer->Call(ctx, Packer, 1, args);
+									if (MaybeResult.IsEmpty()) 
 									{
 										v8::String::Utf8Value error(isolate(), try_catch.Exception());
-										UE_LOG(LogTemp, Error, TEXT("Empty Packer call for <%s> Error Stack:%s"), *Function->GetName(), *FString(*error));
+										UE_LOG(Javascript, Warning, TEXT("WriteAliases:: Empty packer call result for <%s>."), *Function->GetName());
 										continue;
 									}
 
-									auto ret = Packer->Call(ctx, Packer, 1, args).ToLocalChecked();
-									auto Ret = StringFromV8(isolate(), ret);
+									auto PackerRet = MaybeResult.ToLocalChecked();
+									auto Ret = StringFromV8(isolate(), PackerRet);
 									ParameterWithValue = FString::Printf(TEXT("%s = %s"), *Parameter, *Ret);
 								}
 
@@ -2630,13 +2630,14 @@ inline void FJavascriptContextImplementation::AddReferencedObjects(UObject * InT
 	for (auto It = ObjectToObjectMap.CreateIterator(); It; ++It)
 	{
 //		UE_LOG(Javascript, Log, TEXT("JavascriptContext referencing %s %s"), *(It.Key()->GetClass()->GetName()), *(It.Key()->GetName()));
-		auto Object = It.Key();
+		TObjectPtr<UObject> Object = It.Key();
 		if (!(::IsValid(Object)) || !Object->IsValidLowLevelFast() || Object->HasAnyFlags(RF_BeginDestroyed) || Object->HasAnyFlags(RF_FinishDestroyed))
 		{
 			It.RemoveCurrent();
 		}
 		else if (!IsExcludeGCObjectTarget(Object))
 		{
+			
 			Collector.AddReferencedObject(Object, InThis);
 		}
 	}
@@ -2651,7 +2652,8 @@ inline void FJavascriptContextImplementation::AddReferencedObjects(UObject * InT
 		}
 		else if (!IsExcludeGCStructTarget(StructScript->Struct))
 		{
-			Collector.AddReferencedObject(StructScript->Struct, InThis);
+			TObjectPtr<UScriptStruct> Struct = StructScript->Struct;
+			Collector.AddReferencedObject(Struct, InThis);
 		}
 	}
 }

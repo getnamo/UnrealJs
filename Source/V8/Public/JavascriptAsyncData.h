@@ -32,7 +32,7 @@ struct FJavascriptRemoteFunctionData
 	FString Args;
 
 	UPROPERTY()
-	int32 CallbackId;
+	int32 CallbackId = 0;
 
 	//If false assume Event == script
 	UPROPERTY()

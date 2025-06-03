@@ -87,14 +87,14 @@ public:
 	void LoadSettings(const TCHAR* Section);
 	void SaveSettings(const TCHAR* Section);
 
-	class UDirectionalLightComponent* DirectionalLight;
+	TObjectPtr<class UDirectionalLightComponent> DirectionalLight;
 
 private:
 
-	TArray<class UActorComponent*> Components;
+	TArray<TObjectPtr<class UActorComponent>> Components;
 
 protected:
-	class UWorld* PreviewWorld;
+	TObjectPtr<class UWorld> PreviewWorld;
 
 	/** This controls whether or not all mip levels of textures used by UMeshComponents added to this preview window should be loaded and remain loaded. */
 	bool bForceAllUsedMipsResident;
