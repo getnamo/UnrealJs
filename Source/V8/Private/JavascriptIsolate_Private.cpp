@@ -2395,10 +2395,9 @@ public:
 								{
 #if WITH_EDITOR
 									auto BP = Cast<UBlueprint>(BPGC->ClassGeneratedBy);
-									value = I.String(BP->GetPathName()); 
+									value = I.String(BP->GetPathName());									
 #else
-									UE_LOG(LogTemp, Warning, TEXT("AddMemberFunction_Struct_toJSON:: Attempted ClassGeneratedBy in non-editor context. Future note: Fix methods to support this."));
-									value = I.Keyword("null");
+									value = I.String(BPGC->GetPathName());
 #endif
 								}
 								else
@@ -2497,13 +2496,12 @@ public:
 								auto BPGC = Cast<UBlueprintGeneratedClass>(Class);
 								if (BPGC)
 								{
-
 #if WITH_EDITOR
 									auto BP = Cast<UBlueprint>(BPGC->ClassGeneratedBy);
 									value = I.String(BP->GetPathName());
 #else
 									UE_LOG(LogTemp, Warning, TEXT("AddMemberFunction_Struct_toJSON2:: Attempted ClassGeneratedBy in non-editor context. Future note: Fix methods to support this."));
-									value = I.Keyword("null");
+									value = I.String(BPGC->GetPathName());
 #endif
 								}
 								else
