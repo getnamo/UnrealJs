@@ -52,31 +52,31 @@ struct V8_API FJSInstanceOptions
 	GENERATED_USTRUCT_BODY();
 
 	//Quick disable option. Can only change on startup
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript Instance Options")
 	bool bEnabled;
 
 	//Will determine isolate/context domains if non-unique option is set
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript Instance Options")
 	FString IsolateDomain;
 
 	//If using non-default/non-gamethread keep in mind that most features have to be off
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript Instance Options")
 	EJavascriptAsyncOption ThreadOption;
 
 	//Exposed feature map
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript Instance Options")
 	FJavascriptFeatures Features;
 
 	//If false: same domain will re-use isolate
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript Instance Options")
 	bool bUseUniqueIsolate;
 
 	//If false: same domain will re-use context
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript Instance Options")
 	bool bUseUniqueContext;
 
 	//if true this will receive tick events
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript Instance Options")
 	bool bAttachToTick;
 
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Javascript Instance Options")

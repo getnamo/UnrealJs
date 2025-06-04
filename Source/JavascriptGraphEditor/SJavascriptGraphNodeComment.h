@@ -72,7 +72,7 @@ protected:
 	virtual bool IsNodeUnderComment(UJavascriptGraphEdNode_Comment* InCommentNode, const TSharedRef<SGraphNode> InNodeWidget) const;
 
 	/** called when user is moving the comment node */
-	virtual void MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter, bool bMarkDirty = true) override;
+	virtual void MoveTo(const FVector2f& NewPosition, FNodeSet& NodeFilter, bool bMarkDirty = true) override;
 
 	//~ Begin SGraphNodeResizable Interface
 	virtual float GetTitleBarHeight() const override;

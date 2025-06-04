@@ -121,10 +121,10 @@ FString UV8Config::GetAlias(UFunction* Function, bool no_empty) const
 		UPackage* Package = This->GetOutermost();
 		check(Package);
 
-		UMetaData* MetaData = Package->GetMetaData();
-		check(MetaData);
+		FMetaData MetaData = Package->GetMetaData();
+		
 
-		bool bHasMetaData = MetaData->HasValue(This, Key);
+		bool bHasMetaData = MetaData.HasValue(This, Key);
 
 		return bHasMetaData;
 	};
@@ -133,10 +133,10 @@ FString UV8Config::GetAlias(UFunction* Function, bool no_empty) const
 		UPackage* Package = This->GetOutermost();
 		check(Package);
 
-		UMetaData* MetaData = Package->GetMetaData();
-		check(MetaData);
+		FMetaData MetaData = Package->GetMetaData();
+		
 
-		const FString& MetaDataString = MetaData->GetValue(This, Key);
+		const FString& MetaDataString = MetaData.GetValue(This, Key);
 
 		return MetaDataString;
 	};

@@ -22,10 +22,10 @@ public:
 
 	virtual TSharedPtr<ITextDecorator> CreateDecorator(URichTextBlock* InOwner) override;
 
-	void HandleClick(const FSlateHyperlinkRun::FMetadata& Metadata);
+	void HandleClick(const TMap< FString, FString >& Metadata);
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	FString GetMetadata(const FString& Key);
 
-	const FSlateHyperlinkRun::FMetadata* Current{ nullptr };
+	TMap< FString, FString > Current;
 };
