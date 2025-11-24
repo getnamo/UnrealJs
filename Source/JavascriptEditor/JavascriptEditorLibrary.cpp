@@ -127,7 +127,7 @@ void UJavascriptEditorLibrary::SetAlphamapDataFromMemory(ULandscapeInfo* Landsca
 
 	if (SizeX * SizeY * 1 == FArrayBufferAccessor::GetSize())
 	{
-		FAlphamapAccessor<false,false> Accessor(LandscapeInfo, LayerInfo);
+		TAlphamapAccessor<false> Accessor(LandscapeInfo, LayerInfo);
 		Accessor.SetData(MinX, MinY, MaxX, MaxY, (uint8*)FArrayBufferAccessor::GetData(), PaintingRestriction);
 	}
 }
@@ -146,7 +146,7 @@ void UJavascriptEditorLibrary::GetAlphamapDataToMemory(ULandscapeInfo* Landscape
 	{
 		auto Buffer = (uint8*)FArrayBufferAccessor::GetData();
 
-		FAlphamapAccessor<false, false> Accessor(LandscapeInfo, LayerInfo);
+		TAlphamapAccessor<false> Accessor(LandscapeInfo, LayerInfo);
 
 		TMap<FIntPoint, uint8> Data;
 		Accessor.GetData(MinX, MinY, MaxX, MaxY, Data);

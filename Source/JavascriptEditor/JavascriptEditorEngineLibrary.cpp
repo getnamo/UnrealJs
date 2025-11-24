@@ -4,6 +4,7 @@
 #include "ObjectTools.h"
 #include "Engine/Engine.h"
 #include "Editor/EditorEngine.h"
+#include "Misc/StringOutputDevice.h"
 
 #if WITH_EDITOR
 UWorld* UJavascriptEditorEngineLibrary::GetEditorWorld(UEngine* Engine)
