@@ -37,7 +37,7 @@ public class V8 : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         bLegacyPublicIncludePaths = false;
-        ShadowVariableWarningLevel = WarningLevel.Error;
+		CppCompileWarningSettings.ShadowVariableWarningLevel = WarningLevel.Error;
         PrivateIncludePaths.AddRange(new string[]
         {
             Path.Combine(ThirdPartyPath, "v8", "include")
