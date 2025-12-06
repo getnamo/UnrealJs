@@ -468,7 +468,6 @@ public:
 	void InstallRelay()
 	{
 		GLog->AddOutputDevice(this);
-		GLog->SerializeBacklog(this);
 	}
 
 	void UninstallRelay()

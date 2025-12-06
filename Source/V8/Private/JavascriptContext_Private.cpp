@@ -1090,9 +1090,13 @@ public:
 
 			// Make sure CDO is ready for use
 			if (Archetype)
+			{
 				Class->ClassDefaultObject = Archetype;
+			}
 			else
+			{
 				Class->GetDefaultObject();
+			}
 
 			// Assemble reference token stream for garbage collection/ RTGC.
 			if (!Class->HasAnyClassFlags(CLASS_TokenStreamAssembled))

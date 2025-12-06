@@ -121,24 +121,30 @@ FString UV8Config::GetAlias(UFunction* Function, bool no_empty) const
 		UPackage* Package = This->GetOutermost();
 		check(Package);
 
+#if WITH_METADATA
 		FMetaData MetaData = Package->GetMetaData();
-		
 
 		bool bHasMetaData = MetaData.HasValue(This, Key);
 
 		return bHasMetaData;
+#else
+		return false;
+#endif
 	};
 
 	auto get_meta = [](UField* This, const FName& Key) {
 		UPackage* Package = This->GetOutermost();
 		check(Package);
 
+#if WITH_METADATA
 		FMetaData MetaData = Package->GetMetaData();
 		
-
 		const FString& MetaDataString = MetaData.GetValue(This, Key);
 
 		return MetaDataString;
+#else
+		return FString();
+#endif
 	};
 
 	static FName NAME_DisplayName("DisplayName");

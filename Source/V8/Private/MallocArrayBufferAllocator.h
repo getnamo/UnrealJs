@@ -9,7 +9,7 @@ public:
 	*/
 	virtual void* Allocate(size_t length)
 	{
-		auto buffer = GMalloc->Malloc(length);
+		auto buffer = FMemory::Malloc(length);
 		FMemory::Memzero(buffer, length);
 		return buffer;
 	}
@@ -20,7 +20,7 @@ public:
 	*/
 	virtual void* AllocateUninitialized(size_t length)
 	{
-		return GMalloc->Malloc(length);
+		return FMemory::Malloc(length);
 	}
 	/**
 	* Free the memory block of size |length|, pointed to by |data|.
@@ -28,6 +28,6 @@ public:
 	*/
 	virtual void Free(void* data, size_t length)
 	{
-		GMalloc->Free(data);
+		FMemory::Free(data);
 	}
 };

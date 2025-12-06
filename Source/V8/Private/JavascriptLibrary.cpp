@@ -763,12 +763,18 @@ const FString& UJavascriptLibrary::GetMetaData(UField* Field, const FString Key)
 	UPackage* Package = Field->GetOutermost();
 	check(Package);
 
+#if WITH_METADATA
 	FMetaData MetaData = Package->GetMetaData();
 	
 
 	const FString& MetaDataString = MetaData.GetValue(Field, *Key);
 
 	return MetaDataString;
+
+#else
+	static const FString EmptyString;
+	return EmptyString;
+#endif
 }
 
 TArray<UField*> UJavascriptLibrary::GetFields(const UObject* Object, bool bIncludeSuper)
