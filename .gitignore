@@ -2,6 +2,7 @@ Binaries
 Intermediate
 ThirdParty/**/lib/*
 ThirdParty/v8/*libs.zip
+ThirdParty/v8/*libs.7z
 .DS_Store
 
 ThirdParty/v8/Readme.txt
