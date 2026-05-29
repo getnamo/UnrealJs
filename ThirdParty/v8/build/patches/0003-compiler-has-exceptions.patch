@@ -1,0 +1,30 @@
+Subject: [PATCH] Match UE's STL exception config on Windows (_HAS_EXCEPTIONS=1 + /EHsc)
+
+UE compiles the V8 module with exceptions enabled. V8's default no_exceptions
+config sets _HAS_EXCEPTIONS=0, producing an incompatible STL ABI -> unresolved
+std::_Raise_handler at link. Force the UE config for all V8 targets (they all
+default to :no_exceptions; targets that swap to :exceptions are unaffected).
+
+Path: build/config/compiler/BUILD.gn  (in the v8 'build' sub-repo)
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ config("no_exceptions") {
+   if (is_win) {
+-    # Disables exceptions in the STL.
+-    # libc++ uses the __has_feature macro to control whether to use exceptions,
+-    # so defining this macro is unnecessary. Defining _HAS_EXCEPTIONS to 0 also
+-    # breaks libc++ because it depends on MSVC headers that only provide certain
+-    # declarations if _HAS_EXCEPTIONS is 1. Those MSVC headers do not use
+-    # exceptions, despite being conditional on _HAS_EXCEPTIONS.
++    # UnrealJs embed: match UE (_HAS_EXCEPTIONS=1, /EHsc) so the STL ABI is
++    # identical and std::_Raise_handler resolves at link.
+     if (!use_custom_libcxx) {
+-      defines = [ "_HAS_EXCEPTIONS=0" ]
++      defines = [ "_HAS_EXCEPTIONS=1" ]
+     }
++    cflags_cc = [ "/EHsc" ]
+   } else {
+     cflags_cc = [ "-fno-exceptions" ]
+     cflags_objcc = cflags_cc
+   }
+ }

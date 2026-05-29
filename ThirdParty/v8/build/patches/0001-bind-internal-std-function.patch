@@ -1,0 +1,28 @@
+Subject: [PATCH] MSVC STL: specialize ExtractCallableRunTypeImpl for std::function
+
+Needed because use_custom_libcxx=false makes V8 compile against the MSVC STL,
+whose std::function::operator() doesn't match V8's member-pointer trait
+specializations, leaving the primary (undefined) template selected.
+
+Path: src/base/functional/bind-internal.h  (in the v8 root git repo)
+--- a/src/base/functional/bind-internal.h
++++ b/src/base/functional/bind-internal.h
+@@
+ #define V8_BASE_FUNCTIONAL_BIND_INTERNAL_H_
+
++#include <functional>
+ #include <type_traits>
+ #include <utility>
+@@
+ #undef BIND_INTERNAL_EXTRACT_CALLABLE_RUN_TYPE_WITH_QUALS
+
++// MSVC STL compatibility (UnrealJs embed build, use_custom_libcxx=false): the
++// member-pointer specializations above don't match MSVC's std::function::
++// operator(), so without this std::function falls through to the undefined
++// primary template. Key directly on std::function instead.
++template <typename R, typename... Args, typename Signature>
++struct ExtractCallableRunTypeImpl<std::function<R(Args...)>, Signature> {
++  using Type = R(Args...);
++};
++
+ // Evaluated to the RunType of the given callable type; e.g.

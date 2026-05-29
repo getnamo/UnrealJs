@@ -118,35 +118,27 @@ public class V8 : ModuleRules
                 LibrariesPath = Path.Combine(LibrariesPath, "Release");
             }
 
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_init.lib"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_initializers.lib"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_libbase.lib"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_libplatform.lib"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_nosnapshot.lib"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_libsampler.lib"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "torque_base.lib"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "torque_generated_initializers.lib"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "inspector.lib"));
+            // V8 14.6+ is linked as a single monolithic static library
+            // (gn: v8_monolithic=true, is_component_build=false).
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_monolith.lib"));
 
-            if (ShouldLink_lib_v8_compiler)
+            // System libraries the V8 monolith depends on (RNG, timers, symbols).
+            PublicSystemLibraries.AddRange(new string[]
             {
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_compiler.lib"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_base_without_compiler_0.lib"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_base_without_compiler_1.lib"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "inspector_string_conversions.lib"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "torque_generated_definitions.lib"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "encoding.lib"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "bindings.lib"));
-            }
-            else
-            {
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_base_0.lib"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "v8_base_1.lib"));
-            }
+                "winmm.lib", "dbghelp.lib", "shlwapi.lib", "bcrypt.lib"
+            });
 
             PublicDefinitions.Add(string.Format("WITH_V8=1"));
 
             PublicDefinitions.Add(string.Format("USING_V8_PLATFORM_SHARED=0"));
+
+            // ABI defines MUST match the gn args the monolith was built with.
+            // Built with v8_enable_pointer_compression=true, v8_enable_sandbox=false.
+            // These control Tagged-pointer / Smi sizes in the public headers; a
+            // mismatch silently corrupts every handle. Do NOT define V8_ENABLE_SANDBOX.
+            PublicDefinitions.Add("V8_COMPRESS_POINTERS");
+            PublicDefinitions.Add("V8_31BIT_SMIS_ON_64BIT_ARCH");
+            PublicDefinitions.Add("V8_COMPRESS_POINTERS_IN_SHARED_CAGE");
 
             return true;
         }

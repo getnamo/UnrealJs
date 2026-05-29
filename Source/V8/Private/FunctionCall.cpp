@@ -15,7 +15,7 @@ namespace v8
 	{
 		SCOPE_CYCLE_COUNTER(STAT_JavascriptFunctionCallToJavascript);
 
-		auto isolate = context->GetIsolate();
+		auto isolate = Isolate::GetCurrent();
 
 		HandleScope handle_scope(isolate);
 

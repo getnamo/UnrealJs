@@ -1,0 +1,18 @@
+Subject: [PATCH] Pin MSVC toolset via -vcvars_ver
+
+V8 14.6 needs MSVC >= 14.40 (std::function/base::FunctionRef interop in
+bind-internal.h). The VS install default (e.g. 14.38) fails to compile. MSVC
+14.x is ABI-cross-compatible, so a 14.44-built lib links fine into UE.
+Adjust the version to one installed on the build machine.
+
+Path: build/toolchain/win/setup_toolchain.py  (in the v8 'build' sub-repo)
+--- a/build/toolchain/win/setup_toolchain.py
++++ b/build/toolchain/win/setup_toolchain.py
+@@ def _LoadToolchainEnv(cpu, toolchain_root, sdk_dir, target_store):
+     # packaged toolchain in build/vs_toolchain.py.
+     args.append(SDK_VERSION)
++    # Pin MSVC toolset: V8 14.6 needs >=14.40 STL. MSVC 14.x is ABI-cross-
++    # compatible so this links fine into UE.
++    args.append('-vcvars_ver=14.44.35207')
+     variables = _LoadEnvFromBat(args)
+   return _ExtractImportantEnvironment(variables)

@@ -652,6 +652,9 @@ public:
 
 	void ExposeGlobals()
 	{
+		// V8 >= 9 Context::Enter() resolves the isolate via Isolate::Current()
+		// (thread-local), not from the context, so the isolate must be entered.
+		Isolate::Scope isolate_scope(isolate());
 		HandleScope handle_scope(isolate());
 		Context::Scope context_scope(context());
 
@@ -1606,11 +1609,12 @@ public:
 
 			info.GetReturnValue().Set(out);
 		};
-		(void)global->SetAccessor(ctx, V8_KeywordString(isolate(), "modules"), getter, 0, self);
+		(void)global->SetNativeDataProperty(ctx, V8_KeywordString(isolate(), "modules"), getter, nullptr, self);
 	}
 
 	void ExposeUModule()
 	{
+		Isolate::Scope isolate_scope(isolate());
 		HandleScope handle_scope(isolate());
 		Context::Scope context_scope(context());
 
@@ -1878,7 +1882,7 @@ public:
 
 			info.GetReturnValue().Set(out);
 		};
-		(void)global->SetAccessor(ctx, V8_KeywordString(isolate(), "modules"), getter, 0, self);
+		(void)global->SetNativeDataProperty(ctx, V8_KeywordString(isolate(), "modules"), getter, nullptr, self);
 		*/
 	}
 
@@ -1976,7 +1980,7 @@ public:
 						auto Indices = (int32*)FMemory_Alloca(sizeof(int32) * Dimension);
 						if (Dimension == 1)
 						{
-							auto ab = ArrayBuffer::New(info.GetIsolate(), Source->GetMemory(nullptr), Source->GetSize(0));
+							auto ab = ArrayBuffer::New(info.GetIsolate(), ArrayBuffer::NewBackingStore(Source->GetMemory(nullptr), Source->GetSize(0), [](void*, size_t, void*) {}, nullptr));
 							argv[0] = ab;
 
 							(void)function->Call(context, info.This(), 1, argv);
@@ -1991,7 +1995,7 @@ public:
 							for (auto Index = 0; Index < Outer; ++Index)
 							{
 								Indices[0] = Index;
-								auto ab = ArrayBuffer::New(info.GetIsolate(), Source->GetMemory(Indices), Inner);
+								auto ab = ArrayBuffer::New(info.GetIsolate(), ArrayBuffer::NewBackingStore(Source->GetMemory(Indices), Inner, [](void*, size_t, void*) {}, nullptr));
 								(void)out_arr->Set(context, Index, ab);
 							}
 
@@ -2082,11 +2086,15 @@ public:
 
 	void RequestV8GarbageCollection()
 	{
-		//Isolate::Scope isolate_scope(isolate());
+		Isolate::Scope isolate_scope(isolate());
 		//Context::Scope context_scope(context());
 
 		// @todo: using 'ForTesting' function
-		isolate()->RequestGarbageCollectionForTesting(Isolate::kFullGarbageCollection);
+		// V8 >= 9 conservatively scans the C++ stack during GC by default. This is
+		// invoked from UE's pre-GC delegate where the stack is UE code holding no
+		// live V8 handles, and scanning it crashes; tell V8 there are no on-stack
+		// heap pointers so it relies on persistent/global handles only.
+		isolate()->RequestGarbageCollectionForTesting(Isolate::kFullGarbageCollection, v8::StackState::kNoHeapPointers);
 	}
 
 	// Should be guarded with proper handle scope
@@ -2109,7 +2117,7 @@ public:
 		auto source = V8_String(isolate(), Script);
 		auto path = V8_String(isolate(), LocalPathToURL(Path));
 		auto ctx = context();
-		ScriptOrigin origin(path, Integer::New(isolate(), -line_offset));
+		ScriptOrigin origin(path, -line_offset);
 		auto script = Script::Compile(ctx, source, &origin);
 		if (script.IsEmpty())
 		{
@@ -2150,7 +2158,7 @@ public:
 
 		Context::Scope context_scope(ctx);
 
-		(void)ctx->Global()->SetAccessor(ctx, V8_KeywordString(isolate(), RootName), RootGetter, 0, ExportObject(Object));
+		(void)ctx->Global()->SetNativeDataProperty(ctx, V8_KeywordString(isolate(), RootName), RootGetter, nullptr, ExportObject(Object));
 	}
 
 	Local<Value> ExportObject(UObject* Object, bool bForce = false) override
@@ -2610,8 +2618,15 @@ FJavascriptContext* FJavascriptContext::FromV8(v8::Local<v8::Context> Context)
 {
 	if (Context.IsEmpty()) return nullptr;
 
+	// Only contexts we created carry our embedder pointer in slot
+	// kContextEmbedderDataIndex. Foreign/bootstrap contexts (e.g. the current
+	// context during isolate setup, which V8 >= 9 returns as non-empty) have no
+	// embedder data fields, and reading an unset slot would yield a garbage
+	// pointer that crashes on dereference.
+	if ((int)Context->GetNumberOfEmbedderDataFields() <= kContextEmbedderDataIndex) return nullptr;
+
 	auto Instance = reinterpret_cast<FJavascriptContextImplementation*>(Context->GetAlignedPointerFromEmbedderData(kContextEmbedderDataIndex));
-	if (Instance->IsValid())
+	if (Instance && Instance->IsValid())
 	{
 		return Instance;
 	}

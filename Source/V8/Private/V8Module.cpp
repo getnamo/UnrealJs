@@ -1,4 +1,4 @@
-﻿#include "IV8.h"
+#include "IV8.h"
 #include "V8PCH.h"
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
@@ -68,158 +68,14 @@ void UJavascriptSettings::Apply() const
 	IV8::Get().SetFlagsFromString(V8Flags);
 }
 
-class FUnrealJSPlatform : public v8::Platform
-{
-private:
-	std::unique_ptr<v8::Platform> platform_;
-#if V8_MAJOR_VERSION < 9
-	TQueue<v8::IdleTask*> IdleTasks;
-	FTickerDelegate TickDelegate;
-	FTSTicker::FDelegateHandle TickHandle;
-#endif
-	bool bActive{ true };
-
-public:
-	v8::Platform* platform() const
-	{
-		return platform_.get();
-	}
-	FUnrealJSPlatform() 
-		: platform_(platform::NewDefaultPlatform(0, platform::IdleTaskSupport::kEnabled))
-	{
-#if V8_MAJOR_VERSION < 9
-		TickDelegate = FTickerDelegate::CreateRaw(this, &FUnrealJSPlatform::HandleTicker);
-		TickHandle = FTSTicker::GetCoreTicker().AddTicker(TickDelegate);
-#endif
-	}
-
-	~FUnrealJSPlatform()
-	{
-		FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
-		platform_.release();
-	}
-
-	void Shutdown()
-	{
-		bActive = false;
-#if V8_MAJOR_VERSION < 9
-		RunIdleTasks(FLT_MAX);
-#endif
-	}
-	virtual int NumberOfWorkerThreads() { return platform_->NumberOfWorkerThreads(); }
-
-	virtual std::shared_ptr<v8::TaskRunner> GetForegroundTaskRunner(Isolate* isolate)
-	{
-		return platform_->GetForegroundTaskRunner(isolate);
-	}
-
-#if V8_MAJOR_VERSION < 9
-	virtual void CallOnForegroundThread(Isolate* isolate, Task* task)
-	{
-		/*std::shared_ptr<v8::TaskRunner> taskrunner =
-			platform_->GetForegroundTaskRunner(isolate);
-		taskrunner->PostTask(std::make_unique<Task>(task));*/
-		platform_->CallOnForegroundThread(isolate, task);
-	}
-
-	virtual void CallDelayedOnForegroundThread(Isolate* isolate, Task* task,
-		double delay_in_seconds)
-	{
-		/*std::shared_ptr<v8::TaskRunner> taskrunner =
-			platform_->GetForegroundTaskRunner(isolate);
-		taskrunner->PostDelayedTask(std::make_unique<Task>(task), delay_in_seconds);*/
-		platform_->CallOnForegroundThread(isolate, task);
-	}
-
-	virtual void CallIdleOnForegroundThread(Isolate* isolate, IdleTask* task)
-	{
-		IdleTasks.Enqueue(task);
-	}
-#else
-	std::unique_ptr<JobHandle> PostJob(
-		TaskPriority priority, std::unique_ptr<JobTask> job_task) override
-	{
-		return platform_->PostJob(priority, std::move(job_task));
-	}
-
-	virtual ZoneBackingAllocator* GetZoneBackingAllocator() override
-	{
-		return platform_->GetZoneBackingAllocator();
-	}
-#endif
-
-	virtual void CallOnWorkerThread(std::unique_ptr<Task> task)
-	{
-		platform_->CallOnWorkerThread(std::move(task));
-	}
-
-	virtual void CallDelayedOnWorkerThread(std::unique_ptr<Task> task,
-		double delay_in_seconds)
-	{
-		platform_->CallDelayedOnWorkerThread(std::move(task), delay_in_seconds);
-	}
-
-	virtual bool IdleTasksEnabled(Isolate* isolate) 
-	{
-		return bActive;
-	}
-
-	virtual double MonotonicallyIncreasingTime()
-	{
-		return platform_->MonotonicallyIncreasingTime();
-	}
-
-#if V8_MAJOR_VERSION > 5 && V8_MINOR_VERSION > 3
-	virtual double CurrentClockTimeMillis()
-	{
-		return platform_->CurrentClockTimeMillis();
-	}
-#endif
-
-#if V8_MAJOR_VERSION > 5
-	v8::TracingController* GetTracingController() override
-	{
-		return platform_->GetTracingController();
-	}
-#endif
-
-#if V8_MAJOR_VERSION < 9
-	void RunIdleTasks(float Budget)
-	{
-		float Start = FPlatformTime::Seconds();
-		while (!IdleTasks.IsEmpty() && Budget > 0)
-		{
-			v8::IdleTask* Task = nullptr;
-			IdleTasks.Dequeue(Task);
-
-			{
-				SCOPE_CYCLE_COUNTER(STAT_V8IdleTask);
-
-				Task->Run(MonotonicallyIncreasingTime() + Budget);
-			}
-			
-			delete Task;
-			
-			float Now = FPlatformTime::Seconds();
-			float Elapsed = Now - Start;
-			Start = Now;
-			Budget -= Elapsed;
-		}
-	}
-
-	bool HandleTicker(float DeltaTime)
-	{	
-		RunIdleTasks(FMath::Max<float>(0, GV8IdleTaskBudget - DeltaTime));
-		return true;
-	}
-#endif
-};
-
 class FV8Module : public IV8
 {
 public:
 	TArray<FString> Paths;
-	FUnrealJSPlatform platform_;
+	// V8 >= 9 manages its own foreground/idle/worker task scheduling, so the
+	// historical custom v8::Platform wrapper (idle-task ticker for V8 < 9) is
+	// gone. We just hold the default platform created by NewDefaultPlatform.
+	std::unique_ptr<v8::Platform> platform_;
 
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override
@@ -227,7 +83,7 @@ public:
 		//Game folder should tak precedence
 		Paths.Add(GetGameScriptsDirectory());
 		//@HACK : Dirty hacks
-		
+
 		//project plugins
 		AddAllPluginContentScriptPaths(Paths);
 
@@ -235,7 +91,7 @@ public:
 		Paths.Add(GetPluginScriptsDirectory());
 		Paths.Add(GetPluginScriptsDirectory2());
 		Paths.Add(GetPluginScriptsDirectory3());
-		
+
 		Paths.Add(GetPakPluginScriptsDirectory());
 
 		const UJavascriptSettings& Settings = *GetDefault<UJavascriptSettings>();
@@ -243,8 +99,9 @@ public:
 
 		FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FV8Module::OnPreGarbageCollection);
 
+		platform_ = v8::platform::NewDefaultPlatform(0, v8::platform::IdleTaskSupport::kEnabled);
 		V8::InitializeICUDefaultLocation(nullptr);
-		V8::InitializePlatform(&platform_);
+		V8::InitializePlatform(platform_.get());
 		V8::Initialize();
 
 		FName NAME_JavascriptCmd("JavascriptCmd");
@@ -255,10 +112,9 @@ public:
 	{
 		FCoreUObjectDelegates::GetPreGarbageCollectDelegate().RemoveAll(this);
 
-		platform_.Shutdown();
-
 		V8::Dispose();
-		V8::ShutdownPlatform();
+		V8::DisposePlatform();
+		platform_.reset();
 	}
 
 	//@HACK
@@ -304,7 +160,7 @@ public:
 		return FoundFolders;
 	}
 
-	static TArray<FString> ValidSubPaths(const FString& Directory) 
+	static TArray<FString> ValidSubPaths(const FString& Directory)
 	{
 		TArray<FString> AllSubFolders = SubPaths(Directory);
 		TArray<FString> ValidFolders;
@@ -444,7 +300,7 @@ public:
 	}
 
 	virtual void SetEnableHotReload(bool bEnable) override
-	{		
+	{
 		UJavascriptSettings& Settings = *GetMutableDefault<UJavascriptSettings>();
 		Settings.bEnableHotReload = bEnable;
 	}
@@ -456,7 +312,7 @@ public:
 
 	virtual void* GetV8Platform() override
 	{
-		return platform_.platform();
+		return platform_.get();
 	}
 
 	void OnPreGarbageCollection()

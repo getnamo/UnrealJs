@@ -62,7 +62,7 @@ public:
 
 	Local<Object> Initialize(Local<Context> context)
 	{
-		isolate_ = context->GetIsolate();
+		isolate_ = Isolate::GetCurrent();
 		context_.Reset(isolate_, context);
 
 		auto out = Object::New(isolate_);

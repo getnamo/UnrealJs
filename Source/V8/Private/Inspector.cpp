@@ -151,7 +151,7 @@ namespace {
 			: AgentImpl(isolate, EAgentImplType::Channel), platform_(platform), WebSocketContext(InContext), Wsi(InWsi)
 		{
 			v8_inspector::StringView state;
-			v8session = v8inspector->connect(CONTEXT_GROUP_ID, this, state);
+			v8session = v8inspector->connect(CONTEXT_GROUP_ID, this, state, v8_inspector::V8Inspector::kFullyTrusted);
 		}
 
 		virtual void dispatchFrontendMessage(const TArray<uint8>& Buffer) override
@@ -422,7 +422,7 @@ public:
 		: Port(InPort)
 	{
 		platform_ = platform;
-		isolate_ = InContext->GetIsolate();
+		isolate_ = Isolate::GetCurrent();
 		context_.Reset(isolate_, InContext);
 
 		FIsolateHelper I(isolate_);

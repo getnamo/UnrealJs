@@ -57,8 +57,8 @@ struct FPrivateJavascriptFunction
 		else
 		{
 			// v8 context is already destroyed.
-			context.Empty();
-			Function.Empty();
+			context.Reset();
+			Function.Reset();
 		}
 	}
 
@@ -80,7 +80,7 @@ struct FPrivateJavascriptRef
 		else
 		{
 			// v8 context is already destroyed.
-			Object.Empty();
+			Object.Reset();
 		}
 	}
 
@@ -100,21 +100,32 @@ struct TStructReader
 	bool Read(Isolate* isolate, Local<Value> Value, CppType& Target) const;
 };
 
-static v8::ArrayBuffer::Contents GCurrentContents;
+// V8 8.0 removed ArrayBuffer::Contents / Externalize(); backing stores are
+// ref-counted via shared_ptr and keep the buffer alive while held.
+static std::shared_ptr<v8::BackingStore> GCurrentContents;
 
 int32 FArrayBufferAccessor::GetSize()
 {
-	return GCurrentContents.ByteLength();
+	return GCurrentContents ? (int32)GCurrentContents->ByteLength() : 0;
 }
 
 void* FArrayBufferAccessor::GetData()
 {
-	return GCurrentContents.Data();
+	return GCurrentContents ? GCurrentContents->Data() : nullptr;
 }
 
 void FArrayBufferAccessor::Discard()
 {
-	GCurrentContents = v8::ArrayBuffer::Contents();
+	GCurrentContents.reset();
+}
+
+// V8 >= 12 forbids Template::Set with a non-primitive/non-Template value (e.g.
+// an External or an Array). To expose such a constant value as a template
+// property, install it as a native data property whose getter returns the
+// value carried in the property's data slot.
+static void V8_ReturnDataGetter(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+	info.GetReturnValue().Set(info.Data());
 }
 
 const FName FJavascriptIsolateConstant::MD_BitmaskEnum(TEXT("BitmaskEnum"));
@@ -1155,8 +1166,8 @@ public:
 				{
 					//Get the view and fill it
 					v8::Local<v8::Uint8Array> view = Value.As<v8::Uint8Array>();
-					uint8* RawMemoryPtr = (uint8*)view->Buffer()->GetContents().Data();
-					int32 RawMemorySize = view->Buffer()->GetContents().ByteLength();
+					uint8* RawMemoryPtr = (uint8*)view->Buffer()->Data();
+					int32 RawMemorySize = (int32)view->Buffer()->ByteLength();
 
 					//copy over
 					FScriptArrayHelper ArrayHelper(p, Buffer);
@@ -1456,7 +1467,8 @@ public:
 
 				if (Source)
 				{
-					auto ab = ArrayBuffer::New(isolate, Source->GetMemory(), Source->GetSize());
+					auto bs = ArrayBuffer::NewBackingStore(Source->GetMemory(), Source->GetSize(), [](void*, size_t, void*) {}, nullptr);
+					auto ab = ArrayBuffer::New(isolate, std::move(bs));
 					(void)ab->Set(context, I.Keyword("$source"), info[0]);
 					info.GetReturnValue().Set(ab);
 					return;
@@ -1476,20 +1488,20 @@ public:
 				auto arr = info[0].As<ArrayBuffer>();
 				auto function = info[1].As<Function>();
 
-				GCurrentContents = arr->GetContents();
+				GCurrentContents = arr->GetBackingStore();
 
 				Handle<Value> argv[1];
 				argv[0] = arr;
 				(void)function->Call(isolate->GetCurrentContext(), info.This(), 1, argv);
 
-				GCurrentContents = v8::ArrayBuffer::Contents();
+				GCurrentContents.reset();
 			}
 			else
 			{
-				GCurrentContents = v8::ArrayBuffer::Contents();
+				GCurrentContents.reset();
 			}
 
-			info.GetReturnValue().Set(info.Holder());
+			info.GetReturnValue().Set(info.This());
 		});
 
 		// memory.bind
@@ -1502,14 +1514,14 @@ public:
 			{
 				auto arr = info[0].As<ArrayBuffer>();
 
-				GCurrentContents = arr->Externalize();
+				GCurrentContents = arr->GetBackingStore();
 			}
 			else
 			{
-				GCurrentContents = v8::ArrayBuffer::Contents();
+				GCurrentContents.reset();
 			}
 
-			info.GetReturnValue().Set(info.Holder());
+			info.GetReturnValue().Set(info.This());
 		});
 
 		// memory.unbind
@@ -1521,19 +1533,19 @@ public:
 			{
 				auto arr = info[0].As<ArrayBuffer>();
 
-				if (arr->IsNeuterable())
+				if (arr->IsDetachable())
 				{
-					arr->Neuter();
+					(void)arr->Detach(Local<Value>());
 
-					GCurrentContents = v8::ArrayBuffer::Contents();
+					GCurrentContents.reset();
 				}
 				else
 				{
-					I.Throw(TEXT("ArrayBuffer is not neuterable"));
+					I.Throw(TEXT("ArrayBuffer is not detachable"));
 				}
 			}
 
-			info.GetReturnValue().Set(info.Holder());
+			info.GetReturnValue().Set(info.This());
 		});
 
 		// console.void
@@ -1553,9 +1565,9 @@ public:
 					if (data->IsArrayBuffer())
 					{
 						auto arr = data.As<ArrayBuffer>();
-						auto Contents = arr->Externalize();
+						auto Contents = arr->GetBackingStore();
 
-						Ar->Serialize(Contents.Data(), Contents.ByteLength());
+						Ar->Serialize(Contents->Data(), (int64)Contents->ByteLength());
 					}
 
 					delete Ar;
@@ -1566,7 +1578,7 @@ public:
 				I.Throw(TEXT("Two arguments needed"));
 			}
 
-			info.GetReturnValue().Set(info.Holder());
+			info.GetReturnValue().Set(info.This());
 		});
 
 		FnHelper.Set("takeSnapshot", [](const FunctionCallbackInfo<Value>& info)
@@ -1615,9 +1627,11 @@ public:
 			}
 		});
 
-		global_templ->Set(
+		global_templ->SetNativeDataProperty(
 			I.Keyword("memory"),
-			// Create an instance
+			V8_ReturnDataGetter,
+			nullptr,
+			// Create an instance (carried as the native data property's data)
 			Template->GetFunction(isolate_->GetCurrentContext()).ToLocalChecked()->NewInstance(isolate_->GetCurrentContext()).ToLocalChecked(),
 			// Do not modify!
 			ReadOnly);
@@ -1783,7 +1797,7 @@ public:
 
 			//FIsolateHelper I(isolate);
 
-			auto self = info.Holder();
+			auto self = info.This();
 
 			// Retrieve "FUNCTION"
 			auto Function = reinterpret_cast<UFunction*>((Local<External>::Cast(info.Data()))->Value());
@@ -1837,7 +1851,7 @@ public:
 		{
 			auto isolate = info.GetIsolate();
 
-			auto self = info.Holder();
+			auto self = info.This();
 
 			// Retrieve "FUNCTION"
 			auto Function = reinterpret_cast<UFunction*>((Local<External>::Cast(info.Data()))->Value());
@@ -1882,7 +1896,7 @@ public:
 		{
 			auto isolate = info.GetIsolate();
 
-			auto self = info.Holder();
+			auto self = info.This();
 
 			// Retrieve "FUNCTION"
 			auto Function = reinterpret_cast<UFunction*>((Local<External>::Cast(info.Data()))->Value());
@@ -1964,56 +1978,72 @@ public:
 	{
 		FIsolateHelper I(isolate_);
 
-		// Property getter
-		auto Getter = [](Local<Name> property, const PropertyCallbackInfo<Value>& info) {
+		// V8 >= 12 removed PropertyCallbackInfo::This(), so a SetNativeDataProperty
+		// getter installed on the prototype can only see HolderV2() (the prototype),
+		// not the receiver instance that carries the UObject internal field. Instead
+		// expose the property as a function-based accessor (SetAccessorProperty):
+		// the getter/setter run as ordinary functions whose FunctionCallbackInfo
+		// still provides This() (the receiver), preserving prototype-chain reads.
+		// The '$' alternative accessor only differs by FPropertyAccessorFlags::Alternative,
+		// so use dedicated normal/alt callbacks (stateless -> function pointers).
+		auto GetterFn = [](const FunctionCallbackInfo<Value>& info) {
 			auto isolate = info.GetIsolate();
-
 			auto data = info.Data();
 			check(data->IsExternal());
-
 			auto Flags = FPropertyAccessorFlags();
-			Flags.Alternative = StringFromV8(isolate, property)[0] == '$';
+			Flags.Alternative = false;
 			auto Property = reinterpret_cast<FProperty*>((Local<External>::Cast(data))->Value());
 			info.GetReturnValue().Set(PropertyAccessors::Get(isolate, info.This(), Property, Flags));
 		};
-
-		// Property setter
-		auto Setter = [](Local<Name> property, Local<Value> value, const PropertyCallbackInfo<void>& info) {
+		auto SetterFn = [](const FunctionCallbackInfo<Value>& info) {
 			auto isolate = info.GetIsolate();
-
 			auto data = info.Data();
-			check(data->IsExternal())
-
+			check(data->IsExternal());
 			auto Flags = FPropertyAccessorFlags();
-			Flags.Alternative = StringFromV8(isolate, property)[0] == '$';
+			Flags.Alternative = false;
 			auto Property = reinterpret_cast<FProperty*>((Local<External>::Cast(data))->Value());
-			PropertyAccessors::Set(isolate, info.This(), Property, value, Flags);
+			PropertyAccessors::Set(isolate, info.This(), Property, info[0], Flags);
+		};
+		auto GetterAltFn = [](const FunctionCallbackInfo<Value>& info) {
+			auto isolate = info.GetIsolate();
+			auto data = info.Data();
+			check(data->IsExternal());
+			auto Flags = FPropertyAccessorFlags();
+			Flags.Alternative = true;
+			auto Property = reinterpret_cast<FProperty*>((Local<External>::Cast(data))->Value());
+			info.GetReturnValue().Set(PropertyAccessors::Get(isolate, info.This(), Property, Flags));
+		};
+		auto SetterAltFn = [](const FunctionCallbackInfo<Value>& info) {
+			auto isolate = info.GetIsolate();
+			auto data = info.Data();
+			check(data->IsExternal());
+			auto Flags = FPropertyAccessorFlags();
+			Flags.Alternative = true;
+			auto Property = reinterpret_cast<FProperty*>((Local<External>::Cast(data))->Value());
+			PropertyAccessors::Set(isolate, info.This(), Property, info[0], Flags);
 		};
 
 		auto Name = PropertyNameToString(PropertyToExport, !bIsEditor);
+		const bool bWriteDisabled = FV8Config::IsWriteDisabledProperty(PropertyToExport);
 
 		EPropertyAccessorAvailability AccessorAvailability = FV8Config::GetPropertyAccessorAvailability(PropertyToExport);
 		if (EnumHasAllFlags(AccessorAvailability, EPropertyAccessorAvailability::Default))
 		{
-			Template->PrototypeTemplate()->SetAccessor(
+			Template->PrototypeTemplate()->SetAccessorProperty(
 				I.Keyword(Name),
-				Getter,
-				Setter,
-				I.External(PropertyToExport),
-				DEFAULT,
-				(PropertyAttribute)(DontDelete | (FV8Config::IsWriteDisabledProperty(PropertyToExport) ? ReadOnly : 0))
+				I.FunctionTemplate(GetterFn, PropertyToExport),
+				bWriteDisabled ? Local<FunctionTemplate>() : I.FunctionTemplate(SetterFn, PropertyToExport),
+				(PropertyAttribute)DontDelete
 			);
 		}
 
 		if (EnumHasAnyFlags(AccessorAvailability, EPropertyAccessorAvailability::AltAccessor))
 		{
-			Template->PrototypeTemplate()->SetAccessor(
+			Template->PrototypeTemplate()->SetAccessorProperty(
 				I.Keyword("$" + Name),
-				Getter,
-				Setter,
-				I.External(PropertyToExport),
-				DEFAULT,
-				(PropertyAttribute)(DontDelete | (FV8Config::IsWriteDisabledProperty(PropertyToExport) ? ReadOnly : 0))
+				I.FunctionTemplate(GetterAltFn, PropertyToExport),
+				bWriteDisabled ? Local<FunctionTemplate>() : I.FunctionTemplate(SetterAltFn, PropertyToExport),
+				(PropertyAttribute)DontDelete
 			);
 		}
 
@@ -2591,7 +2621,10 @@ public:
 					{
 						Handle<Value> argv[1];
 
-						argv[0] = ArrayBuffer::New(isolate, helper.GetRawPtr(), helper.Num() * p->Inner->GetSize());
+						{
+							auto bs = ArrayBuffer::NewBackingStore(helper.GetRawPtr(), helper.Num() * p->Inner->GetSize(), [](void*, size_t, void*) {}, nullptr);
+							argv[0] = ArrayBuffer::New(isolate, std::move(bs));
+						}
 
 						auto out = function->Call(Context, info.This(), 1, argv).ToLocalChecked();
 						info.GetReturnValue().Set(out);
@@ -2820,8 +2853,8 @@ public:
 		auto static_class = I.Keyword("StaticClass");
 
 		// access thru Class.prototype.StaticClass
-		Template->PrototypeTemplate()->Set(static_class, I.External(ClassToExport));
-		Template->Set(static_class, I.External(ClassToExport));
+		Template->PrototypeTemplate()->SetNativeDataProperty(static_class, V8_ReturnDataGetter, nullptr, I.External(ClassToExport));
+		Template->SetNativeDataProperty(static_class, V8_ReturnDataGetter, nullptr, I.External(ClassToExport));
 
 		for (TFieldIterator<UFunction> FuncIt(ClassToExport, EFieldIteratorFlags::ExcludeSuper); FuncIt; ++FuncIt)
 		{
@@ -2876,7 +2909,7 @@ public:
 
 				GetSelf(isolate)->RegisterScriptStructInstance(Memory, self);
 
-				self->SetAlignedPointerInInternalField(0, Memory.Get());
+				self->SetAlignedPointerInInternalField(0, Memory.Get(), v8::kEmbedderDataTypeTagDefault);
 			}
 			else
 			{
@@ -2902,8 +2935,8 @@ public:
 		auto static_class = I.Keyword("StaticClass");
 
 		// access thru Class.prototype.StaticClass
-		Template->PrototypeTemplate()->Set(static_class, I.External(StructToExport));
-		Template->Set(static_class, I.External(StructToExport));
+		Template->PrototypeTemplate()->SetNativeDataProperty(static_class, V8_ReturnDataGetter, nullptr, I.External(StructToExport));
+		Template->SetNativeDataProperty(static_class, V8_ReturnDataGetter, nullptr, I.External(StructToExport));
 
 		int32 PropertyIndex = 0;
 		for (TFieldIterator<FProperty> PropertyIt(StructToExport, EFieldIteratorFlags::ExcludeSuper); PropertyIt; ++PropertyIt, ++PropertyIndex)
@@ -2959,7 +2992,7 @@ public:
 
 		// public name
 		auto name = I.Keyword(FV8Config::Safeify(Enum->GetName()));
-		GetGlobalTemplate()->Set(name, arr);
+		GetGlobalTemplate()->SetNativeDataProperty(name, V8_ReturnDataGetter, nullptr, arr);
 
 		return arr;
 	}
@@ -3274,7 +3307,7 @@ void FJavascriptIsolate::WriteProperty(Isolate* isolate, FProperty* Property, ui
 void FPendingClassConstruction::Finalize(FJavascriptIsolate* Isolate, UObject* UnrealObject)
 {
 	static_cast<FJavascriptIsolateImplementation*>(Isolate)->RegisterObject(UnrealObject, Object);
-	Object->SetAlignedPointerInInternalField(0, UnrealObject);
+	Object->SetAlignedPointerInInternalField(0, UnrealObject, v8::kEmbedderDataTypeTagDefault);
 }
 
 Local<Value> FJavascriptIsolate::ExportStructInstance(Isolate* isolate, UScriptStruct* Struct, uint8* Buffer, const IPropertyOwner& Owner)

@@ -1,0 +1,18 @@
+# UE-matched gn args for building the V8 monolith for UnrealJs (Win64).
+# These MUST stay in sync with the ABI defines in Source/V8/V8.Build.cs
+# (V8_COMPRESS_POINTERS / V8_31BIT_SMIS_ON_64BIT_ARCH /
+#  V8_COMPRESS_POINTERS_IN_SHARED_CAGE) or every V8 handle silently corrupts.
+is_debug = false
+target_cpu = "x64"
+v8_monolithic = true
+v8_use_external_startup_data = false
+is_component_build = false
+use_custom_libcxx = false            # link MSVC STL so std types match UE across the boundary
+v8_enable_i18n_support = false       # no ICU / icudtl.dat deployment dependency
+v8_enable_pointer_compression = true
+v8_enable_sandbox = false            # keep raw-pointer internal fields working
+treat_warnings_as_errors = false
+symbol_level = 1
+v8_enable_verify_heap = false
+use_allocator_shim = false           # don't override global operator new/delete (clashes with UE)
+v8_enable_temporal_support = false   # avoids an unbundled Rust (temporal_rs) link dependency
