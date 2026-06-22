@@ -2221,8 +2221,15 @@ public:
 					auto Function = *FuncIt;
 
 					// Parse all function parameters.
-					uint8* Parms = (uint8*)FMemory_Alloca(Function->ParmsSize);
-					FMemory::Memzero(Parms, Function->ParmsSize);
+					// NOTE: this buffer must be heap-allocated, not FMemory_Alloca/_alloca.
+					// _alloca memory is only released when the enclosing function returns,
+					// not at the end of each loop iteration. WriteAliases iterates over
+					// thousands of UFUNCTIONs, so an alloca here accumulates across the whole
+					// loop and eventually exhausts the native stack -- after which any V8 call
+					// (even JSON.stringify of a bool default) overflows at entry and the editor
+					// aborts fatally during bootstrap. A TArray frees its storage each iteration.
+					TArray<uint8> Parms;
+					Parms.SetNumZeroed(Function->ParmsSize);
 
 					bool bHasDefault = false;
 					TArray<FString> Parameters, ParametersWithDefaults;
@@ -2237,12 +2244,12 @@ public:
 						if (!MetadataCppDefaultValue.IsEmpty())
 						{
 							const uint32 ExportFlags = PPF_None;
-							auto Buffer = It->ContainerPtrToValuePtr<uint8>(Parms);
+							auto Buffer = It->ContainerPtrToValuePtr<uint8>(Parms.GetData());
 							const TCHAR* Result = It->ImportText_Direct(*MetadataCppDefaultValue, Buffer, nullptr, ExportFlags, NULL);
 							if (Result)
 							{
 								bHasDefault = true;
-								auto DefaultValue = Environment->ReadProperty(isolate(), Property, Parms, FNoPropertyOwner());
+								auto DefaultValue = Environment->ReadProperty(isolate(), Property, Parms.GetData(), FNoPropertyOwner());
 								{
 									auto ctx = context();
 									
@@ -2274,7 +2281,7 @@ public:
 									ParameterWithValue = FString::Printf(TEXT("%s = %s"), *Parameter, *Ret);
 								}
 
-								It->DestroyValue_InContainer(Parms);
+								It->DestroyValue_InContainer(Parms.GetData());
 							}
 						}
 						Parameters.Add(Parameter);
