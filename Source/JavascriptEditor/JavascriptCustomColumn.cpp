@@ -4,6 +4,7 @@
 #include "EditorStyleSet.h"
 #include "IPropertyTable.h"
 #include "IPropertyTableCell.h"
+#include "PropertyPath.h"
 #include "JavascriptCustomCellPresenter.h"
 
 FJavascriptCustomColumn::FJavascriptCustomColumn(UJavascriptPropertyTable* InJavascriptPropertyTable)

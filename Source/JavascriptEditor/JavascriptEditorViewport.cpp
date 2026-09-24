@@ -385,14 +385,29 @@ class SAutoRefreshEditorViewport : public SEditorViewport
 		return EditorViewportClient->ViewFOV;
 	}
 
+	// Legacy 1..8 speed settings, mapped onto the float camera speed (same table the engine used before 5.7)
+	static constexpr float LegacyCameraSpeeds[] = { 0.033f, 0.1f, 0.33f, 1.f, 3.f, 8.f, 16.f, 32.f };
+
 	void SetCameraSpeedSetting(int32 SpeedSetting)
 	{
-		EditorViewportClient->SetCameraSpeedSetting(SpeedSetting);
+		const int32 Index = FMath::Clamp<int32>(SpeedSetting, 1, UE_ARRAY_COUNT(LegacyCameraSpeeds)) - 1;
+		FEditorViewportCameraSpeedSettings Settings = EditorViewportClient->GetCameraSpeedSettings();
+		Settings.SetCurrentSpeed(LegacyCameraSpeeds[Index]);
+		EditorViewportClient->SetCameraSpeedSettings(Settings);
 	}
 
 	int32 GetCameraSpeedSetting()
 	{
-		return EditorViewportClient->GetCameraSpeedSetting();
+		const float Speed = EditorViewportClient->GetCameraSpeedSettings().GetCurrentSpeed();
+		int32 Best = 0;
+		for (int32 i = 1; i < UE_ARRAY_COUNT(LegacyCameraSpeeds); ++i)
+		{
+			if (FMath::Abs(LegacyCameraSpeeds[i] - Speed) < FMath::Abs(LegacyCameraSpeeds[Best] - Speed))
+			{
+				Best = i;
+			}
+		}
+		return Best + 1;
 	}
 
 	void SetViewportType(ELevelViewportType InViewportType)
@@ -840,7 +855,7 @@ void UJavascriptEditorViewport::DeprojectScreenToWorld(const FVector2D &ScreenPo
 		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
 		FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
 		
-		const auto& InvViewProjMatrix = View->ViewMatrices.GetInvViewProjectionMatrix();
+		const auto& InvViewProjMatrix = View->ViewMatrices.GetClipToWorld();
 
 		FSceneView::DeprojectScreenToWorld(ScreenPosition, View->UnscaledViewRect, InvViewProjMatrix, OutRayOrigin, OutRayDirection);
 	}
@@ -852,7 +867,7 @@ void UJavascriptEditorViewport::ProjectWorldToScreen(const FVector &WorldPositio
 	{
 		FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( ViewportWidget->EditorViewportClient->Viewport, ViewportWidget->EditorViewportClient->GetScene(), ViewportWidget->EditorViewportClient->EngineShowFlags ));
 		FSceneView* View = ViewportWidget->EditorViewportClient->CalcSceneView(&ViewFamily);
-		const auto& ViewProjMatrix = View->ViewMatrices.GetViewProjectionMatrix();
+		const auto& ViewProjMatrix = View->ViewMatrices.GetWorldToClip();
 		
 		FSceneView::ProjectWorldToScreen(WorldPosition, View->UnscaledViewRect, ViewProjMatrix, OutScreenPosition);
 	}

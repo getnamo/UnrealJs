@@ -22,7 +22,6 @@ public:
 	FJavascriptLogHistory()
 	{
 		GLog->AddOutputDevice(this);
-		GLog->SerializeBacklog(this);
 	}
 
 	~FJavascriptLogHistory()

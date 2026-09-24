@@ -4,7 +4,7 @@
 
 namespace EJavascriptConsoleStyle
 {
-	enum Type;
+	enum Type : int;
 };
 struct FJavascriptConsoleDelegates;
 class FJavascriptConsoleModule;

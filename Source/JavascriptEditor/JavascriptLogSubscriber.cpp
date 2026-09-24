@@ -4,7 +4,6 @@
 UJavascriptLogSubscriber::UJavascriptLogSubscriber()
 {
 	GLog->AddOutputDevice(this);
-	GLog->SerializeBacklog(this);
 }
 
 UJavascriptLogSubscriber::~UJavascriptLogSubscriber()

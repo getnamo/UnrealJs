@@ -6,7 +6,7 @@
 /** Style of the debug console */
 namespace EJavascriptConsoleStyle
 {
-	enum Type
+	enum Type : int
 	{
 		/** Shows the debug console input line with tab completion only */
 		Compact,

@@ -12,7 +12,6 @@ public:
 		OutputDevice = InOutputDevice;
 
 		GLog->AddOutputDevice(this);
-		GLog->SerializeBacklog(this);
 	}
 
 	~FJavascriptOutputDevice()

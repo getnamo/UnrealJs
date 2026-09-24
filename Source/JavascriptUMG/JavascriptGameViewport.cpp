@@ -320,10 +320,8 @@ class SJavascriptAutoRefreshViewport : public SViewport
 		GameScene = MakeShareable(new FJavascriptInGameScene(CVS));
 
 		ViewportClient = MakeShareable(new FJavascriptUMGViewportClient(GameScene.Get()));
-		Viewport = MakeShareable(new FSceneViewport(ViewportClient.Get(), SharedThis(this)));
-
-		// The viewport widget needs an interface so it knows what should render
-		SetViewportInterface(Viewport.ToSharedRef());
+		// Create() also sets this widget's viewport interface so it knows what should render
+		Viewport = FSceneViewport::Create(ViewportClient, SharedThis(this));
 	}
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override

@@ -42,7 +42,7 @@ FGenericPlatformMemory::FSharedMemoryRegion::FSharedMemoryRegion(const FString& 
 	, Address(InAddress)
 	, Size(InSize)
 {
-	FCString::Strcpy(Name, sizeof(Name) - 1, *InName);
+	FCString::Strncpy(Name, *InName, UE_ARRAY_COUNT(Name));
 }
 #endif
 
@@ -76,18 +76,8 @@ FPlatformMemory::FSharedMemoryRegion* FWindowsPlatformMemory_Local::MapNamedShar
 			CreateMappingAccess = PAGE_READWRITE;
 		}
 
-		DWORD MaxSizeHigh =
-#if PLATFORM_64BITS
-			(Size >> 32);
-#else
-			0;
-#endif // PLATFORM_64BITS
-
-		DWORD MaxSizeLow = Size
-#if PLATFORM_64BITS
-			& 0xFFFFFFFF
-#endif // PLATFORM_64BITS
-			;
+		DWORD MaxSizeHigh = (Size >> 32);
+		DWORD MaxSizeLow = Size & 0xFFFFFFFF;
 
 		Mapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, CreateMappingAccess, MaxSizeHigh, MaxSizeLow, *Name);
 

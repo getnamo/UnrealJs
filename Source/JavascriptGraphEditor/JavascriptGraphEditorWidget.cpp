@@ -135,7 +135,7 @@ void UJavascriptGraphEditorWidget::SetViewLocation(const FVector2D& Location, fl
 	auto Widget = StaticCastSharedPtr<SGraphEditor>(GetCachedWidget());
 	if (Widget.IsValid())
 	{
-		Widget->SetViewLocation(Location, ZoomAmount);
+		Widget->SetViewLocation(FVector2f(Location), ZoomAmount);
 	}
 }
 
@@ -144,7 +144,9 @@ void UJavascriptGraphEditorWidget::GetViewLocation(FVector2D& OutLocation, float
 	auto Widget = StaticCastSharedPtr<SGraphEditor>(GetCachedWidget());
 	if (Widget.IsValid())
 	{
-		Widget->GetViewLocation(OutLocation, OutZoomAmount);
+		FVector2f Location2f;
+		Widget->GetViewLocation(Location2f, OutZoomAmount);
+		OutLocation = FVector2D(Location2f);
 	}
 }
 
@@ -181,7 +183,7 @@ FVector2D UJavascriptGraphEditorWidget::GetPasteLocation()
 	auto Widget = StaticCastSharedPtr<SGraphEditor>(GetCachedWidget());
 	if (Widget.IsValid())
 	{
-		return Widget->GetPasteLocation();
+		return FVector2D(Widget->GetPasteLocation2f());
 	}
 	return FVector2D::ZeroVector;
 }

@@ -1,4 +1,5 @@
 ﻿#include "JavascriptWidget.h"
+#include "GameFramework/InputSettings.h"
 #include "JavascriptContext.h"
 #include "Blueprint/WidgetTree.h"
 #include "Runtime/Launch/Resources/Version.h"
@@ -105,12 +106,20 @@ void UJavascriptWidget::OnListenForInputAction(FName ActionName, TEnumAsByte< EI
 		if (APlayerController* Controller = GetOwningPlayer())
 		{
 			InputComponent = NewObject< UInputComponent >(this, NAME_None, RF_Transient);
-			InputComponent->bBlockInput = bStopAction;
-			InputComponent->Priority = Priority;
+			InputComponent->bBlockInput = IsInputActionBlocking();
+			InputComponent->Priority = GetInputActionPriority();
 			Controller->PushInputComponent(InputComponent);
 		}		
 #else
-		InitializeInputComponent();
+		// Same as the deprecated UUserWidget::InitializeInputComponent (5.7+ only auto-creates on construction)
+		if (APlayerController* Controller = GetOwningPlayer())
+		{
+			UClass* InputClass = Controller->InputComponent ? Controller->InputComponent->GetClass() : UInputSettings::GetDefaultInputComponentClass();
+			InputComponent = NewObject< UInputComponent >(this, InputClass, NAME_None, RF_Transient);
+			InputComponent->bBlockInput = IsInputActionBlocking();
+			InputComponent->Priority = GetInputActionPriority();
+			Controller->PushInputComponent(InputComponent);
+		}
 #endif
 	}
 
@@ -155,12 +164,20 @@ void UJavascriptWidget::OnListenForInputAxis(FName AxisName, TEnumAsByte< EInput
 		if (APlayerController* Controller = GetOwningPlayer())
 		{
 			InputComponent = NewObject< UInputComponent >(this, NAME_None, RF_Transient);
-			InputComponent->bBlockInput = bStopAction;
-			InputComponent->Priority = Priority;
+			InputComponent->bBlockInput = IsInputActionBlocking();
+			InputComponent->Priority = GetInputActionPriority();
 			Controller->PushInputComponent(InputComponent);
 		}
 #else
-		InitializeInputComponent();
+		// Same as the deprecated UUserWidget::InitializeInputComponent (5.7+ only auto-creates on construction)
+		if (APlayerController* Controller = GetOwningPlayer())
+		{
+			UClass* InputClass = Controller->InputComponent ? Controller->InputComponent->GetClass() : UInputSettings::GetDefaultInputComponentClass();
+			InputComponent = NewObject< UInputComponent >(this, InputClass, NAME_None, RF_Transient);
+			InputComponent->bBlockInput = IsInputActionBlocking();
+			InputComponent->Priority = GetInputActionPriority();
+			Controller->PushInputComponent(InputComponent);
+		}
 #endif
 	}
 

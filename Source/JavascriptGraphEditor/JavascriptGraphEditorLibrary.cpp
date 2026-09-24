@@ -357,7 +357,7 @@ void UJavascriptGraphEditorLibrary::DrawSplineWithArrow(FJavascriptGraphConnecti
 	FJavascriptGraphConnectionDrawingPolicy* DrawingPolicy = Container.Handle;
 	if (DrawingPolicy)
 	{
-		DrawingPolicy->DrawSplineWithArrow(StartAnchorPoint, EndAnchorPoint, Params);
+		DrawingPolicy->DrawSplineWithArrow(FVector2f(StartAnchorPoint), FVector2f(EndAnchorPoint), Params);
 	}
 }
 

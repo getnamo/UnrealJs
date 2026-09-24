@@ -299,7 +299,6 @@ static FProperty* CreateProperty(T* Outer, FName Name, const TArray<FString>& De
 	};
 
 	auto Create = [&]() -> FProperty* {
-		auto ObjectFlags = EObjectFlags::RF_Public;
 		auto Inner = [&](auto* Outer, const FString& Type) -> FProperty* {
 			// Find TypeObject (to make UObjectHash happy)
 			auto FindTypeObject = [](const TCHAR* ObjectName) -> UObject* {
@@ -325,37 +324,37 @@ static FProperty* CreateProperty(T* Outer, FName Name, const TArray<FString>& De
 
 			if (Type == FString("bool"))
 			{
-				auto q = new FBoolProperty(FFieldVariant(Outer), Name, ObjectFlags);
+				auto q = new FBoolProperty(FFieldVariant(Outer), Name);
 				return q;
 			}
 			else if (Type == FString("int"))
 			{
-				auto q = new FIntProperty(FFieldVariant(Outer), Name, ObjectFlags);
+				auto q = new FIntProperty(FFieldVariant(Outer), Name);
 				return q;
 			}
 			else if (Type == FString("uint8"))
 			{
-				auto q = new FByteProperty(FFieldVariant(Outer), Name, ObjectFlags);
+				auto q = new FByteProperty(FFieldVariant(Outer), Name);
 				return q;
 			}
 			else if (Type == FString("int64"))
 			{
-				auto q = new FInt64Property(FFieldVariant(Outer), Name, ObjectFlags);
+				auto q = new FInt64Property(FFieldVariant(Outer), Name);
 				return q;
 			}
 			else if (Type == FString("string"))
 			{
-				auto q = new FStrProperty(FFieldVariant(Outer), Name, ObjectFlags);
+				auto q = new FStrProperty(FFieldVariant(Outer), Name);
 				return q;
 			}
 			else if (Type == FString("float"))
 			{
-				auto q = new FFloatProperty(FFieldVariant(Outer), Name, ObjectFlags);
+				auto q = new FFloatProperty(FFieldVariant(Outer), Name);
 				return q;
 			}
 			else if (Type == FString("text"))
 			{
-				auto q = new FTextProperty(FFieldVariant(Outer), Name, ObjectFlags);
+				auto q = new FTextProperty(FFieldVariant(Outer), Name);
 				return q;
 			}
 			else
@@ -366,14 +365,14 @@ static FProperty* CreateProperty(T* Outer, FName Name, const TArray<FString>& De
 				{
 					if (bIsSubclass)
 					{
-						auto q = new FClassProperty(FFieldVariant(Outer), Name, ObjectFlags);
+						auto q = new FClassProperty(FFieldVariant(Outer), Name);
 						q->SetPropertyClass(UClass::StaticClass());
 						q->SetMetaClass(p);
 						return q;
 					}
 					else
 					{
-						auto q = new FObjectProperty(FFieldVariant(Outer), Name, ObjectFlags);
+						auto q = new FObjectProperty(FFieldVariant(Outer), Name);
 						q->SetPropertyClass(p);
 						return q;
 					}
@@ -382,33 +381,33 @@ static FProperty* CreateProperty(T* Outer, FName Name, const TArray<FString>& De
 				{
 					if (bIsSubclass)
 					{
-						auto q = new FClassProperty(Outer, Name, ObjectFlags);
+						auto q = new FClassProperty(Outer, Name);
 						q->SetPropertyClass(UClass::StaticClass());
 						q->SetMetaClass(p->GeneratedClass);
 						return q;
 					}
 					else
 					{
-						auto q = new FObjectProperty(FFieldVariant(Outer), Name, ObjectFlags);
+						auto q = new FObjectProperty(FFieldVariant(Outer), Name);
 						q->SetPropertyClass(p->GeneratedClass);
 						return q;
 					}
 				}
 				else if (auto p = Cast<UScriptStruct>(TypeObject))
 				{
-					auto q = new FStructProperty(FFieldVariant(Outer), Name, ObjectFlags);
+					auto q = new FStructProperty(FFieldVariant(Outer), Name);
 					q->Struct = p;
 					return q;
 				}
 				else if (auto p = Cast<UEnum>(TypeObject))
 				{
-					auto q = new FByteProperty(FFieldVariant(Outer), Name, ObjectFlags);
+					auto q = new FByteProperty(FFieldVariant(Outer), Name);
 					q->Enum = p;
 					return q;
 				}
 				else
 				{
-					auto q = new FInt64Property(FFieldVariant(Outer), Name, ObjectFlags);
+					auto q = new FInt64Property(FFieldVariant(Outer), Name);
 					return q;
 				}
 			}
@@ -416,7 +415,7 @@ static FProperty* CreateProperty(T* Outer, FName Name, const TArray<FString>& De
 
 		if (bIsMap)
 		{
-			FMapProperty* q = new FMapProperty(FFieldVariant(Outer), Name, ObjectFlags);
+			FMapProperty* q = new FMapProperty(FFieldVariant(Outer), Name);
 			FString Left, Right;
 			if (Type.Split(TEXT("::"), &Left, &Right))
 			{
@@ -441,7 +440,7 @@ static FProperty* CreateProperty(T* Outer, FName Name, const TArray<FString>& De
 		}
 		else if (bIsArray)
 		{
-			FArrayProperty* q = new FArrayProperty(FFieldVariant(Outer), Name, ObjectFlags);
+			FArrayProperty* q = new FArrayProperty(FFieldVariant(Outer), Name);
 			q->Inner = SetupProperty(Inner(q, Type));
 			return q;
 		}
@@ -483,48 +482,47 @@ static FProperty* DuplicateProperty(T* Outer, FProperty* Property, FName Name)
 	};
 
 	auto Clone = [&]() -> FProperty* {
-		auto ObjectFlags = Property->GetFlags();
 		if (auto p = CastField<FStructProperty>(Property))
 		{
-			auto q = new FStructProperty(Outer, Name, ObjectFlags);
+			auto q = new FStructProperty(Outer, Name);
 			q->Struct = p->Struct;
 			return q;
 		}
 		else if (auto p = CastField<FArrayProperty>(Property))
 		{
-			auto q = new FArrayProperty(Outer, Name, ObjectFlags);
+			auto q = new FArrayProperty(Outer, Name);
 			q->Inner = DuplicateProperty(q, p->Inner, p->Inner->GetFName());
 			return q;
 		}
 		else if (auto p = CastField<FByteProperty>(Property))
 		{
-			auto q = new FByteProperty(Outer, Name, ObjectFlags);
+			auto q = new FByteProperty(Outer, Name);
 			q->Enum = p->Enum;
 			return q;
 		}
 		else if (auto p = CastField<FBoolProperty>(Property))
 		{
-			auto q = new FBoolProperty(Outer, Name, ObjectFlags);
+			auto q = new FBoolProperty(Outer, Name);
 			q->SetBoolSize(sizeof(bool), true);
 			return q;
 		}
 		else if (auto p = CastField<FClassProperty>(Property))
 		{
-			auto q = new FClassProperty(Outer, Name, ObjectFlags);
+			auto q = new FClassProperty(Outer, Name);
 			q->SetMetaClass(p->MetaClass);
 			q->PropertyClass = UClass::StaticClass();
 			return q;
 		}
 		else if (auto p = CastField<FObjectProperty>(Property))
 		{
-			auto q = new FObjectProperty(Outer, Name, ObjectFlags);
+			auto q = new FObjectProperty(Outer, Name);
 			q->SetPropertyClass(p->PropertyClass);
 			return q;
 		}
 		else
 		{
 			//return static_cast<UProperty*>(StaticDuplicateObject(Property, Outer, *(Name.ToString())));
-			return static_cast<FProperty*>(FProperty::Duplicate(Property, FFieldVariant(Outer), *(Name.ToString()), ObjectFlags));
+			return static_cast<FProperty*>(FProperty::Duplicate(Property, FFieldVariant(Outer), *(Name.ToString())));
 		}
 	};
 
@@ -1094,7 +1092,7 @@ public:
 			// Make sure CDO is ready for use
 			if (Archetype)
 			{
-				Class->ClassDefaultObject = Archetype;
+				Class->SetDefaultObject(Archetype);
 			}
 			else
 			{
@@ -1127,7 +1125,7 @@ public:
 			// Recreate the CDO after rebind properties.
 			TMap<UClass*, UClass*> OldToNewMap;
 			FBlueprintCompileReinstancer::MoveCDOToNewClass(Class, OldToNewMap, true);
-			Class->ClassDefaultObject = NULL;
+			Class->SetDefaultObject(nullptr);
 
 			Class->Children = nullptr;
 			auto maybe_PropertyDecls = Opts->Get(context, I.Keyword("Properties"));

@@ -586,7 +586,7 @@ UEnum* UJavascriptLibrary::CreateEnum(UObject* Outer, FName Name, TArray<FName> 
 		{
 			Names.Add(TPairInitializer<FName, int64>(DisplayName, IsBitFlags ? 1 << Index++ : Index++));
 		}
-		Enum->SetEnums(Names, UEnum::ECppForm::Namespaced);
+		Enum->SetEnums(Names, UEnum::ECppForm::Namespaced, UEnum::EUnderlyingType::int64, EEnumFlags::None, UEnum::EAddMaxKeyIfMissing::Yes);
 		SetEnumFlags(Enum, Flags);
 	}
 
@@ -635,7 +635,7 @@ bool UJavascriptLibrary::DeleteDirectory(const FString& Path, bool RequireExists
 
 void UJavascriptLibrary::GetObjectsWithOuter(const class UObject* Outer, TArray<UObject *>& Results, bool bIncludeNestedObjects, int32 ExclusionFlags, int32 ExclusionInternalFlags)
 {
-	::GetObjectsWithOuter(Outer, Results, bIncludeNestedObjects, (EObjectFlags)ExclusionFlags, (EInternalObjectFlags)ExclusionInternalFlags);
+	::GetObjectsWithOuter(Outer, Results, bIncludeNestedObjects ? EGetObjectsFlags::IncludeNestedObjects : EGetObjectsFlags::None, (EObjectFlags)ExclusionFlags, (EInternalObjectFlags)ExclusionInternalFlags);
 }
 
 class UObject* UJavascriptLibrary::FindObjectWithOuter(class UObject* Outer, class UClass* ClassToLookFor, FName NameToLookFor)

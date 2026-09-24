@@ -161,7 +161,7 @@ void FJavascriptEditorModule::Bootstrap()
 
 void FJavascriptEditorModule::StartupModule()
 {
-	FCoreDelegates::OnPostEngineInit.AddRaw(this, &FJavascriptEditorModule::Bootstrap);
+	FCoreDelegates::GetOnPostEngineInit().AddRaw(this, &FJavascriptEditorModule::Bootstrap);
 	InitializeEditorObjectManager();
 }
 
