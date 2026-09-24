@@ -13,6 +13,7 @@
 #include "Styling/SlateStyle.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Misc/ScopeLock.h"
 #include "Framework/Commands/UIAction.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SSearchBox.h"
@@ -548,7 +549,12 @@ public:
 	virtual void SetText(const FString& SourceString, FTextLayout& TargetTextLayout) override;
 	virtual void GetText(FString& TargetString, const FTextLayout& SourceTextLayout) override;
 
-	bool AppendMessage(const TCHAR* InText, const ELogVerbosity::Type InVerbosity, const FName& InCategory);
+	/** Queues a message from any thread; it is added to the text layout by SubmitPendingMessages */
+	bool AppendPendingMessage(const TCHAR* InText, const ELogVerbosity::Type InVerbosity, const FName& InCategory);
+
+	/** Game thread only: moves queued messages into the text layout. Returns true if any were added */
+	bool SubmitPendingMessages();
+
 	void ClearMessages();
 
 	void CountMessages();
@@ -556,19 +562,22 @@ public:
 	int32 GetNumMessages() const;
 	int32 GetNumFilteredMessages();
 
-	void InitDelegates();
-
 	void MarkMessagesCacheAsDirty();
 
 protected:
 
 	FJavascriptLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages, FJavascriptLogFilter* InFilter);
 
-	void AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& Message);
 	void AppendMessagesToTextLayout(const TArray<TSharedPtr<FLogMessage>>& InMessages);
 
 	/** All log messages to show in the text box */
 	TArray< TSharedPtr<FLogMessage> > Messages;
+
+	/** Messages received from Serialize that have not yet been submitted to the text layout */
+	TArray< TSharedPtr<FLogMessage> > PendingMessages;
+
+	/** Guards PendingMessages, which may be written from any logging thread */
+	FCriticalSection PendingMessagesCriticalSection;
 
 	/** Holds cached numbers of messages to avoid unnecessary re-filtering */
 	int32 CachedNumMessages;
@@ -580,35 +589,21 @@ protected:
 	FJavascriptLogFilter* Filter;
 
 	FTextLayout* TextLayout;
-
-	bool bValidLogContext;
 };
 
 TSharedRef< FJavascriptLogTextLayoutMarshaller > FJavascriptLogTextLayoutMarshaller::Create(TArray< TSharedPtr<FLogMessage> > InMessages, FJavascriptLogFilter* InFilter)
 {
-	TSharedRef< FJavascriptLogTextLayoutMarshaller > Marshaller =  MakeShareable(new FJavascriptLogTextLayoutMarshaller(MoveTemp(InMessages), InFilter));
-	Marshaller->InitDelegates();
-	return Marshaller;
-}
-
-void FJavascriptLogTextLayoutMarshaller::InitDelegates()
-{
-	bValidLogContext = true;
+	return MakeShareable(new FJavascriptLogTextLayoutMarshaller(MoveTemp(InMessages), InFilter));
 }
 
 FJavascriptLogTextLayoutMarshaller::~FJavascriptLogTextLayoutMarshaller()
 {
-	bValidLogContext = false;
 }
 
 void FJavascriptLogTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout& TargetTextLayout)
 {
 	TextLayout = &TargetTextLayout;
-
-	for(const auto& Message : Messages)
-	{
-		AppendMessageToTextLayout(Message);
-	}
+	AppendMessagesToTextLayout(Messages);
 }
 
 void FJavascriptLogTextLayoutMarshaller::GetText(FString& TargetString, const FTextLayout& SourceTextLayout)
@@ -616,83 +611,60 @@ void FJavascriptLogTextLayoutMarshaller::GetText(FString& TargetString, const FT
 	SourceTextLayout.GetAsText(TargetString);
 }
 
-bool FJavascriptLogTextLayoutMarshaller::AppendMessage(const TCHAR* InText, const ELogVerbosity::Type InVerbosity, const FName& InCategory)
+bool FJavascriptLogTextLayoutMarshaller::AppendPendingMessage(const TCHAR* InText, const ELogVerbosity::Type InVerbosity, const FName& InCategory)
 {
-	TArray< TSharedPtr<FLogMessage> > NewMessages;
-	if(SJavascriptLog::CreateLogMessages(InText, InVerbosity, InCategory, NewMessages))
-	{
-		const bool bWasEmpty = Messages.Num() == 0;
-		Messages.Append(NewMessages);
-
-		// Add new message categories to the filter's available log categories
-		for (const auto& NewMessage : NewMessages)
-		{
-			Filter->AddAvailableLogCategory(NewMessage->Category);
-		}
-
-		if(TextLayout)
-		{
-			// If we were previously empty, then we'd have inserted a dummy empty line into the document
-			// We need to remove this line now as it would cause the message indices to get out-of-sync with the line numbers, which would break auto-scrolling
-			if(bWasEmpty)
-			{
-				TextLayout->ClearLines();
-			}
-
-			// If we've already been given a text layout, then append these new messages rather than force a refresh of the entire document
-			for(const auto& Message : NewMessages)
-			{
-				AppendMessageToTextLayout(Message);
-			}
-		}
-		else
-		{
-			MarkMessagesCacheAsDirty();
-			MakeDirty();
-		}
-
-		return true;
-	}
-
-	return false;
+	FScopeLock PendingMessagesAccess(&PendingMessagesCriticalSection);
+	return SJavascriptLog::CreateLogMessages(InText, InVerbosity, InCategory, PendingMessages);
 }
 
-void FJavascriptLogTextLayoutMarshaller::AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& InMessage)
+bool FJavascriptLogTextLayoutMarshaller::SubmitPendingMessages()
 {
-	if (!Filter->IsMessageAllowed(InMessage))
+	check(IsInGameThread());
+
+	TArray< TSharedPtr<FLogMessage> > NewMessages;
+
+	// Messages can always be submitted next tick, so don't block a logging thread holding the lock
+	if (!PendingMessagesCriticalSection.TryLock())
 	{
-		return;
+		return false;
+	}
+	NewMessages = MoveTemp(PendingMessages);
+	PendingMessages.Reset();
+	PendingMessagesCriticalSection.Unlock();
+
+	if (NewMessages.Num() == 0)
+	{
+		return false;
 	}
 
-	// Increment the cached count if we're not rebuilding the log
-	if (!IsDirty())
+	const bool bWasEmpty = Messages.Num() == 0;
+	Messages.Append(NewMessages);
+
+	// Add new message categories to the filter's available log categories
+	for (const auto& NewMessage : NewMessages)
 	{
-		CachedNumMessages++;
+		Filter->AddAvailableLogCategory(NewMessage->Category);
 	}
 
-	const FTextBlockStyle& MessageTextStyle = FAppStyle::Get().GetWidgetStyle<FTextBlockStyle>(InMessage->Style);
-
-	TSharedRef<FString> LineText = InMessage->Message;
-
-	TArray<TSharedRef<IRun>> Runs;
-	Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, MessageTextStyle));
-
-	FSlateTextLayout::FNewLineData NewLineData = FSlateTextLayout::FNewLineData(MoveTemp(LineText), MoveTemp(Runs));
-
-	if (IsInGameThread()) 
+	if (TextLayout)
 	{
-		TextLayout->AddLine(NewLineData);
+		// If we were previously empty, then we'd have inserted a dummy empty line into the document
+		// We need to remove this line now as it would cause the message indices to get out-of-sync with the line numbers, which would break auto-scrolling
+		if (bWasEmpty)
+		{
+			TextLayout->ClearLines();
+		}
+
+		// If we've already been given a text layout, then append these new messages rather than force a refresh of the entire document
+		AppendMessagesToTextLayout(NewMessages);
 	}
 	else
 	{
-		FFunctionGraphTask::CreateAndDispatchWhenReady([&, NewLineData]
-		{
-			if (bValidLogContext)
-			{
-				TextLayout->AddLine(NewLineData);
-			}
-		}, TStatId(), nullptr, ENamedThreads::GameThread);
+		MarkMessagesCacheAsDirty();
+		MakeDirty();
 	}
+
+	return true;
 }
 
 void FJavascriptLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray<TSharedPtr<FLogMessage>>& InMessages)
@@ -733,6 +705,10 @@ void FJavascriptLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray
 
 void FJavascriptLogTextLayoutMarshaller::ClearMessages()
 {
+	{
+		FScopeLock PendingMessagesAccess(&PendingMessagesCriticalSection);
+		PendingMessages.Empty();
+	}
 	Messages.Empty();
 	MakeDirty();
 }
@@ -1037,29 +1013,19 @@ bool SJavascriptLog::CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verb
 
 void SJavascriptLog::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category )
 {
-	if ( MessagesTextMarshaller->AppendMessage(V, Verbosity, Category) )
+	// May be called from any thread; messages are added to the text box (and scrolled to) in Tick
+	MessagesTextMarshaller->AppendPendingMessage(V, Verbosity, Category);
+}
+
+void SJavascriptLog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	if (MessagesTextMarshaller->SubmitPendingMessages())
 	{
-		if (IsInGameThread())
-		{
-			// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
-			if (!bIsUserScrolled)
-			{
-				MessagesTextBox->ScrollTo(ETextLocation::EndOfDocument);	//backup scrolling method for 5.16
-				//MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));	//in 5.1 this kind of broke, so we're using the above fallback
-			}
-		}
-		else
-		{
-			AsyncTask(ENamedThreads::GameThread, [this]()
-			{
-				// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
-				if (!bIsUserScrolled && MessagesTextBox.IsValid())
-				{
-					MessagesTextBox->ScrollTo(ETextLocation::EndOfDocument);
-				}
-			});
-		}
+		// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
+		RequestForceScroll(true);
 	}
+
+	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 void SJavascriptLog::ExtendTextBoxMenu(FMenuBuilder& Builder)
@@ -1089,7 +1055,7 @@ void SJavascriptLog::OnClearLog()
 
 void SJavascriptLog::OnUserScrolled(float ScrollOffset)
 {
-	bIsUserScrolled = !FMath::IsNearlyEqual(ScrollOffset, 1.0f);
+	bIsUserScrolled = ScrollOffset < 1.0 && !FMath::IsNearlyEqual(ScrollOffset, 1.0f);
 }
 
 bool SJavascriptLog::CanClearLog() const
@@ -1099,14 +1065,19 @@ bool SJavascriptLog::CanClearLog() const
 
 void SJavascriptLog::OnConsoleCommandExecuted()
 {
+	// Submit pending messages when executing a command to keep the log feeling responsive to input
+	MessagesTextMarshaller->SubmitPendingMessages();
 	RequestForceScroll();
 }
 
-void SJavascriptLog::RequestForceScroll()
+void SJavascriptLog::RequestForceScroll(bool bIfUserHasNotScrolledUp)
 {
-	if(MessagesTextMarshaller->GetNumMessages() > 0)
+	// Scroll to the end of the document rather than a message index: the layout only contains
+	// filtered messages, so message indices don't map onto line numbers
+	if (MessagesTextMarshaller->GetNumFilteredMessages() > 0
+		&& (!bIfUserHasNotScrolledUp || !bIsUserScrolled))
 	{
-		MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));
+		MessagesTextBox->ScrollTo(ETextLocation::EndOfDocument);
 		bIsUserScrolled = false;
 	}
 }

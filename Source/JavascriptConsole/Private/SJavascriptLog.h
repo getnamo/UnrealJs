@@ -260,6 +260,9 @@ public:
 	 */
 	static bool CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category, TArray< TSharedPtr<FLogMessage> >& OutMessages );
 
+	/** SWidget interface */
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+
 protected:
 
 	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
@@ -288,8 +291,8 @@ private:
 	/** Called when a console command is entered for this output log */
 	void OnConsoleCommandExecuted();
 
-	/** Request we immediately force scroll to the bottom of the log */
-	void RequestForceScroll();
+	/** Request we immediately force scroll to the bottom of the log, optionally only if the user hasn't scrolled away from it */
+	void RequestForceScroll(bool bIfUserHasNotScrolledUp = false);
 
 	/** Converts the array of messages into something the text box understands */
 	TSharedPtr< FJavascriptLogTextLayoutMarshaller > MessagesTextMarshaller;
