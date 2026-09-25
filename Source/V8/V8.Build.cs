@@ -162,43 +162,13 @@ public class V8 : ModuleRules
 
             return true;
         }
-        else if (Target.Platform == UnrealTargetPlatform.Linux)
+        else if (Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture == UnrealArch.X64)
         {
-            string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Linux");
-            if (Target.Configuration == UnrealTargetConfiguration.Debug)
-            {
-                LibrariesPath = Path.Combine(LibrariesPath, "Debug");
-            }
-            else
-            {
-                LibrariesPath = Path.Combine(LibrariesPath, "Release");
-            }
+            // Monolith built against UE's Linux toolchain sysroot + bundled libc++
+            // (ThirdParty/v8/build/Build-V8-Linux.sh).
+            PublicAdditionalLibraries.Add(Path.Combine(ThirdPartyPath, "v8", "lib", "Linux", "x86_64", "libv8_monolith.a"));
 
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_init.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_initializers.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libbase.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libplatform.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_nosnapshot.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libsampler.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_base.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_initializers.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector.a"));
-
-            if (ShouldLink_lib_v8_compiler)
-            {
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_compiler.a"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base_without_compiler.a"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector_string_conversions.a"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libencoding.a"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libbindings.a"));
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_definitions.a"));
-            }
-            else
-            {
-                PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base.a"));
-            }
-
-            PublicDefinitions.Add(string.Format("WITH_V8=1"));
+            AddV8MonolithDefinitions();
 
             return true;
         }

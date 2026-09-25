@@ -13,9 +13,9 @@ monolithic static library per platform:
 | Platform | Lib | Status |
 |---|---|---|
 | Win64 | `ThirdParty/v8/lib/Win64/Release/v8_monolith.lib` | validated |
-| Android arm64-v8a (phones, Meta Quest) | `ThirdParty/v8/lib/Android/arm64-v8a/libv8_monolith.a` | builds + links |
-| Android x86_64 (emulator) | `ThirdParty/v8/lib/Android/x86_64/libv8_monolith.a` | validated (Android 15 emulator) |
-| Linux | — | in progress |
+| Android arm64-v8a (phones, Meta Quest) | `ThirdParty/v8/lib/Android/arm64-v8a/libv8_monolith.a` | validated |
+| Android x86_64 (emulator) | `ThirdParty/v8/lib/Android/x86_64/libv8_monolith.a` | validated |
+| Linux x86_64 | `ThirdParty/v8/lib/Linux/x86_64/libv8_monolith.a` | validated |
 
 ## Build & setup
 
@@ -35,8 +35,8 @@ build your project as usual (UE 5.8).
 ### Rebuilding V8 from source (only needed to bump the V8 version / add a platform)
 
 V8 has no prebuilt UE-compatible distribution, so it is built from source. The scripts in
-`ThirdParty/v8/build/` automate all of this (`Build-V8-Win64.ps1`, and `Build-V8-Android.sh` for
-Android from a Linux/WSL2 host); see its README. The manual Win64 recipe:
+`ThirdParty/v8/build/` automate all of this (`Build-V8-Win64.ps1`, plus `Build-V8-Android.sh` and
+`Build-V8-Linux.sh` from a Linux/WSL2 host); see its README. The manual Win64 recipe:
 
 1. Use an up-to-date **depot_tools** (the copy bundled with the UE toolchain is too old to
    parse modern V8 `DEPS`). `fetch v8`, then `git checkout branch-heads/14.6` and `gclient sync`.
@@ -60,7 +60,7 @@ Android from a Linux/WSL2 host); see its README. The manual Win64 recipe:
    `ThirdParty/v8/lib/<Platform>/Release/` and refresh `ThirdParty/v8/include/` from the checkout.
 
 `Source/V8/V8.Build.cs` links the monolith (plus `winmm/dbghelp/shlwapi/bcrypt` on Win64, `log` on
-Android), and on every platform defines
+Android; nothing extra on Linux), and on every platform defines
 `V8_COMPRESS_POINTERS`, `V8_31BIT_SMIS_ON_64BIT_ARCH`, and `V8_COMPRESS_POINTERS_IN_SHARED_CAGE`.
 These **must** match the gn args the lib was built with or every V8 handle silently corrupts.
 

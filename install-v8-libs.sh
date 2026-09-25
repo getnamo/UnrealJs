@@ -14,7 +14,7 @@ ZipFile=v8-$Version-libs.7z
 # GitHub release that hosts the v8-<Version>-libs.7z asset. Tag tracks the
 # plugin version (bump per release); adjust the base URL if you fork/host elsewhere.
 # Resolves to: $BaseUrl/$Tag/$ZipFile
-Tag=v2.2.0
+Tag=v2.3.0
 BaseUrl=https://github.com/getnamo/UnrealJs/releases/download
 
 # Locate 7-Zip (the libs archive is .7z for a smaller download).

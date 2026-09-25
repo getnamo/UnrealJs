@@ -14,8 +14,10 @@ version, rebuild, or add a platform.
 |------|---------|
 | `Build-V8-Win64.ps1` | One-command Win64 build: patch → configure → build → stage. Re-runnable (patching is idempotent). |
 | `Build-V8-Android.sh` | Android build (arm64 / x64) from a Linux or WSL2 host: setup → patch → ndk → configure → build → stage. Re-runnable per step. |
+| `Build-V8-Linux.sh` | Linux x64 build from a Linux or WSL2 host against UE's toolchain sysroot: setup → sysroot → patch → configure → build → stage. Can share the Android checkout. |
 | `args/win64.release.gn` | The UE-matched gn args (must stay in sync with the ABI defines in `Source/V8/V8.Build.cs`). |
 | `args/android.release.gn` | Android gn args template (same ABI args as Win64 + NDK/libc++ settings; the script fills in the arch/NDK/API level). |
+| `args/linux.release.gn` | Linux gn args template (same ABI args + UE sysroot/libc++ settings). |
 | `patches/*.patch` | The required V8-source patches as reference diffs (the script applies these automatically; the `.patch` files are the canonical record and are reusable for the Linux/Android bash flow). |
 | `vendored/interface-types.h` | The `v8::debug` console header V8 removed from its public include set; re-staged into `include/` after each build. |
 | `vendored/atomic_ref_compat.h` | C++20 `std::atomic_ref` for NDK libc++ (Android build only; see below). |
@@ -87,9 +89,32 @@ Why it's set up this way:
 - **Monolith, not thin archives**: the old Linux libs were thin archives that pointed at `.o` files that
   weren't shipped (getnamo/UnrealJs#10).
 
-## Notes / TODO
+## Linux
 
-- Linux build script is not written yet. Same approach as Android: `use_custom_libcxx=false` against
-  UE's bundled libc++ (the `v26_clang` cross-toolchain sysroot).
+Same host setup as Android (the two scripts can share `~/v8build/v8`).
+
+```bash
+./Build-V8-Linux.sh all x64
+# or, reusing an existing checkout:
+./Build-V8-Linux.sh sysroot && ./Build-V8-Linux.sh patch && ./Build-V8-Linux.sh configure &&   ./Build-V8-Linux.sh build && ./Build-V8-Linux.sh stage
+```
+
+UE builds Linux targets with its own cross-toolchain (`LINUX_MULTIARCH_ROOT`, e.g.
+`v26_clang-20.1.8-rockylinux8` for UE 5.8): the `x86_64-unknown-linux-gnu` sysroot (Rocky Linux glibc)
+plus its bundled **libc++ 20** (`std::__1`), linked statically. V8 is built against exactly that:
+
+- **`target_sysroot`** points gn at a Linux-filesystem copy of UE's sysroot (the `sysroot` step rsyncs it
+  from `UE_LINUX_TOOLCHAIN`, default `/mnt/c/UnrealToolchains/v26_clang-20.1.8-rockylinux8`).
+- **libc++ patch**: with `use_custom_libcxx=false` Chromium's Linux config falls back to libstdc++, so the
+  `patch` step adds UE's flags to `build/config/linux:runtime_library` (`-nostdinc++`,
+  `-isystem <sysroot>/include/c++/v1`, link `libc++.a` + `libc++abi.a`). libc++ 20 has `std::atomic_ref`,
+  so the Android shim isn't needed here.
+- **`use_glib=false`**: Chromium's desktop glib dependency isn't in UE's sysroot and V8 doesn't need it.
+- **`v8_monolithic_for_shared_library=true`**: the UE Linux editor links plugin modules into `.so` files, so
+  V8 must not use local-exec TLS (`R_X86_64_TPOFF32`, executable-only). Internal to V8; no UE define needed.
+- `stage` rejects thin archives (the old Linux libs were thin, getnamo/UnrealJs#10) and libs referencing
+  `std::__Cr` or libstdc++.
+
+When bumping UE, point `UE_LINUX_TOOLCHAIN` at the engine's toolchain version and rebuild.
 - If a future V8 version shifts the patched code, the script throws
   "Patch anchor not found" — update the anchor (or the `.patch`) to match.

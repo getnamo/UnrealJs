@@ -1,0 +1,30 @@
+# UE-matched gn args for building the V8 monolith for UnrealJs (Linux).
+# Template: Build-V8-Linux.sh substitutes @TARGET_CPU@ and @SYSROOT@.
+# These MUST stay in sync with the ABI defines in Source/V8/V8.Build.cs
+# (V8_COMPRESS_POINTERS / V8_31BIT_SMIS_ON_64BIT_ARCH /
+#  V8_COMPRESS_POINTERS_IN_SHARED_CAGE) or every V8 handle silently corrupts.
+target_os = "linux"
+target_cpu = "@TARGET_CPU@"
+target_sysroot = "@SYSROOT@"         # UE's cross-toolchain sysroot (glibc + bundled libc++), not Chromium's Debian one
+use_glib = false                     # Chromium desktop dep (pkg-config lookup in the sysroot); V8 doesn't use it
+
+# --- Same as Win64 / Android ---
+is_debug = false
+v8_monolithic = true
+v8_monolithic_for_shared_library = true  # no local-exec TLS: UE Linux editor links plugin modules into .so files
+v8_use_external_startup_data = false
+is_component_build = false
+v8_enable_i18n_support = false       # no ICU / icudtl.dat deployment dependency
+v8_enable_pointer_compression = true
+v8_enable_sandbox = false            # keep raw-pointer internal fields working
+use_allocator_shim = false           # don't override global operator new/delete (clashes with UE)
+v8_enable_temporal_support = false   # avoids an unbundled Rust (temporal_rs) link dependency
+treat_warnings_as_errors = false
+symbol_level = 0
+
+# --- C++ stdlib: UE's bundled libc++ (std::__1) from the sysroot, exactly what UE links.
+# Chromium's libc++ (std::__Cr) or the sysroot's libstdc++ won't link into UE.
+# The patch step adds -nostdinc++/-isystem <sysroot>/include/c++/v1 and links libc++.a/libc++abi.a.
+use_custom_libcxx = false
+use_clang_modules = false            # Chromium precompiles its bundled libc++ as modules; breaks with another libc++
+clang_use_chrome_plugins = false     # Chromium code-style plugins, irrelevant for a lib build
