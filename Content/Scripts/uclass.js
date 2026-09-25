@@ -7,18 +7,25 @@
         return typeof thing === 'function' && !thing.hasOwnProperty('arguments')
     }
    
+    function isNative (thing) {
+        return /\{\s*\[native code\]\s*\}\s*$/.test(Function.prototype.toString.call(thing))
+    }
+
     function getOwnPropertyNames (proto, stop) {
         let props = new Set();
         while (proto && proto !== stop) {
             Object.getOwnPropertyNames(proto).filter(name => {
                 let c = Object.getOwnPropertyDescriptor(proto, name);
-                return (c.get || c.set) == undefined;
+                return (c.get || c.set) == undefined && typeof c.value === 'function';
             }).forEach(name => {
                 props.add(name);
             });          
 
+            // Stop at the native (engine or generated) parent class. V8 14 no longer gives
+            // API functions an own 'arguments' property, so isClass alone lets the walk
+            // continue into the native prototypes.
             let parentClass = Object.getPrototypeOf(proto).constructor;
-            if (!isClass(parentClass) || parentClass == Object) {
+            if (!isClass(parentClass) || isNative(parentClass) || parentClass == Object) {
                 break;
             }     
             proto = Object.getPrototypeOf (proto);

@@ -1070,21 +1070,32 @@ public:
 			Class->StaticLink(true);
 
 			{
-				auto FinalClass = Context->Environment->ExportUClass(Class,false);
-				auto Prototype = FinalClass->PrototypeTemplate();
-
-				for (auto It = Others.CreateIterator(); It; ++It)
-				{
-					Prototype->Set(I.Keyword(It.Key()), It.Value());
-				}
-
-				Context->Environment->RegisterUClass(Class, FinalClass);
+				auto ClassTemplate = Context->Environment->ExportUClass(Class, false);
+				Context->Environment->RegisterUClass(Class, ClassTemplate);
 			}
 
 			auto FinalClass = Context->ExportObject(Class);
+			auto FinalClassObject = FinalClass->ToObject(context).ToLocalChecked();
+
+			// Plain JS methods (no UFUNCTION decoration) go on the exported constructor's
+			// prototype object: V8 >= 12 aborts on Template::Set with a non-primitive,
+			// non-Template value such as a JS function.
+			if (Others.Num() > 0)
+			{
+				auto maybe_Prototype = FinalClassObject->Get(context, I.Keyword("prototype"));
+				if (!maybe_Prototype.IsEmpty() && maybe_Prototype.ToLocalChecked()->IsObject())
+				{
+					auto PrototypeObject = maybe_Prototype.ToLocalChecked().As<Object>();
+					for (auto It = Others.CreateIterator(); It; ++It)
+					{
+						(void)PrototypeObject->Set(context, I.Keyword(It.Key()), It.Value());
+					}
+				}
+			}
+
 			if (!maybe_Functions.IsEmpty())
 			{
-				(void)FinalClass->ToObject(context).ToLocalChecked()->Set(context, I.Keyword("proxy"), maybe_Functions.ToLocalChecked());
+				(void)FinalClassObject->Set(context, I.Keyword("proxy"), maybe_Functions.ToLocalChecked());
 			}
 
 			info.GetReturnValue().Set(FinalClass);
