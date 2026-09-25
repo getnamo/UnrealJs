@@ -98,6 +98,21 @@ public class V8 : ModuleRules
         PrivateIncludePaths.Add(Path.Combine(WebsocketPath, "include", PlatformSubdir));
     }
 
+    // Shared by every platform linking the 14.6+ monolith.
+    private void AddV8MonolithDefinitions()
+    {
+        PublicDefinitions.Add("WITH_V8=1");
+        PublicDefinitions.Add("USING_V8_PLATFORM_SHARED=0");
+
+        // ABI defines MUST match the gn args the monolith was built with.
+        // Built with v8_enable_pointer_compression=true, v8_enable_sandbox=false.
+        // These control Tagged-pointer / Smi sizes in the public headers; a
+        // mismatch silently corrupts every handle. Do NOT define V8_ENABLE_SANDBOX.
+        PublicDefinitions.Add("V8_COMPRESS_POINTERS");
+        PublicDefinitions.Add("V8_31BIT_SMIS_ON_64BIT_ARCH");
+        PublicDefinitions.Add("V8_COMPRESS_POINTERS_IN_SHARED_CAGE");
+    }
+
     private bool LoadV8(ReadOnlyTargetRules Target)
     {
         int[] v8_version = GetV8Version();
@@ -128,36 +143,22 @@ public class V8 : ModuleRules
                 "winmm.lib", "dbghelp.lib", "shlwapi.lib", "bcrypt.lib"
             });
 
-            PublicDefinitions.Add(string.Format("WITH_V8=1"));
-
-            PublicDefinitions.Add(string.Format("USING_V8_PLATFORM_SHARED=0"));
-
-            // ABI defines MUST match the gn args the monolith was built with.
-            // Built with v8_enable_pointer_compression=true, v8_enable_sandbox=false.
-            // These control Tagged-pointer / Smi sizes in the public headers; a
-            // mismatch silently corrupts every handle. Do NOT define V8_ENABLE_SANDBOX.
-            PublicDefinitions.Add("V8_COMPRESS_POINTERS");
-            PublicDefinitions.Add("V8_31BIT_SMIS_ON_64BIT_ARCH");
-            PublicDefinitions.Add("V8_COMPRESS_POINTERS_IN_SHARED_CAGE");
+            AddV8MonolithDefinitions();
 
             return true;
         }
         else if (Target.Platform == UnrealTargetPlatform.Android)
         {
-            string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARM64");
-            //string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android", "ARMv7");
+            // One monolith per ABI (Releases/UnrealJs/make-v8-libs-android.sh), built against the
+            // NDK's static libc++ like UE. UBT keeps only the lib whose folder matches the
+            // architecture being compiled (arm64-v8a / x86_64).
+            string LibrariesPath = Path.Combine(ThirdPartyPath, "v8", "lib", "Android");
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "arm64-v8a", "libv8_monolith.a"));
+            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "x86_64", "libv8_monolith.a"));
 
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_init.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_initializers.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_base.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libbase.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libplatform.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_nosnapshot.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libv8_libsampler.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libtorque_generated_initializers.a"));
-            PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "libinspector.a"));
+            PublicSystemLibraries.Add("log");
 
-            PublicDefinitions.Add(string.Format("WITH_V8=1"));
+            AddV8MonolithDefinitions();
 
             return true;
         }

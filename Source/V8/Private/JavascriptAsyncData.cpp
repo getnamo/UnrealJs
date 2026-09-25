@@ -1,5 +1,3 @@
-#pragma once
-
 #include "JavascriptAsyncData.h"
 
 bool FJavascriptAsyncUtil::IsBgThread(EJavascriptAsyncOption Option)

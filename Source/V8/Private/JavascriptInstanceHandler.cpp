@@ -82,9 +82,10 @@ EJSInstanceResult FJavascriptInstanceHandler::RequestInstance(const FJSInstanceO
 	//Temp limit to gt only
 	if (InOptions.UsesGameThread())
 	{
-		//Find instance with same isolate domain
-		for (auto Instance : ThreadArray)
+		//Reuse the first instance on this thread
+		if (ThreadArray.Num() > 0)
 		{
+			TSharedPtr<FJavascriptInstance> Instance = ThreadArray[0];
 			Instance->IsolateDomain = InOptions.IsolateDomain;
 
 			if (OnDelayedResult)

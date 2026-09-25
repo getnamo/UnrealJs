@@ -1,0 +1,2 @@
+# Shell scripts must keep LF endings to run under Linux/WSL, whatever core.autocrlf is set to
+ThirdParty/v8/build/*.sh text eol=lf
