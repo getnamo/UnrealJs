@@ -1,6 +1,7 @@
 #include "JavascriptFileWatcherComponent.h"
 #include "DirectoryWatcher.h"
 #include "V8PCH.h"
+#include "IV8.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
@@ -71,10 +72,18 @@ void UJavascriptFileWatcherComponent::StartWatching()
 		return;
 	}
 
+	// Default: every directory scripts are loaded from (the project's and each plugin's Content/Scripts)
+	const bool bDefaultDirectories = Directories.Num() == 0;
 	TArray<FString> ToWatch;
-	if (Directories.Num() == 0)
+	if (bDefaultDirectories)
 	{
-		ToWatch.Add(ResolveDirectory(FString()));
+		for (const FString& SearchPath : IV8::Get().GetGlobalScriptSearchPaths())
+		{
+			// Search paths are relative to the process base dir, not to Content/Scripts
+			FString Directory = FPaths::ConvertRelativePathToFull(SearchPath);
+			FPaths::NormalizeDirectoryName(Directory);
+			ToWatch.AddUnique(Directory);
+		}
 	}
 	for (const FString& Directory : Directories)
 	{
@@ -86,7 +95,11 @@ void UJavascriptFileWatcherComponent::StartWatching()
 	{
 		if (!IFileManager::Get().DirectoryExists(*Directory))
 		{
-			UE_LOG(Javascript, Warning, TEXT("JavascriptFileWatcher: '%s' does not exist; not watching it"), *Directory);
+			// Some default search paths (engine/marketplace plugin locations) normally don't exist
+			if (!bDefaultDirectories)
+			{
+				UE_LOG(Javascript, Warning, TEXT("JavascriptFileWatcher: '%s' does not exist; not watching it"), *Directory);
+			}
 			continue;
 		}
 
@@ -112,6 +125,8 @@ void UJavascriptFileWatcherComponent::StartWatching()
 			Registrations.Add(Registration);
 		}
 	}
+
+	UE_LOG(Javascript, Log, TEXT("JavascriptFileWatcher: watching %s"), *FString::Join(GetWatchedDirectories(), TEXT(", ")));
 #endif
 }
 

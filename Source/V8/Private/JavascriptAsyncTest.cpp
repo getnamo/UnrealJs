@@ -15,6 +15,7 @@
 #include "JavascriptContext.h"
 #include "JavascriptAsync.h"
 #include "JavascriptInstanceComponent.h"
+#include "JavascriptFileWatcherComponent.h"
 #include <atomic>
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -590,6 +591,35 @@ bool FUnrealJsAsyncComponentReloadTest::RunTest(const FString& Parameters)
 
 	return true;
 }
+
+#if WITH_EDITOR
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUnrealJsFileWatcherPathsTest, "UnrealJS.Async.FileWatcherPaths",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FUnrealJsFileWatcherPathsTest::RunTest(const FString& Parameters)
+{
+	// By default the watcher covers every script search path, so saving a plugin's script reloads too
+	UJavascriptFileWatcherComponent* Watcher = NewObject<UJavascriptFileWatcherComponent>(GetTransientPackage());
+	Watcher->StartWatching();
+	const TArray<FString> Watched = Watcher->GetWatchedDirectories();
+	Watcher->StopWatching();
+
+	FString ProjectScripts = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir() / TEXT("Scripts"));
+	FPaths::NormalizeDirectoryName(ProjectScripts);
+	TestTrue(TEXT("watches the project's Content/Scripts"), !IFileManager::Get().DirectoryExists(*ProjectScripts) || Watched.Contains(ProjectScripts));
+	TestTrue(TEXT("watches a plugin's Content/Scripts"), Watched.ContainsByPredicate([](const FString& Directory)
+	{
+		return Directory.Contains(TEXT("/Plugins/")) && Directory.EndsWith(TEXT("/Content/Scripts"));
+	}));
+	for (const FString& Directory : Watched)
+	{
+		TestTrue(FString::Printf(TEXT("'%s' exists"), *Directory), IFileManager::Get().DirectoryExists(*Directory));
+	}
+	AddInfo(FString::Printf(TEXT("watched: %s"), *FString::Join(Watched, TEXT(", "))));
+
+	return true;
+}
+#endif
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUnrealJsAsyncExitTest, "UnrealJS.Async.ExitWithRunningWorker",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)

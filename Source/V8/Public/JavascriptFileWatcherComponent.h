@@ -7,9 +7,10 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FJsFileWatcherChangedSignature, const TArray<FString>&, ChangedFiles);
 
 /**
- * Watches script directories and fires OnFilesChanged once per save, e.g. to Reload() a
- * UJavascriptInstanceComponent when a script changes. Changes are collected until no new one
- * arrives for DebounceSeconds, so an editor's write-then-rename save reports once.
+ * Watches script directories (by default every script search path) and fires OnFilesChanged once
+ * per save, e.g. to Reload() a UJavascriptInstanceComponent when a script changes. Changes are
+ * collected until no new one arrives for DebounceSeconds, so an editor's write-then-rename save
+ * reports once.
  *
  * Editor builds only (uses the DirectoryWatcher module); in packaged builds it never fires.
  */
@@ -21,7 +22,10 @@ class V8_API UJavascriptFileWatcherComponent : public UActorComponent
 public:
 	UJavascriptFileWatcherComponent();
 
-	/** Directories to watch, including subdirectories. Relative paths resolve against the project's Content/Scripts. Empty = Content/Scripts */
+	/**
+	 * Directories to watch, including subdirectories. Relative paths resolve against the project's
+	 * Content/Scripts. Empty = every script search path (the project's and each plugin's Content/Scripts)
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Javascript File Watcher")
 	TArray<FString> Directories;
 

@@ -114,11 +114,26 @@ See `Content/Scripts/async.js` for the API and `Content/Scripts/async-worker.js`
 
 #### Live reload and pixels
 
-- `UJavascriptFileWatcherComponent` (editor builds) watches `Content/Scripts` (or `Directories`) and
-  fires `OnFilesChanged` once per save. Wire it to the instance component's `Reload()` in a
-  Blueprint to reload a script, and its workers, on ctrl+s.
+- `UJavascriptFileWatcherComponent` (editor builds) watches every script directory by default (the
+  project's and each plugin's `Content/Scripts`, or set `Directories`), and fires `OnFilesChanged`
+  once per save. Wire it to the instance component's `Reload()` in a Blueprint to reload a script,
+  and its workers, on ctrl+s.
 - `JavascriptLibrary.CreateTransientTexture2D(w, h)` and `JavascriptLibrary.UpdateTexture2D(texture, bytes)`
   let script show BGRA8 pixels, for example a frame a worker returned, on any material texture parameter.
+
+#### Example: reaction-diffusion on worker threads
+
+![Async.Lambda example: four reaction-diffusion simulations on worker threads](Resources/async-reaction-diffusion.jpg)
+
+`Content/Scripts/examples/async/async_reaction_diffusion.js` runs four Gray-Scott simulations, each on
+its own worker thread. The workers never wait for the game thread; the game thread only asks for each
+one's latest frame and uploads it to a texture, so it stays at full frame rate (above: 103 fps on the
+game thread while the workers run about 1,200 steps/s each). Edit the presets or grid size and save:
+a file watcher wired to `Reload()` stops the old workers and starts new ones in about a second. Set
+`RUN_ON_GAME_THREAD = true` to run the same simulations on the game thread for comparison.
+
+The script's header lists the actor it expects: a `JavascriptInstanceComponent` with the `Async`
+feature, plus four display planes and text labels.
 
 ### JavascriptInstance
 
