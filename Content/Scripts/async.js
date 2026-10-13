@@ -17,6 +17,13 @@
 // Workers belong to this context's 'Async' object, which its owning component shuts down on
 // reload and EndPlay, so a saved script never leaves old workers running.
 //
+// Typed arrays and ArrayBuffers anywhere in arguments and results travel as raw bytes, so frames,
+// meshes or sample buffers move between threads without per-element JSON. (The game thread reads
+// them through the 'memory' global when the context has it, i.e. the UnrealMemory feature.)
+//
+// Inside a worker, setTimeout / setInterval / setImmediate work, so a worker can free-run (e.g. a
+// simulation loop) and still answer calls between batches. Pending timers keep a one-shot alive.
+//
 // Wire protocol with the worker: see async-worker.js.
 
 (function () {
@@ -29,20 +36,94 @@
 
 	const handlers = new Map();	// lambdaId -> LambdaHandle
 
-	const parsePayload = (text) => {
+	// --- payload codec (keep in sync with async-worker.js) ---
+
+	const BINARY_TYPES = {
+		ArrayBuffer, DataView, Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array,
+		Int32Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array
+	};
+
+	// -> { text, bytes }: JSON text, plus one packed Uint8Array if the value held binary data
+	const encodePayload = (value) => {
+		if (value === undefined) {
+			return { text: '', bytes: undefined };
+		}
+		const blobs = [];
+		let total = 0;
+		const text = JSON.stringify(value, (key, v) => {
+			if (v === null || typeof v !== 'object') {
+				return v;
+			}
+			let view;
+			if (ArrayBuffer.isView(v)) {
+				view = new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+			} else if (v instanceof ArrayBuffer) {
+				view = new Uint8Array(v);
+			} else {
+				return v;
+			}
+			const offset = (total + 7) & ~7;	// keep every typed array aligned in the packed buffer
+			total = offset + view.byteLength;
+			blobs.push({ offset, view });
+			return { $bytes: v.constructor.name, offset, byteLength: view.byteLength };
+		});
+		if (blobs.length === 0) {
+			return { text: text === undefined ? '' : text, bytes: undefined };
+		}
+		const bytes = new Uint8Array(total);
+		for (const blob of blobs) {
+			bytes.set(blob.view, blob.offset);
+		}
+		return { text, bytes };
+	};
+
+	const decodePayload = (text, bytes) => {
 		if (text === undefined || text === null || text === '') {
 			return undefined;
 		}
 		try {
-			return JSON.parse(text);
+			if (!bytes) {
+				return JSON.parse(text);
+			}
+			return JSON.parse(text, (key, v) => {
+				if (v !== null && typeof v === 'object' && typeof v.$bytes === 'string' && BINARY_TYPES[v.$bytes]) {
+					const Type = BINARY_TYPES[v.$bytes];
+					const start = bytes.byteOffset + v.offset;
+					if (Type === ArrayBuffer) {
+						return bytes.buffer.slice(start, start + v.byteLength);
+					}
+					if (Type === DataView) {
+						return new DataView(bytes.buffer, start, v.byteLength);
+					}
+					return new Type(bytes.buffer, start, v.byteLength / Type.BYTES_PER_ELEMENT);
+				}
+				return v;
+			});
 		} catch (e) {
 			return text;
 		}
 	};
 
-	const stringifyPayload = (value) => {
-		const text = JSON.stringify(value);
-		return text === undefined ? '' : text;
+	// Bytes of the message being delivered, copied out of C++ (only valid during OnWorkerMessage)
+	const takeMessageBytes = (numBytes) => {
+		if (!(numBytes > 0)) {
+			return undefined;
+		}
+		if (typeof memory !== 'undefined' && memory.access) {
+			const external = memory.access(host.GetMessageBytes());
+			const copy = new Uint8Array(numBytes);
+			copy.set(new Uint8Array(external, 0, numBytes));
+			memory.unbind(external);	// detach: the C++ array is released after this call
+			return copy;
+		}
+		return Uint8Array.from(host.CopyMessageBytes());	// no 'memory' global: slower element-wise copy
+	};
+
+	const postToWorker = (lambdaId, kind, requestId, name, value) => {
+		const { text, bytes } = encodePayload(value);
+		return bytes
+			? host.PostToWorkerWithBytes(lambdaId, kind, requestId, name, text, bytes)
+			: host.PostToWorker(lambdaId, kind, requestId, name, text);
 	};
 
 	const errorPayload = (e) => JSON.stringify({
@@ -109,11 +190,14 @@
 				return Promise.reject(error);
 			}
 
-			const payload = stringifyPayload(args);
+			const { text, bytes } = encodePayload(args);
 			const requestId = ++this._nextRequestId;
 			const promise = new Promise((resolve, reject) => this._pending.set(requestId, { resolve, reject, callback }));
 
-			if (!host.PostToWorker(this.lambdaId, 'call', requestId, functionName, payload)) {
+			const posted = bytes
+				? host.PostToWorkerWithBytes(this.lambdaId, 'call', requestId, functionName, text, bytes)
+				: host.PostToWorker(this.lambdaId, 'call', requestId, functionName, text);
+			if (!posted) {
 				// The worker already exited; its 'stopped' notification rejects this call
 				Async.DevLog(`Async lambda ${this.lambdaId}: '${functionName}' posted after exit`);
 			}
@@ -153,12 +237,12 @@
 			}
 		}
 
-		_onMessage(kind, requestId, name, payload) {
+		_onMessage(kind, requestId, name, payload, bytes) {
 			Async.DevLog(`Async lambda ${this.lambdaId} <- ${kind} #${requestId} ${name}`);
 
 			switch (kind) {
 				case 'complete': {
-					const info = parsePayload(payload) || {};
+					const info = decodePayload(payload, bytes) || {};
 					this.exportNames = info.exports || [];
 					this.pinned = !!info.persistent;
 					this._resolveReady(info.result);
@@ -177,7 +261,7 @@
 						break;
 					}
 					this._pending.delete(requestId);
-					const value = parsePayload(payload);
+					const value = decodePayload(payload, bytes);
 					if (pending.callback) {
 						try {
 							pending.callback(value);
@@ -189,7 +273,7 @@
 					break;
 				}
 				case 'error': {
-					const info = parsePayload(payload);
+					const info = decodePayload(payload);
 					const error = errorFromInfo(info);
 					if (requestId > 0) {
 						const pending = this._pending.get(requestId);
@@ -205,7 +289,7 @@
 					break;
 				}
 				case 'bridge':
-					this._onBridge(requestId, name, payload);
+					this._onBridge(requestId, name, decodePayload(payload, bytes));
 					break;
 				case 'stopped':
 					this._onStopped();
@@ -213,25 +297,22 @@
 			}
 		}
 
-		_onBridge(requestId, name, payload) {
-			const reply = (kind, text) => {
-				if (!this.stopped) {
-					host.PostToWorker(this.lambdaId, kind, requestId, name, text);
-				}
-			};
+		_onBridge(requestId, name, args) {
 			const fail = (e) => {
 				this._reportError(e, false);
-				reply('bridge-error', errorPayload(e));
+				if (!this.stopped) {
+					host.PostToWorker(this.lambdaId, 'bridge-error', requestId, name, errorPayload(e));
+				}
 			};
 			const send = (value) => {
-				let text;
-				try {
-					text = stringifyPayload(value);
-				} catch (e) {
-					fail(e);
+				if (this.stopped) {
 					return;
 				}
-				reply('bridge-reply', text);
+				try {
+					postToWorker(this.lambdaId, 'bridge-reply', requestId, name, value);
+				} catch (e) {
+					fail(e);
+				}
 			};
 
 			const bridge = this.bridges[name];
@@ -242,7 +323,7 @@
 
 			let result;
 			try {
-				result = bridge(parsePayload(payload));
+				result = bridge(args);
 			} catch (e) {
 				fail(e);
 				return;
@@ -271,16 +352,18 @@
 		}
 	}
 
-	host.OnWorkerMessage = (kind, workerId, requestId, name, payload) => {
+	host.OnWorkerMessage = (kind, workerId, requestId, name, payload, numBytes) => {
+		// Copy the bytes out first: they are released when this call returns
+		const bytes = takeMessageBytes(numBytes);
 		const handler = handlers.get(workerId);
 		if (handler) {
-			handler._onMessage(kind, requestId, name, payload);
+			handler._onMessage(kind, requestId, name, payload, bytes);
 		}
 	};
 
 	Async.instance = host;		// legacy alias
 	Async.DevLog = () => {};	// assign console.log for message tracing
-	Async.ParseArgs = parsePayload;
+	Async.ParseArgs = (text) => decodePayload(text);
 
 	Async.TypeObj = (obj, showFullClass) => {
 		if (showFullClass && typeof obj === 'object') {

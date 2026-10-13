@@ -315,6 +315,13 @@ void FJavascriptWorker::RunIsolate(uintptr_t StackTop)
 					break;
 				}
 
+				// setTimeout/setInterval callbacks that are due (they may close a one-shot worker)
+				const int32 NextTimerMs = RunTimers(*Context);
+				if (bStopRequested || bCloseRequested)
+				{
+					break;
+				}
+
 				{
 					// This isolate's foreground tasks (GC jobs, finalization, ...) run here, on its own thread
 					v8::Isolate::Scope IsolateScope(V8Isolate);
@@ -324,8 +331,12 @@ void FJavascriptWorker::RunIsolate(uintptr_t StackTop)
 					V8Isolate->PerformMicrotaskCheckpoint();
 				}
 
-				// Woken by Post/RequestStop; the timeout only bounds how stale V8's own tasks can get
-				WakeEvent->Wait(IdlePumpIntervalMs);
+				// Woken by Post/RequestStop or the next timer; the idle timeout only bounds how stale V8's own tasks can get
+				const uint32 WaitMs = NextTimerMs < 0 ? IdlePumpIntervalMs : FMath::Min(static_cast<uint32>(NextTimerMs), IdlePumpIntervalMs);
+				if (WaitMs > 0)
+				{
+					WakeEvent->Wait(WaitMs);
+				}
 			}
 		}
 
@@ -352,7 +363,8 @@ void FJavascriptWorker::InstallBridge(FJavascriptContext& Context)
 
 	v8::Local<v8::External> Self = v8::External::New(V8Isolate, this);
 
-	// __worker.post(kind, requestId, name, payload): queue a message for the game thread
+	// __worker.post(kind, requestId, name, payload, bytes?): queue a message for the game thread.
+	// bytes (ArrayBuffer or a view) is copied, so the script may reuse its buffer right away.
 	auto PostCallback = [](const v8::FunctionCallbackInfo<v8::Value>& Info)
 	{
 		FJavascriptWorker* Worker = static_cast<FJavascriptWorker*>(Info.Data().As<v8::External>()->Value());
@@ -368,6 +380,24 @@ void FJavascriptWorker::InstallBridge(FJavascriptContext& Context)
 		Message.RequestId = Info.Length() > 1 ? Info[1]->Int32Value(CallIsolate->GetCurrentContext()).FromMaybe(0) : 0;
 		Message.Name = StringArg(2);
 		Message.Payload = StringArg(3);
+
+		if (Info.Length() > 4)
+		{
+			const v8::Local<v8::Value> BytesArg = Info[4];
+			if (BytesArg->IsArrayBufferView())
+			{
+				const v8::Local<v8::ArrayBufferView> View = BytesArg.As<v8::ArrayBufferView>();
+				Message.Bytes.SetNumUninitialized(static_cast<int32>(View->ByteLength()));
+				View->CopyContents(Message.Bytes.GetData(), Message.Bytes.Num());
+			}
+			else if (BytesArg->IsArrayBuffer())
+			{
+				const v8::Local<v8::ArrayBuffer> Buffer = BytesArg.As<v8::ArrayBuffer>();
+				Message.Bytes.SetNumUninitialized(static_cast<int32>(Buffer->ByteLength()));
+				FMemory::Memcpy(Message.Bytes.GetData(), Buffer->Data(), Message.Bytes.Num());
+			}
+		}
+
 		Worker->Outbox->Post(MoveTemp(Message));
 	};
 
@@ -436,12 +466,22 @@ void FJavascriptWorker::Dispatch(FJavascriptContext& Context, const FJavascriptW
 		return;
 	}
 
+	// Bytes arrive as a Uint8Array over a fresh buffer this isolate owns
+	v8::Local<v8::Value> BytesArg = v8::Undefined(V8Isolate);
+	if (Message.Bytes.Num() > 0)
+	{
+		const v8::Local<v8::ArrayBuffer> Buffer = v8::ArrayBuffer::New(V8Isolate, Message.Bytes.Num());
+		FMemory::Memcpy(Buffer->Data(), Message.Bytes.GetData(), Message.Bytes.Num());
+		BytesArg = v8::Uint8Array::New(Buffer, 0, Message.Bytes.Num());
+	}
+
 	// Payload travels as a string argument; it is never spliced into source
 	v8::Local<v8::Value> Args[] = {
 		V8_String(V8Isolate, Message.Kind),
 		v8::Integer::New(V8Isolate, Message.RequestId),
 		V8_String(V8Isolate, Message.Name),
-		V8_String(V8Isolate, Message.Payload)
+		V8_String(V8Isolate, Message.Payload),
+		BytesArg
 	};
 
 	v8::Local<v8::Value> Result;
@@ -449,6 +489,33 @@ void FJavascriptWorker::Dispatch(FJavascriptContext& Context, const FJavascriptW
 	{
 		ReportScriptError(V8Isolate, TryCatch, Message.RequestId, Message.Name);
 	}
+}
+
+int32 FJavascriptWorker::RunTimers(FJavascriptContext& Context)
+{
+	v8::Isolate* V8Isolate = Context.isolate();
+	v8::Isolate::Scope IsolateScope(V8Isolate);
+	v8::HandleScope HandleScope(V8Isolate);
+	v8::Local<v8::Context> V8Context = Context.context();
+	v8::Context::Scope ContextScope(V8Context);
+	v8::TryCatch TryCatch(V8Isolate);
+
+	v8::Local<v8::Object> Bridge = BridgeObject.Get(V8Isolate);
+	v8::Local<v8::Value> TickValue;
+	if (Bridge.IsEmpty() ||
+		!Bridge->Get(V8Context, V8_KeywordString(V8Isolate, "tick")).ToLocal(&TickValue) ||
+		!TickValue->IsFunction())
+	{
+		return -1;
+	}
+
+	v8::Local<v8::Value> Result;
+	if (!TickValue.As<v8::Function>()->Call(V8Context, Bridge, 0, nullptr).ToLocal(&Result))
+	{
+		ReportScriptError(V8Isolate, TryCatch, 0, TEXT("__timer"));
+		return -1;
+	}
+	return Result->Int32Value(V8Context).FromMaybe(-1);
 }
 
 void FJavascriptWorker::ReportScriptError(v8::Isolate* V8Isolate, v8::TryCatch& TryCatch, int32 RequestId, const FString& Name)

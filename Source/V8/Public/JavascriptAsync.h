@@ -2,13 +2,30 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "JavascriptMemoryObject.h"
 #include "JavascriptAsync.generated.h"
 
 class FJavascriptWorkerHost;
 struct FJavascriptWorkerMessage;
 
-/** Kind is one of: complete, reply, error, bridge, stopped (protocol documented in async.js) */
-DECLARE_DYNAMIC_DELEGATE_FiveParams(FJsWorkerMessageSignature, FString, Kind, int32, WorkerId, int32, RequestId, FString, Name, FString, Payload);
+/**
+ * Kind is one of: complete, reply, error, bridge, stopped (protocol documented in async.js).
+ * NumBytes > 0: the message carries bytes, readable during the call via GetMessageBytes().
+ */
+DECLARE_DYNAMIC_DELEGATE_SixParams(FJsWorkerMessageSignature, FString, Kind, int32, WorkerId, int32, RequestId, FString, Name, FString, Payload, int32, NumBytes);
+
+/** Bytes of the worker message being delivered. From JS: memory.access(Async.GetMessageBytes()) */
+UCLASS()
+class V8_API UJavascriptWorkerBytes : public UJavascriptMemoryObject
+{
+	GENERATED_BODY()
+
+public:
+	TArray<uint8> Bytes;
+
+	virtual void* GetMemory() override { return Bytes.GetData(); }
+	virtual int32 GetSize() override { return Bytes.Num(); }
+};
 
 /**
  * Game-thread facade over a set of background JS workers (Async.Lambda in async.js).
@@ -50,6 +67,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
 	bool PostToWorker(int32 WorkerId, const FString& Kind, int32 RequestId, const FString& Name, const FString& Payload);
 
+	/** PostToWorker with bytes attached (from JS, pass a Uint8Array) */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	bool PostToWorkerWithBytes(int32 WorkerId, const FString& Kind, int32 RequestId, const FString& Name, const FString& Payload, const TArray<uint8>& Bytes);
+
+	/**
+	 * The bytes of the message currently being delivered to OnWorkerMessage, as a memory object
+	 * (zero-copy ArrayBuffer via memory.access). Only valid during that call: copy what you keep.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	UJavascriptMemoryObject* GetMessageBytes() const;
+
+	/** Copy of the current message's bytes, for contexts without the 'memory' global (slower) */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	TArray<uint8> CopyMessageBytes() const;
+
 	/** Exposes a UObject as a global in a running worker. The worker keeps it alive until it exits */
 	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
 	bool ExposeObjectInWorker(int32 WorkerId, UObject* Object, const FString& Name);
@@ -82,9 +114,12 @@ public:
 	virtual void BeginDestroy() override;
 
 protected:
-	void HandleWorkerMessage(const FJavascriptWorkerMessage& Message);
+	void HandleWorkerMessage(FJavascriptWorkerMessage& Message);
 
 	TSharedPtr<FJavascriptWorkerHost> Host;
+
+	UPROPERTY()
+	TObjectPtr<UJavascriptWorkerBytes> MessageBytes;
 
 	TArray<TPair<FString, TWeakObjectPtr<UObject>>> PreExposures;
 };

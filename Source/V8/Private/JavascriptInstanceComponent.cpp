@@ -106,7 +106,7 @@ void UJavascriptInstanceComponent::StartupInstanceAndRun()
 				Expose(TEXT("Async"), AsyncFacade);
 				//Run javascript wrapping code for this exposure. Allows raw function passing
 				FString Content = Instance->ContextSettings.Context->ReadScriptFile(TEXT("async.js"));
-				Instance->ContextSettings.Context->Public_RunScript(Content);
+				Instance->ContextSettings.Context->Public_RunScript(Content, false);
 				//Instance->ContextSettings.Context->Public_RunFile(TEXT("async.js"));
 			}
 			if (InstanceOptions.Features.FeatureMap.Contains("UModule"))

@@ -1182,15 +1182,14 @@ public:
 				//for now we only support Uint8ArrayView
 				if (Value->IsUint8Array())
 				{
-					//Get the view and fill it
+					//Copy the view's own range (not its whole backing buffer: views can be offset/partial)
 					v8::Local<v8::Uint8Array> view = Value.As<v8::Uint8Array>();
-					uint8* RawMemoryPtr = (uint8*)view->Buffer()->Data();
-					int32 RawMemorySize = (int32)view->Buffer()->ByteLength();
+					const int32 RawMemorySize = (int32)view->ByteLength();
 
-					//copy over
-					FScriptArrayHelper ArrayHelper(p, Buffer);
+					//Buffer is the container (e.g. a UFUNCTION's parms), not the array itself
+					FScriptArrayHelper_InContainer ArrayHelper(p, Buffer);
 					ArrayHelper.EmptyAndAddUninitializedValues(RawMemorySize);
-					FGenericPlatformMemory::Memcpy(ArrayHelper.GetRawPtr(), RawMemoryPtr, RawMemorySize);
+					view->CopyContents(ArrayHelper.GetRawPtr(), RawMemorySize);
 				}
 				else
 				{
@@ -1453,15 +1452,15 @@ public:
 		Template->PrototypeTemplate()->Set(I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn)));
 	}
 
-	struct FunctionTemplateHelper
+	struct ObjectTemplateHelper
 	{
 		FIsolateHelper I;
-		Handle<FunctionTemplate> Template;
+		Handle<ObjectTemplate> Template;
 
 		template <typename T>
 		void Set(const char* name, T&& fn)
 		{
-			Template->PrototypeTemplate()->Set(I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn)));
+			Template->Set(I.Keyword(name), I.FunctionTemplate(FV8Exception::GuardLambda(fn)));
 		}
 	};
 
@@ -1469,8 +1468,8 @@ public:
 	{
 		FIsolateHelper I(isolate_);
 
-		Local<FunctionTemplate> Template = I.FunctionTemplate();
-		FunctionTemplateHelper FnHelper{ I, Template };	
+		Local<ObjectTemplate> Template = ObjectTemplate::New(isolate_);
+		ObjectTemplateHelper FnHelper{ I, Template };
 
 		FnHelper.Set("access", [](const FunctionCallbackInfo<Value>& info)
 		{
@@ -1645,14 +1644,10 @@ public:
 			}
 		});
 
-		global_templ->SetNativeDataProperty(
-			I.Keyword("memory"),
-			V8_ReturnDataGetter,
-			nullptr,
-			// Create an instance (carried as the native data property's data)
-			Template->GetFunction(isolate_->GetCurrentContext()).ToLocalChecked()->NewInstance(isolate_->GetCurrentContext()).ToLocalChecked(),
-			// Do not modify!
-			ReadOnly);
+		// A plain data property: every context gets its own 'memory' object from this template.
+		// (Accessor-style native/lazy data properties on the global template make V8 14 load the
+		// AccessorInfo itself as the value, so any memory.* call aborted the process.)
+		global_templ->Set(I.Keyword("memory"), Template, ReadOnly);
 	}
 
 	template <typename Fn>

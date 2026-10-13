@@ -5,12 +5,14 @@
 UJavascriptAsync::UJavascriptAsync(class FObjectInitializer const& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	MessageBytes = ObjectInitializer.CreateDefaultSubobject<UJavascriptWorkerBytes>(this, TEXT("MessageBytes"));
+
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
 		Host = MakeShared<FJavascriptWorkerHost>();
 
 		TWeakObjectPtr<UJavascriptAsync> WeakThis(this);
-		Host->OnMessage = [WeakThis](const FJavascriptWorkerMessage& Message)
+		Host->OnMessage = [WeakThis](FJavascriptWorkerMessage& Message)
 		{
 			if (UJavascriptAsync* This = WeakThis.Get())
 			{
@@ -74,6 +76,32 @@ bool UJavascriptAsync::PostToWorker(int32 WorkerId, const FString& Kind, int32 R
 	return Host->Post(WorkerId, MoveTemp(Message));
 }
 
+bool UJavascriptAsync::PostToWorkerWithBytes(int32 WorkerId, const FString& Kind, int32 RequestId, const FString& Name, const FString& Payload, const TArray<uint8>& Bytes)
+{
+	if (!Host.IsValid())
+	{
+		return false;
+	}
+
+	FJavascriptWorkerMessage Message;
+	Message.Kind = Kind;
+	Message.RequestId = RequestId;
+	Message.Name = Name;
+	Message.Payload = Payload;
+	Message.Bytes = Bytes;
+	return Host->Post(WorkerId, MoveTemp(Message));
+}
+
+UJavascriptMemoryObject* UJavascriptAsync::GetMessageBytes() const
+{
+	return MessageBytes;
+}
+
+TArray<uint8> UJavascriptAsync::CopyMessageBytes() const
+{
+	return MessageBytes ? MessageBytes->Bytes : TArray<uint8>();
+}
+
 bool UJavascriptAsync::ExposeObjectInWorker(int32 WorkerId, UObject* Object, const FString& Name)
 {
 	return Host.IsValid() && Host->Expose(WorkerId, Object, Name);
@@ -133,7 +161,19 @@ void UJavascriptAsync::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-void UJavascriptAsync::HandleWorkerMessage(const FJavascriptWorkerMessage& Message)
+void UJavascriptAsync::HandleWorkerMessage(FJavascriptWorkerMessage& Message)
 {
-	OnWorkerMessage.ExecuteIfBound(Message.Kind, Message.WorkerId, Message.RequestId, Message.Name, Message.Payload);
+	const int32 NumBytes = Message.Bytes.Num();
+	if (MessageBytes)
+	{
+		MessageBytes->Bytes = MoveTemp(Message.Bytes);
+	}
+
+	OnWorkerMessage.ExecuteIfBound(Message.Kind, Message.WorkerId, Message.RequestId, Message.Name, Message.Payload, NumBytes);
+
+	// Valid only during the call above; release it rather than keep the largest frame around
+	if (MessageBytes && NumBytes > 0)
+	{
+		MessageBytes->Bytes.Empty();
+	}
 }

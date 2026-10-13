@@ -27,6 +27,8 @@
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "EngineUtils.h"
+#include "Engine/Texture2D.h"
+#include "RHITypes.h"
 PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 struct FPrivateSocketHandle
@@ -1135,4 +1137,51 @@ bool UJavascriptLibrary::WriteCSV(const FString& InPath, TArray<FJavascriptRow>&
 	}
 
 	return WriteStringToFile(nullptr, *InPath, CSVStr, EncodingOptions);
+}
+
+UTexture2D* UJavascriptLibrary::CreateTransientTexture2D(int32 Width, int32 Height, bool bSRGB, bool bFilterNearest)
+{
+	if (Width <= 0 || Height <= 0)
+	{
+		return nullptr;
+	}
+
+	UTexture2D* Texture = UTexture2D::CreateTransient(Width, Height, PF_B8G8R8A8);
+	if (Texture)
+	{
+		Texture->SRGB = bSRGB;
+		Texture->Filter = bFilterNearest ? TF_Nearest : TF_Bilinear;
+		Texture->AddressX = TA_Clamp;
+		Texture->AddressY = TA_Clamp;
+		Texture->UpdateResource();
+	}
+	return Texture;
+}
+
+bool UJavascriptLibrary::UpdateTexture2D(UTexture2D* Texture, const TArray<uint8>& Pixels)
+{
+	if (!Texture || Texture->GetPixelFormat() != PF_B8G8R8A8)
+	{
+		UE_LOG(Javascript, Warning, TEXT("UpdateTexture2D: expected a BGRA8 texture from CreateTransientTexture2D"));
+		return false;
+	}
+
+	const int32 Width = Texture->GetSizeX();
+	const int32 Height = Texture->GetSizeY();
+	if (Pixels.Num() != Width * Height * 4)
+	{
+		UE_LOG(Javascript, Warning, TEXT("UpdateTexture2D: got %d bytes for a %dx%d texture (expected %d)"), Pixels.Num(), Width, Height, Width * Height * 4);
+		return false;
+	}
+
+	// The render thread reads the region and pixels later; it frees both when done
+	FUpdateTextureRegion2D* Region = new FUpdateTextureRegion2D(0, 0, 0, 0, Width, Height);
+	uint8* Data = static_cast<uint8*>(FMemory::Malloc(Pixels.Num()));
+	FMemory::Memcpy(Data, Pixels.GetData(), Pixels.Num());
+	Texture->UpdateTextureRegions(0, 1, Region, Width * 4, 4, Data, [](uint8* SrcData, const FUpdateTextureRegion2D* Regions)
+	{
+		FMemory::Free(SrcData);
+		delete Regions;
+	});
+	return true;
 }

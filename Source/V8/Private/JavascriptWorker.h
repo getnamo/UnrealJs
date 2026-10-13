@@ -34,6 +34,9 @@ struct FJavascriptWorkerMessage
 	FString Name;
 	FString Payload;
 
+	/** Raw bytes riding with the payload (typed arrays in the value, see the codec in async.js) */
+	TArray<uint8> Bytes;
+
 	/** Kind "expose" only. Kept alive by the worker's strong references, which live on the game thread */
 	UObject* Object = nullptr;
 };
@@ -94,6 +97,9 @@ private:
 	void InstallBridge(FJavascriptContext& Context);
 	bool RunScript(FJavascriptContext& Context, const FString& FileName, const FString& Source);
 	void Dispatch(FJavascriptContext& Context, const FJavascriptWorkerMessage& Message);
+
+	/** Runs due worker timers (__worker.tick). Returns ms until the next timer, or -1 if none */
+	int32 RunTimers(FJavascriptContext& Context);
 	void ReportScriptError(v8::Isolate* V8Isolate, v8::TryCatch& TryCatch, int32 RequestId, const FString& Name);
 
 	const int32 Id;
@@ -155,7 +161,8 @@ public:
 	int32 NumWorkers() const { return Workers.Num(); }
 	bool IsShutdown() const { return bIsShutdown; }
 
-	TFunction<void(const FJavascriptWorkerMessage&)> OnMessage;
+	/** Game thread. The handler may take Message.Bytes */
+	TFunction<void(FJavascriptWorkerMessage&)> OnMessage;
 
 	/** Module shutdown: stops every live worker in the process. False if some never exited */
 	static bool ShutdownAllWorkers(uint32 TimeoutMs);

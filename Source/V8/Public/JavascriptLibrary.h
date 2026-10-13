@@ -666,4 +666,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Scripting | Javascript")
 	static TArray<UActorComponent*> GetComponentsByClass(AActor* Actor, TSubclassOf<UActorComponent> ComponentClass);
+
+	/** Creates a transient BGRA8 texture that script can write pixels into with UpdateTexture2D */
+	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	static UTexture2D* CreateTransientTexture2D(int32 Width, int32 Height, bool bSRGB = true, bool bFilterNearest = false);
+
+	/**
+	 * Uploads Width * Height * 4 bytes of BGRA8 pixels (rows top to bottom) to a texture made by
+	 * CreateTransientTexture2D. From JS, pass a Uint8Array. Returns false on a size or format mismatch.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Scripting|Javascript")
+	static bool UpdateTexture2D(UTexture2D* Texture, const TArray<uint8>& Pixels);
 };

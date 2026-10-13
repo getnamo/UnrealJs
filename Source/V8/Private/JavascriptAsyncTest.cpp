@@ -228,6 +228,121 @@ bool FUnrealJsAsyncMessagingTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUnrealJsAsyncBinaryTest, "UnrealJS.Async.Binary",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FUnrealJsAsyncBinaryTest::RunTest(const FString& Parameters)
+{
+	FAsyncTestEnv Env(*this);
+	if (!Env.Init())
+	{
+		return false;
+	}
+
+	// Typed arrays anywhere in a payload cross threads as raw bytes, both directions
+	Env.Run(TEXT(R"JS(
+		globalThis.T = {};
+		globalThis.l = Async.Lambda({ echo: (x) => x }, () => {
+			exports.scale = (a) => ({ f: a.f.map((x) => x * 2), raw: a.raw, n: a.n, nested: { d: new Float64Array([a.n, 0.5]) } });
+			exports.image = (a) => { const px = new Uint8Array(a.w * a.h * 4); for (let i = 0; i < px.length; i++) { px[i] = i & 255; } return px; };
+			exports.viaBridge = async () => { const back = await echo({ i: new Int32Array([-7, 8]) }); return back.i instanceof Int32Array ? Array.from(back.i).join() : 'not typed'; };
+		});
+		l.onerror = (e) => { T.error = e.message; };
+		const big = new Uint8Array(64);
+		for (let i = 0; i < 64; i++) { big[i] = i; }
+		(async () => {
+			const r = await l.exports.scale({ f: new Float32Array([1, 2.5, -3]), raw: big.subarray(3, 7), n: 9 });
+			T.f = r.f instanceof Float32Array ? Array.from(r.f).join() : 'not typed';
+			T.raw = Array.from(r.raw).join();
+			T.d = r.nested.d instanceof Float64Array ? Array.from(r.nested.d).join() : 'not typed';
+			const px = await l.exports.image({ w: 192, h: 192 });
+			T.px = (px instanceof Uint8Array) + ',' + px.length + ',' + px[300] + ',' + px[147455];
+			T.bridge = await l.exports.viaBridge();
+			T.done = true;
+		})();
+	)JS"));
+
+	TestTrue(TEXT("binary calls finished"), Env.PumpUntil(TEXT("T.done || T.error")));
+	TestEqual(TEXT("Float32Array round-trip"), Env.Run(TEXT("T.f")), FString(TEXT("2,5,-6")));
+	TestEqual(TEXT("subarray sent by its own range"), Env.Run(TEXT("T.raw")), FString(TEXT("3,4,5,6")));
+	TestEqual(TEXT("nested Float64Array"), Env.Run(TEXT("T.d")), FString(TEXT("9,0.5")));
+	TestEqual(TEXT("147 KB Uint8Array frame"), Env.Run(TEXT("T.px")), FString(TEXT("true,147456,44,255")));
+	TestEqual(TEXT("typed array through a GT bridge and back"), Env.Run(TEXT("T.bridge")), FString(TEXT("-7,8")));
+	TestEqual(TEXT("no errors"), Env.Run(TEXT("String(T.error)")), FString(TEXT("undefined")));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUnrealJsAsyncTimersTest, "UnrealJS.Async.Timers",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FUnrealJsAsyncTimersTest::RunTest(const FString& Parameters)
+{
+	const int32 BaselineThreads = UJavascriptAsync::NumLiveWorkerThreads();
+
+	FAsyncTestEnv Env(*this);
+	if (!Env.Init())
+	{
+		return false;
+	}
+
+	Env.Run(TEXT(R"JS(
+		globalThis.T = {};
+		// A pending timer keeps a one-shot alive; it exits after the last one fires
+		globalThis.oneShot = Async.Lambda({ done: (v) => { T.done = v; } }, () => {
+			let n = 0;
+			const id = setInterval(() => { n++; if (n === 3) { clearInterval(id); setTimeout(() => done(n), 20); } }, 5);
+		});
+		// A free-running loop still answers calls between batches
+		globalThis.loop = Async.Lambda(() => {
+			let generation = 0;
+			const run = () => { generation++; setTimeout(run, 0); };
+			run();
+			exports.generation = () => generation;
+		});
+		loop.onerror = oneShot.onerror = (e) => { T.error = e.message; };
+		(async () => {
+			const a = await loop.exports.generation();
+			const b = await loop.exports.generation();
+			T.loop = [a, b];
+		})();
+	)JS"));
+
+	TestTrue(TEXT("interval + timeout ran and the one-shot exited"), Env.PumpUntil(TEXT("T.done !== undefined && oneShot.stopped")));
+	TestEqual(TEXT("interval fired 3 times"), Env.Run(TEXT("String(T.done)")), FString(TEXT("3")));
+	TestTrue(TEXT("free-running worker answered"), Env.PumpUntil(TEXT("T.loop !== undefined")));
+	TestEqual(TEXT("and kept advancing"), Env.Run(TEXT("String(T.loop[1] > T.loop[0] && T.loop[0] > 0)")), FString(TEXT("true")));
+	TestEqual(TEXT("no errors"), Env.Run(TEXT("String(T.error)")), FString(TEXT("undefined")));
+
+	Env.ShutdownAsync();
+	TestTrue(TEXT("free-running worker stopped on shutdown"), WaitForLiveWorkerThreads(BaselineThreads));
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUnrealJsTextureUploadTest, "UnrealJS.Async.TextureUpload",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FUnrealJsTextureUploadTest::RunTest(const FString& Parameters)
+{
+	FAsyncTestEnv Env(*this);
+	if (!Env.Init())
+	{
+		return false;
+	}
+
+	// The subarray is offset into a larger buffer: only its own 32 bytes may be copied
+	TestEqual(TEXT("create + upload from a Uint8Array subarray"), Env.Run(TEXT(R"JS(
+		(() => {
+			const texture = JavascriptLibrary.CreateTransientTexture2D(4, 2, true, false);
+			const buffer = new Uint8Array(64).fill(200);
+			return [texture.Blueprint_GetSizeX(), texture.Blueprint_GetSizeY(), JavascriptLibrary.UpdateTexture2D(texture, buffer.subarray(16, 48))].join();
+		})()
+	)JS")), FString(TEXT("4,2,true")));
+
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FUnrealJsAsyncOneShotTest, "UnrealJS.Async.OneShotNoLeak",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 

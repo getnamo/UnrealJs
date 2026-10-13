@@ -102,11 +102,23 @@ lambda.stop();
   UObjects are exposed in the worker as globals.
 - A lambda that defines `exports` (or passes `{persist: true}`) stays alive to serve calls until
   `stop()`; otherwise its worker exits once the body and any bridge calls settle.
+- Typed arrays and ArrayBuffers anywhere in arguments and results travel as raw bytes in both
+  directions, so a worker can return e.g. a frame of pixels without per-element JSON.
+- Inside a worker, `setTimeout`/`setInterval`/`setImmediate` work. A worker can free-run (say, a
+  simulation loop) and still answer calls between batches.
 - Workers belong to the `Async` object of the `UJavascriptInstanceComponent` that started them
   (feature `Async`). `Reload()`, EndPlay and engine exit stop and join them, interrupting script
   that never yields, so saving a script never leaves old workers running.
 
 See `Content/Scripts/async.js` for the API and `Content/Scripts/async-worker.js` for the worker side.
+
+#### Live reload and pixels
+
+- `UJavascriptFileWatcherComponent` (editor builds) watches `Content/Scripts` (or `Directories`) and
+  fires `OnFilesChanged` once per save. Wire it to the instance component's `Reload()` in a
+  Blueprint to reload a script, and its workers, on ctrl+s.
+- `JavascriptLibrary.CreateTransientTexture2D(w, h)` and `JavascriptLibrary.UpdateTexture2D(texture, bytes)`
+  let script show BGRA8 pixels, for example a frame a worker returned, on any material texture parameter.
 
 ### JavascriptInstance
 
