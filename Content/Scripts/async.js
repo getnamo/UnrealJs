@@ -1,285 +1,358 @@
-//Js wrapper to enable raw function passing
+// Async.Lambda: run a function on a background worker with its own thread and V8 isolate.
+//
+//   const lambda = Async.Lambda({value: 1, notify}, () => {
+//       exports.work = (args) => { notify('working'); return args.a + value; };
+//       return 'ready';
+//   }, (result, lambda) => console.log(result));
+//
+//   lambda.exports.work({a: 2}, (r) => console.log(r));   // callback style
+//   const r = await lambda.exports.work({a: 2});           // promise style, rejects with the worker's stack
+//
+// Captures are the lambda's only view of this scope: plain values are copied (JSON), functions
+// become async bridges back to the game thread (callable as fn(args, callback) or await fn(args)),
+// and UObjects are exposed in the worker as globals.
+//
+// Lifetime: a lambda that defines exports (or passes {persist: true}) stays alive to serve calls
+// until lambda.stop(); otherwise its worker exits once the body and any bridge calls settle.
+// Workers belong to this context's 'Async' object, which its owning component shuts down on
+// reload and EndPlay, so a saved script never leaves old workers running.
+//
+// Wire protocol with the worker: see async-worker.js.
 
-/*
-NB: PoC, the wrapping logic is not currently secure. The instance is directly exposed.
-Todo: securely wrap each js module to keep private parts fairly private. 
-*/
-//We should only use one instance to handle all lambda logic
-Async.instance = Async.StaticInstance();
-Async.instance.Callbacks = {};
-Async.DevLog = console.log;
+(function () {
+	'use strict';
 
-Async.TypeObj = (obj, showFullClass) => {
+	const host = Async;
 
-	// get toPrototypeString() of obj (handles all types)
-	if (showFullClass && typeof obj === "object") {
-		return Object.prototype.toString.call(obj);
-	}
-	if (obj == null) { return (obj + '').toLowerCase(); } // implicit toString() conversion
+	const RESERVED_CAPTURE_NAMES = new Set(['exports', '__worker', '__lambda']);
+	const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
-	var deepType = Object.prototype.toString.call(obj).slice(8,-1).toLowerCase();
-	if (deepType === 'generatorfunction') { return 'function' }
+	const handlers = new Map();	// lambdaId -> LambdaHandle
 
-	// Prevent overspecificity (for example, [object HTMLDivElement], etc).
-	// Account for functionish Regexp (Android <=2.3), functionish <object> element (Chrome <=57, Firefox <=52), etc.
-	// String.prototype.match is universally supported.
-
-	return deepType.match(/^(array|bigint|date|error|function|generator|regexp|symbol)$/) ? deepType :
-	   (typeof obj === 'object' || typeof obj === 'function') ? 'object' : typeof obj;
-}
-
-//Safe way of handling json parsing
-Async.ParseArgs = (args)=>{
-    try {
-        return JSON.parse(args);
-    } catch (e) {
-    	//arrays may get passed straight through and identify as objects
-    	if(typeof(args) === 'object'){
-    		return args;
-    	}
-    	//console.log(e)
-
-    	if(typeof(args) === 'string'){
-    		return args;
-    	}
-    	else{
-        	return null;
-    	}
-    }
-}
-
-class CallbackHandler {
-	constructor(lambdaId){
-		this.return = ()=>{};
-		this.bridges = {};
-		this.lambdaId = lambdaId? lambdaId: -1;
-		this.pinned = false;
-
-		this.onMessage = (event, data)=>{};
-		this.messageCallbacks = {};
-		this.callbackId = 0;
-		this.exports = {};	//todo potentially: support transparent export links so we could do lambda.exports.functionName();
-	}
-
-	//called per exposed GT function
-	_addBridge(name, bridgeFunction){
-
-		//Wrap the necessary js callback function, this will actually call the bridge function in OnAsyncCall
-		let exposeDefinition = 
-				`const ${name} = (_GTArgs, _resultCallback)=>{\n` +
-				`_asyncUtil.CallbackIndex++;\n` +
-				`_asyncUtil.Callbacks['${name}-'+_asyncUtil.CallbackIndex] = _resultCallback;\n` +
-				//`if(_resultCallback != undefined){ _asyncUtil.Callbacks['${name}-'+_asyncUtil.CallbackIndex] = _resultCallback;}\n` + 
-				`_asyncUtil.CallFunction('${name}', _GTArgs ? JSON.stringify(_GTArgs) : '', ${this.lambdaId}, _asyncUtil.CallbackIndex);\n` + 
-				`}\n`;
-
-		//store the GT bridge function with a parse and result callback wrapper. OnAsyncCall call this bridge
-		this.bridges[name] = (args, callbackId)=>{
-			//parse args if necessary
-			args = Async.ParseArgs(args);
-
-			//run bridge function
-			const result = bridgeFunction(args);
-
-			//Async.DevLog(`Received BT call ${name}, with ${args}`);
-			//Async.DevLog(bridgeFunction.toString());
-
-			//did the function produce a result?
-			if(result != undefined){
-				//callback to BT with result without expecting receipt (-1)
-				Async.instance.CallScriptFunction(this.lambdaId, `_asyncUtil.Callbacks['${name}-${callbackId}']`, JSON.stringify(result), -1);
-			}
-
-			//cleanup callback
-			Async.instance.RunScriptInLambda(this.lambdaId, `if (_asyncUtil.Callbacks['${name}-${callbackId}']) {delete _asyncUtil.Callbacks['${name}-${callbackId}']};`);
+	const parsePayload = (text) => {
+		if (text === undefined || text === null || text === '') {
+			return undefined;
 		}
-		
-		return exposeDefinition;
-	}
-
-	//lambda return callback
-	_setReturn(returnCallback){
-		this.return = (jsonValue)=>{
-			returnCallback(jsonValue, this);
-		};
-	}
-
-	//PUBLIC API: Function used to run remote thread function from GT
-	call(functionName, args, callback){
-		//no param case
-		if(typeof(args) === 'function'){
-			callback = args;
-			args = null;
+		try {
+			return JSON.parse(text);
+		} catch (e) {
+			return text;
 		}
+	};
 
-		let localCallbackId = 0;
-		if(callback){
-			this.callbackId++;
-			this.messageCallbacks[this.callbackId] = callback;
-			localCallbackId = this.callbackId;
+	const stringifyPayload = (value) => {
+		const text = JSON.stringify(value);
+		return text === undefined ? '' : text;
+	};
+
+	const errorPayload = (e) => JSON.stringify({
+		message: (e && e.message !== undefined) ? String(e.message) : String(e),
+		stack: (e && e.stack) ? String(e.stack) : undefined
+	});
+
+	const errorFromInfo = (info) => {
+		const error = new Error((info && info.message) || String(info));
+		if (info && info.stack) {
+			error.stack = info.stack;
 		}
+		return error;
+	};
 
-		Async.instance.CallScriptFunction(this.lambdaId, 'exports.' + functionName, JSON.stringify(args), localCallbackId);
-	}
+	const logError = (e) => console.error((e && e.stack) || String(e));
 
-	//PUBLIC API: stop the lambda and cleanup
-	stop(){
-		console.log('lambda stop received.');
-		
-		Async.instance.StopLambda(this.lambdaId);
+	const isUObject = (value) => value !== null && typeof value === 'object' && value.GetObjectClass !== undefined;
 
-		//todo: cleanup handler data
-		delete Async.instance.Callbacks[this.lambdaId];
-	}
+	class LambdaHandle {
+		constructor(lambdaId, bridges, returnCallback) {
+			this.lambdaId = lambdaId;
+			this.bridges = bridges;
+			this.pinned = false;	// true once the worker reports it stays alive (exports or persist)
+			this.stopped = false;
+			this.exportNames = [];
 
-	//PUBLIC API: expose uobject
-	exposeAs(object, name){
-		Async.instance.ExposeObjectInLambda(this.lambdaId, object, name);
-	}
-};
+			// (error) => {}: receives worker errors. Unset, errors go to console.error
+			this.onerror = undefined;
 
-Async.instance.OnLambdaComplete = (resultString, lambdaId, callbackId /*not used for completion*/) => {
-	const result = Async.ParseArgs(resultString);
-	const handler = Async.instance.Callbacks[lambdaId];
+			this._returnCallback = returnCallback;
+			this._pending = new Map();
+			this._nextRequestId = 0;
 
-	//Async.DevLog(`OnLambdaComplete: ${resultString}, ${lambdaId}, ${callbackId}, ${JSON.stringify(handler)}`)
+			// Resolves with the lambda's return value; rejects if the body throws or the worker stops first
+			this.ready = new Promise((resolve, reject) => {
+				this._resolveReady = resolve;
+				this._rejectReady = reject;
+			});
+			this.ready.catch(() => {});
 
-	if(handler != undefined){
-		//first: fill the returned exports
-		if(handler.pinned && handler.return){
-			result.exports.forEach(functionName => {
-				handler.exports[functionName] = (args, callback)=>{
-					handler.call(functionName, args, callback);
-				}
+			// Callable immediately: calls queue in the worker behind its bootstrap
+			this.exports = new Proxy({}, {
+				get: (target, name) => (typeof name === 'string' && name !== 'then')
+					? (args, callback) => this.call(name, args, callback)
+					: undefined,
+				ownKeys: () => [...this.exportNames],
+				getOwnPropertyDescriptor: (target, name) => this.exportNames.includes(name)
+					? { configurable: true, enumerable: true, value: (args, callback) => this.call(name, args, callback) }
+					: undefined
 			});
 		}
-		
-		//call the return callback
-		try{
-			handler.return(result.result);
-		}
-		catch(e){
-			Async.DevLog(e.stack);	
-		}
 
-		//cleanup if not pinned
-		if(!handler.pinned){
-			Async.DevLog('Lambda cleaned up');
-			delete Async.instance.Callbacks[lambdaId];
-		}
-	}
-};
-
-Async.instance.OnMessage = (message, lambdaId, callbackId) => {
-	//Async.DevLog('Got message: ' + message + ' from ' + lambaId);
-	const handler = Async.instance.Callbacks[lambdaId];
-
-	if(handler != undefined){
-		if(handler.messageCallbacks[callbackId] != undefined){
-			handler.messageCallbacks[callbackId](message);
-			delete handler.messageCallbacks[callbackId];
-		}
-	}
-};
-
-//Call from BT to GT functions
-Async.instance.OnAsyncCall = (name, args, lambdaId, callbackId) => {
-	const handler = Async.instance.Callbacks[lambdaId];
-
-	if(handler != undefined){
-		if(handler.bridges[name] != undefined){
-			//Async.DevLog(`name: ${name} args:${args} id: ${lambdaId}`);
-			//Async.DevLog(handler.bridges[name].toString());
-			handler.bridges[name](args, callbackId);
-		}
-	}
-};
-
-//console.log(JSON.stringify(Async.instance))
-
-Async.Lambda = (capture, rawFunction, callback, {enableRequire=false}={})=>{
-	let captureString = "";
-	let handler = new CallbackHandler(Async.instance.NextLambdaId());
-
-	let didFindFunctions = false;	//affects whether we want to pin the lambda after run, 
-									//or if it's disposable
-
-	Async.instance.ClearPreExposures();
-
-	if(typeof(capture) === 'function'){
-		//we don't have captures, it's expecting (function, callback)
-		callback = rawFunction;
-		rawFunction = capture;
-	}
-	else{
-		//find all function passes
-		for(let key in capture) {
-			const keyType = typeof(capture[key]);
-
-			if(keyType === 'function'){
-				//Async.DevLog(`found function ${key}`);
-				captureString += handler._addBridge(key, capture[key]);
-
-				//captureString += 'console.log("Global: " + JSON.stringify(globalThis));\n';
-				didFindFunctions = true;	//pinning should only happen if we export?
+		// Calls exports[functionName](args) in the worker. Returns a promise; callback is optional
+		call(functionName, args, callback) {
+			if (typeof args === 'function' && callback === undefined) {
+				callback = args;
+				args = undefined;
 			}
-			else if (capture[key].GetObjectClass !== undefined){
-				//console.log('this one right here');
-				Async.instance.PreExposeObject(capture[key], key);
 
-				console.log('pre exposed: ' + key);
+			if (this.stopped) {
+				const error = new Error(`Async lambda ${this.lambdaId} is stopped; cannot call '${functionName}'`);
+				this._reportError(error, false);
+				return Promise.reject(error);
 			}
-			else{
-				captureString += `let ${key} = _asyncUtil.parseArgs(${JSON.stringify(capture[key])});\n`;
+
+			const payload = stringifyPayload(args);
+			const requestId = ++this._nextRequestId;
+			const promise = new Promise((resolve, reject) => this._pending.set(requestId, { resolve, reject, callback }));
+
+			if (!host.PostToWorker(this.lambdaId, 'call', requestId, functionName, payload)) {
+				// The worker already exited; its 'stopped' notification rejects this call
+				Async.DevLog(`Async lambda ${this.lambdaId}: '${functionName}' posted after exit`);
+			}
+			return promise;
+		}
+
+		// Stops the worker (interrupting running script). Pending calls reject
+		stop() {
+			if (!this.stopped) {
+				host.StopWorker(this.lambdaId);
 			}
 		}
 
-		//stringification and parsing will end up with the object value of the capture
-		//captureString = "let capture = JSON.parse('"+ JSON.stringify(capture) + "');\n";
+		terminate() {
+			this.stop();
+		}
+
+		// Exposes a UObject as a global in the worker; the worker keeps it alive until it exits
+		exposeAs(object, name) {
+			host.ExposeObjectInWorker(this.lambdaId, object, name);
+		}
+
+		// Runs raw source at the worker's global scope (fire and forget)
+		runScript(source) {
+			host.PostToWorker(this.lambdaId, 'eval', 0, '', source);
+		}
+
+		_reportError(error, alreadyLogged) {
+			if (typeof this.onerror === 'function') {
+				try {
+					this.onerror(error);
+				} catch (e) {
+					logError(e);
+				}
+			} else if (!alreadyLogged) {
+				console.error(`Async lambda ${this.lambdaId}: ${error.stack || error.message}`);
+			}
+		}
+
+		_onMessage(kind, requestId, name, payload) {
+			Async.DevLog(`Async lambda ${this.lambdaId} <- ${kind} #${requestId} ${name}`);
+
+			switch (kind) {
+				case 'complete': {
+					const info = parsePayload(payload) || {};
+					this.exportNames = info.exports || [];
+					this.pinned = !!info.persistent;
+					this._resolveReady(info.result);
+					if (this._returnCallback) {
+						try {
+							this._returnCallback(info.result, this);
+						} catch (e) {
+							logError(e);
+						}
+					}
+					break;
+				}
+				case 'reply': {
+					const pending = this._pending.get(requestId);
+					if (!pending) {
+						break;
+					}
+					this._pending.delete(requestId);
+					const value = parsePayload(payload);
+					if (pending.callback) {
+						try {
+							pending.callback(value);
+						} catch (e) {
+							logError(e);
+						}
+					}
+					pending.resolve(value);
+					break;
+				}
+				case 'error': {
+					const info = parsePayload(payload);
+					const error = errorFromInfo(info);
+					if (requestId > 0) {
+						const pending = this._pending.get(requestId);
+						if (pending) {
+							this._pending.delete(requestId);
+							pending.reject(error);
+						}
+					} else if (name === '__main') {
+						this._rejectReady(error);
+					}
+					// Errors raised by the C++ side were already written to the log
+					this._reportError(error, !!(info && info.logged));
+					break;
+				}
+				case 'bridge':
+					this._onBridge(requestId, name, payload);
+					break;
+				case 'stopped':
+					this._onStopped();
+					break;
+			}
+		}
+
+		_onBridge(requestId, name, payload) {
+			const reply = (kind, text) => {
+				if (!this.stopped) {
+					host.PostToWorker(this.lambdaId, kind, requestId, name, text);
+				}
+			};
+			const fail = (e) => {
+				this._reportError(e, false);
+				reply('bridge-error', errorPayload(e));
+			};
+			const send = (value) => {
+				let text;
+				try {
+					text = stringifyPayload(value);
+				} catch (e) {
+					fail(e);
+					return;
+				}
+				reply('bridge-reply', text);
+			};
+
+			const bridge = this.bridges[name];
+			if (typeof bridge !== 'function') {
+				fail(new Error(`no captured function '${name}'`));
+				return;
+			}
+
+			let result;
+			try {
+				result = bridge(parsePayload(payload));
+			} catch (e) {
+				fail(e);
+				return;
+			}
+
+			if (result && typeof result.then === 'function') {
+				result.then(send, fail);
+			} else {
+				send(result);
+			}
+		}
+
+		_onStopped() {
+			if (this.stopped) {
+				return;
+			}
+			this.stopped = true;
+			handlers.delete(this.lambdaId);
+
+			const error = new Error(`Async lambda ${this.lambdaId} stopped`);
+			for (const pending of this._pending.values()) {
+				pending.reject(error);
+			}
+			this._pending.clear();
+			this._rejectReady(error);	// no-op if the body already completed
+		}
 	}
-	
-	//function JSON stringifies any result
-	const wrappedFunctionString = `\nJSON.stringify({
-		result: lambda(), 
-		exports: Object.getOwnPropertyNames(exports)
-	});\n`;
 
-	//try{ lambda() } catch(e){ console.log('caught something'); }
-	const finalScript = `\nglobalThis.exports = {}; \nglobalThis.lambda = undefined; \n{\n` + 
-						`\t_asyncUtil.parseArgs = ${Async.ParseArgs.toString()}\n` + 
-						`\tlambda = ${rawFunction.toString()};\n` + 
-						`\t` + captureString + 
-						`\t` + wrappedFunctionString + 
-						'\n}';
+	host.OnWorkerMessage = (kind, workerId, requestId, name, payload) => {
+		const handler = handlers.get(workerId);
+		if (handler) {
+			handler._onMessage(kind, requestId, name, payload);
+		}
+	};
 
+	Async.instance = host;		// legacy alias
+	Async.DevLog = () => {};	// assign console.log for message tracing
+	Async.ParseArgs = parsePayload;
 
-	//look for exported functions (rough method)
-	if(finalScript.includes('exports.')){
-		didFindFunctions = true;
-		//Async.DevLog('found functions');
-	}
-	handler.pinned = didFindFunctions;
-	
-	//Debug log final script
-	Async.DevLog(`Script: <${finalScript}>, found functions: ${didFindFunctions}`);
-	const lambdaId = Async.instance.RunScript(finalScript, 'ThreadPool', didFindFunctions, enableRequire);
+	Async.TypeObj = (obj, showFullClass) => {
+		if (showFullClass && typeof obj === 'object') {
+			return Object.prototype.toString.call(obj);
+		}
+		if (obj == null) {
+			return (obj + '').toLowerCase();
+		}
 
-	handler.lambdaId = lambdaId;
-	handler._setReturn(callback);
+		const deepType = Object.prototype.toString.call(obj).slice(8, -1).toLowerCase();
+		if (deepType === 'generatorfunction') {
+			return 'function';
+		}
 
-	//Async.DevLog(`handler: ${JSON.stringify(handler)}`);
+		return deepType.match(/^(array|bigint|date|error|function|generator|regexp|symbol)$/) ? deepType :
+			(typeof obj === 'object' || typeof obj === 'function') ? 'object' : typeof obj;
+	};
 
-	//wrap the callback with a JSON.parse so the return value is in object form
-	Async.instance.Callbacks[lambdaId] = handler;
+	// Async.Lambda(capture, fn, callback?, {enableRequire, persist}?) or Async.Lambda(fn, callback?, options?)
+	// callback(result, lambda) runs on the game thread once the lambda body returns (or its promise resolves).
+	Async.Lambda = (capture, rawFunction, callback, options) => {
+		if (typeof capture === 'function') {
+			options = callback;
+			callback = rawFunction;
+			rawFunction = capture;
+			capture = {};
+		}
+		if (typeof rawFunction !== 'function') {
+			throw new TypeError('Async.Lambda: expected a function to run');
+		}
+		const { enableRequire = false, persist = false } = options || {};
 
-	//return a bridge callback
-	return handler;
-};
+		const bridges = {};
+		let declarations = '';
+		host.ClearPreExposures();
 
-Async.RunScript = (scriptText, executionContext) => {
-	executionContext = executionContext ? executionContext : 'ThreadPool';
+		for (const key of Object.keys(capture || {})) {
+			if (!IDENTIFIER.test(key) || RESERVED_CAPTURE_NAMES.has(key)) {
+				throw new Error(`Async.Lambda: capture name '${key}' is not usable (must be an identifier, not ${[...RESERVED_CAPTURE_NAMES].join('/')})`);
+			}
 
-	Async.instance.RunScript(scriptText, executionContext);
-};
+			const value = capture[key];
+			if (typeof value === 'function') {
+				bridges[key] = value;
+				declarations += `const ${key} = __worker.bridge(${JSON.stringify(key)});\n`;
+			} else if (isUObject(value)) {
+				host.PreExposeObject(value, key);
+			} else {
+				declarations += `let ${key} = ${value === undefined ? 'undefined' : JSON.stringify(value)};\n`;
+			}
+		}
 
-console.log('async.js loaded');
+		// Captures are block-scoped around the lambda, so its source sees them as free variables
+		const source = `(function () {\n${declarations}const __lambda = (${rawFunction.toString()});\n` +
+			`__worker.runMain(__lambda, ${persist ? 'true' : 'false'});\n})();\n`;
+		Async.DevLog(`Async.Lambda source:\n${source}`);
+
+		const lambdaId = host.SpawnWorker(source, enableRequire);
+		const handler = new LambdaHandle(lambdaId, bridges, callback);
+		if (!lambdaId) {
+			// Owner already shut down (stale script after a reload) or no thread available
+			console.error('Async.Lambda: could not start a worker');
+			handler._onStopped();
+			return handler;
+		}
+
+		handlers.set(lambdaId, handler);
+		return handler;
+	};
+
+	// Runs raw script text at a one-shot worker's global scope; callback gets the completion value
+	Async.RunScript = (scriptText, callback) => Async.Lambda({ __script: String(scriptText) }, () => (0, eval)(__script), callback);
+
+	Async.DevLog('async.js loaded');
+})();

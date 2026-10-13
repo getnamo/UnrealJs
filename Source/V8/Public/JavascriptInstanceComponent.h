@@ -4,6 +4,8 @@
 #include "JavascriptInstanceHandler.h"
 #include "JavascriptInstanceComponent.generated.h"
 
+class UJavascriptAsync;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FJsInstBPNoParamDelegate);
 
 DECLARE_DYNAMIC_DELEGATE(FJsInstNoParamDelegate);
@@ -117,6 +119,10 @@ protected:
 
 	UPROPERTY()
 	UJavascriptContext* ContextReflection;	//only used for console
+
+	//Owns this instance's Async.Lambda workers ('Async' feature); shut down before the context on reload/EndPlay
+	UPROPERTY()
+	UJavascriptAsync* AsyncFacade;
 
 };
 

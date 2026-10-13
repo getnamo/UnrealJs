@@ -7,6 +7,8 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "JavascriptContext.h"
 #include "JavascriptStats.h"
 #include "JavascriptSettings.h"
+#include "JavascriptWorker.h"
+#include "Delegates.h"
 #include "Containers/Ticker.h"
 #include "Containers/Queue.h"
 #include "Misc/Paths.h"
@@ -98,8 +100,9 @@ public:
 		Settings.Apply();
 
 		FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FV8Module::OnPreGarbageCollection);
+		v8::IDelegateManager::RegisterGarbageCollectionHook();
 
-		platform_ = v8::platform::NewDefaultPlatform(0, v8::platform::IdleTaskSupport::kEnabled);
+		platform_ =v8::platform::NewDefaultPlatform(0, v8::platform::IdleTaskSupport::kEnabled);
 		V8::InitializeICUDefaultLocation(nullptr);
 		V8::InitializePlatform(platform_.get());
 		V8::Initialize();
@@ -111,6 +114,15 @@ public:
 	virtual void ShutdownModule() override
 	{
 		FCoreUObjectDelegates::GetPreGarbageCollectDelegate().RemoveAll(this);
+		v8::IDelegateManager::UnregisterGarbageCollectionHook();
+
+		// Async workers dispose their own isolates on their own threads; they must be gone before V8 is
+		if (!FJavascriptWorkerHost::ShutdownAllWorkers(FJavascriptWorkerHost::DefaultStopTimeoutMs))
+		{
+			// A worker is stuck in native code with a live isolate; tearing V8 down under it would crash
+			(void)platform_.release();
+			return;
+		}
 
 		V8::Dispose();
 		V8::DisposePlatform();

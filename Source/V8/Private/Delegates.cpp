@@ -3,6 +3,7 @@
 #include "Translator.h"
 #include "JavascriptStats.h"
 #include "UObject/GCObject.h"
+#include <atomic>
 #include "../../Launch/Resources/Version.h"
 #include "v8-version.h"
 
@@ -322,20 +323,27 @@ public:
 	}
 };
 
+namespace
+{
+	// Bumped once per UE garbage collection by a single game-thread listener (see
+	// IDelegateManager::RegisterGarbageCollectionHook). Managers compare against it instead of
+	// each registering with FCoreUObjectDelegates, which is not safe from worker threads.
+	std::atomic<uint32> GDelegateGCEpoch{ 0 };
+	FDelegateHandle GDelegateGCHookHandle;
+}
+
 struct FDelegateManager : IDelegateManager
 {
 	Isolate* isolate_;
 
 	FDelegateManager(Isolate* isolate)
 		: isolate_(isolate)
+		, SeenGCEpoch(GDelegateGCEpoch.load())
 	{
-		FCoreUObjectDelegates::GetPostGarbageCollect().AddRaw(this, &FDelegateManager::OnPostGarbageCollect);
 	}
 
 	virtual ~FDelegateManager()
 	{
-		FCoreUObjectDelegates::GetPostGarbageCollect().RemoveAll(this);
-
 		PurgeAllDelegates();
 	}
 
@@ -345,12 +353,7 @@ struct FDelegateManager : IDelegateManager
 	}
 
 	TSet<TSharedPtr<FJavascriptDelegate>> Delegates;
-	bool bGarbageCollected = false;
-
-	void OnPostGarbageCollect()
-	{
-		bGarbageCollected = true;
-	}
+	uint32 SeenGCEpoch;
 
 	void CollectGarbageDelegates()
 	{
@@ -376,11 +379,12 @@ struct FDelegateManager : IDelegateManager
 
 	Local<Object> CreateDelegate(UObject* Object, FProperty* Property)
 	{
-		if (bGarbageCollected)
+		const uint32 CurrentGCEpoch = GDelegateGCEpoch.load();
+		if (SeenGCEpoch != CurrentGCEpoch)
 		{
 			//@HACK
 			CollectGarbageDelegates();
-			bGarbageCollected = false;
+			SeenGCEpoch = CurrentGCEpoch;
 		}
 
 		TSharedPtr<FJavascriptDelegate> payload = MakeShareable(new FJavascriptDelegate(Object, Property));
@@ -415,6 +419,27 @@ namespace v8
 	IDelegateManager* IDelegateManager::Create(Isolate* isolate)
 	{
 		return new FDelegateManager(isolate);
+	}
+
+	void IDelegateManager::RegisterGarbageCollectionHook()
+	{
+		check(IsInGameThread());
+		if (!GDelegateGCHookHandle.IsValid())
+		{
+			GDelegateGCHookHandle = FCoreUObjectDelegates::GetPostGarbageCollect().AddLambda([]()
+			{
+				GDelegateGCEpoch.fetch_add(1);
+			});
+		}
+	}
+
+	void IDelegateManager::UnregisterGarbageCollectionHook()
+	{
+		if (GDelegateGCHookHandle.IsValid())
+		{
+			FCoreUObjectDelegates::GetPostGarbageCollect().Remove(GDelegateGCHookHandle);
+			GDelegateGCHookHandle.Reset();
+		}
 	}
 }
 

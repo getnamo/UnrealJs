@@ -42,7 +42,12 @@ public:
 
 	FDelegateHandle OnWorldCleanupHandle;
 
-	static FJavascriptIsolate* Create(bool bIsEditor);
+	/**
+	 * bIsWorker: the isolate is created, run, pumped and disposed on one dedicated
+	 * worker thread (see JavascriptWorker.h). Worker isolates are not pumped by the
+	 * game-thread core ticker and skip game-thread-only UObject reflection walks.
+	 */
+	static FJavascriptIsolate* Create(bool bIsEditor, bool bIsWorker = false);
 	static v8::Local<v8::Value> ReadProperty(v8::Isolate* isolate, FProperty* Property, uint8* Buffer, const IPropertyOwner& Owner, const FPropertyAccessorFlags& Flags = FPropertyAccessorFlags());
 	static void WriteProperty(v8::Isolate* isolate, FProperty* Property, uint8* Buffer, v8::Handle<v8::Value> Value, const IPropertyOwner& Owner, const FPropertyAccessorFlags& Flags = FPropertyAccessorFlags());
 	static v8::Local<v8::Value> ExportStructInstance(v8::Isolate* isolate, UScriptStruct* Struct, uint8* Buffer, const IPropertyOwner& Owner);

@@ -15,6 +15,7 @@ UJavascriptInstanceComponent::UJavascriptInstanceComponent(const FObjectInitiali
 	InspectorPort = 9229;
 
 	Instance = nullptr;
+	AsyncFacade = nullptr;
 	MainHandler = FJavascriptInstanceHandler::GetMainHandler().Pin();
 }
 
@@ -101,7 +102,8 @@ void UJavascriptInstanceComponent::StartupInstanceAndRun()
 			}
 			if (InstanceOptions.Features.FeatureMap.Contains("Async"))
 			{
-				Expose(TEXT("Async"), NewObject<UJavascriptAsync>(this));
+				AsyncFacade = NewObject<UJavascriptAsync>(this);
+				Expose(TEXT("Async"), AsyncFacade);
 				//Run javascript wrapping code for this exposure. Allows raw function passing
 				FString Content = Instance->ContextSettings.Context->ReadScriptFile(TEXT("async.js"));
 				Instance->ContextSettings.Context->Public_RunScript(Content);
@@ -200,6 +202,19 @@ void UJavascriptInstanceComponent::ShutDownInstance()
 	bShouldScriptRun = false;
 
 	OnEndPlay.ExecuteIfBound();
+
+	//Stop this instance's Async.Lambda workers while the context that owns their callbacks still exists
+	if (AsyncFacade)
+	{
+		AsyncFacade->Shutdown();
+		AsyncFacade = nullptr;
+	}
+
+	if (!Instance.IsValid())
+	{
+		OnShutdownCompleteCallback.Broadcast();
+		return;
+	}
 
 	//Close thread loop cleanly
 	if (!InstanceOptions.UsesGameThread())

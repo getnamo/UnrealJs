@@ -1,104 +1,90 @@
 #pragma once
 
-#include "JavascriptInstanceHandler.h"
-#include "JavascriptContext.h"
+#include "CoreMinimal.h"
+#include "UObject/Object.h"
 #include "JavascriptAsync.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE(FJsLambdaNoParamSignature);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FJsLambdaIdSignature, int32, LambdaId);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FJsLambdaMessageSignature, FString, Message, int32, LambdaId, int32, CallbackId);
-DECLARE_DYNAMIC_DELEGATE_FourParams(FJsLambdaAsyncFuncSignature, FString, Name, FString, Args, int32, LambdaId, int32, CallbackId);
+class FJavascriptWorkerHost;
+struct FJavascriptWorkerMessage;
 
-class UJavascriptAsync;
+/** Kind is one of: complete, reply, error, bridge, stopped (protocol documented in async.js) */
+DECLARE_DYNAMIC_DELEGATE_FiveParams(FJsWorkerMessageSignature, FString, Kind, int32, WorkerId, int32, RequestId, FString, Name, FString, Payload);
 
-/** used in Js to call functions on game thread */
-UCLASS(BlueprintType, ClassGroup = Script, Blueprintable)
-class UJavascriptCallableWrapper : public UObject
-{
-	GENERATED_UCLASS_BODY()
-public:
-	UFUNCTION(BlueprintCallable)
-	void CallFunction(FString FunctionName, FString Args, int32 LambdaId, int32 CallbackId = -1);
-
-	//Set
-	void SetLambdaLink(UJavascriptAsync* Link) { LambdaLink = Link;};
-
-protected:
-	UJavascriptAsync* LambdaLink;
-};
-
-
+/**
+ * Game-thread facade over a set of background JS workers (Async.Lambda in async.js).
+ *
+ * Each worker runs on its own thread with its own isolate. Workers are owned by this object:
+ * Shutdown() (called by the owning component on reload/EndPlay) or destruction stops and joins
+ * them, so no worker outlives the script context that started it.
+ */
 UCLASS(BlueprintType, ClassGroup = Script, Blueprintable)
 class V8_API UJavascriptAsync : public UObject
 {
 	GENERATED_UCLASS_BODY()
 public:
 
-	UFUNCTION(BlueprintCallable)
+	/**
+	 * Legacy accessor: returns a new instance owned by Owner (the transient package if null).
+	 * It is not rooted; it lives while referenced and stops its workers when collected.
+	 * Prefer the 'Async' object exposed by UJavascriptInstanceComponent, which is shut down on reload.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
 	static UJavascriptAsync* StaticInstance(UObject* Owner = nullptr);
 
+	/** Worker -> game thread messages, delivered on the game thread once per tick */
 	UPROPERTY()
-	FJsLambdaMessageSignature OnLambdaComplete;
+	FJsWorkerMessageSignature OnWorkerMessage;
 
-	/** Lambda callback*/
-	UPROPERTY()
-	FJsLambdaMessageSignature OnMessage;
-
-	/** Js Async calls from background thread*/
-	UPROPERTY()
-	FJsLambdaAsyncFuncSignature OnAsyncCall;
-
-	/** sometimes we need the next lambda early */
-	UFUNCTION(BlueprintCallable)
-	int32 NextLambdaId();
-
-	/** Called by Async.js to expose uobjects before main script runs */
-	UFUNCTION(BlueprintCallable)
+	/** Queue a UObject to be exposed as a global in the next spawned worker */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
 	void PreExposeObject(UObject* Object, const FString& Name);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
 	void ClearPreExposures();
 
-	/** Run script on background thread, returns unique id for this run*/
-	UFUNCTION(BlueprintCallable)
-	int32 RunScript(const FString& Script, 
-					EJavascriptAsyncOption ExecutionContext = EJavascriptAsyncOption::ThreadPool, 
-					bool bPinAfterRun = false,
-					bool bEnableRequire = false);
+	/** Starts a worker running Source (after async-worker.js). Consumes pre-exposures. Returns the worker id, 0 on failure */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	int32 SpawnWorker(const FString& Source, bool bEnableRequire = false);
 
-	/** calls function on remote thread and gives result in 'OnMessage' */
-	UFUNCTION(BlueprintCallable)
-	void CallScriptFunction(int32 InLambdaId, const FString& FunctionName, const FString& Args, int32 CallbackId = 0);
+	/** Sends a message to a worker (kinds: call, bridge-reply, bridge-error, eval). False if the worker is gone */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	bool PostToWorker(int32 WorkerId, const FString& Kind, int32 RequestId, const FString& Name, const FString& Payload);
 
-	/** runs script on remote thread. ignores any result */
-	UFUNCTION(BlueprintCallable)
-	void RunScriptInLambda(int32 InLambdaId, const FString& Script);
+	/** Exposes a UObject as a global in a running worker. The worker keeps it alive until it exits */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	bool ExposeObjectInWorker(int32 WorkerId, UObject* Object, const FString& Name);
 
-	/** Attempts to expose an already created uobject on remote thread */
-	UFUNCTION(BlueprintCallable)
-	void ExposeObjectInLambda(int32 InLambdaId, UObject* Object, const FString& Name);
+	/** Non-blocking stop: terminates running script; OnWorkerMessage gets "stopped" when the thread exits */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	void StopWorker(int32 WorkerId);
 
-	/** if this lambda is pinned, it will unpin it*/
-	UFUNCTION(BlueprintCallable)
-	void StopLambda(int32 InLambdaId);
+	/** Blocking (bounded) stop of every worker owned by this object */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	void StopAllWorkers();
+
+	UFUNCTION(BlueprintPure, Category = "Javascript|Async")
+	int32 NumWorkers() const;
+
+	/** Delivers pending worker messages now instead of on the next tick */
+	UFUNCTION(BlueprintCallable, Category = "Javascript|Async")
+	void ProcessWorkerMessages();
+
+	/** Live worker threads in the whole process (diagnostics/tests) */
+	UFUNCTION(BlueprintPure, Category = "Javascript|Async")
+	static int32 NumLiveWorkerThreads();
 
 	/**
-	To allow raw function passing we will load in a script that 
-	wraps functions with the necessary
-	*/
+	 * Owner teardown (script reload, EndPlay): unbinds OnWorkerMessage, then stops and joins all
+	 * workers. Afterwards spawning is refused, so stale script can't start new workers.
+	 */
+	void Shutdown();
 
 	virtual void BeginDestroy() override;
 
 protected:
-	static EAsyncExecution ToAsyncExecution(EJavascriptAsyncOption ExecutionContext);
+	void HandleWorkerMessage(const FJavascriptWorkerMessage& Message);
 
-	static int32 IdCounter;
-	static TSharedPtr<FJavascriptInstanceHandler> MainHandler;
-	TSharedPtr<FJavascriptInstance> LambdaInstance;
+	TSharedPtr<FJavascriptWorkerHost> Host;
 
-	TMap<FString, UObject*> PreExposures;
-
-	UJavascriptCallableWrapper* CallableWrapper;
-
-	FJavascriptAsyncLambdaMapData LambdaMapData;
+	TArray<TPair<FString, TWeakObjectPtr<UObject>>> PreExposures;
 };

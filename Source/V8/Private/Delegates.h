@@ -13,6 +13,10 @@ namespace v8
 	struct IDelegateManager
 	{
 		static IDelegateManager* Create(Isolate* isolate);
+
+		/** Game thread only: called once from module startup/shutdown */
+		static void RegisterGarbageCollectionHook();
+		static void UnregisterGarbageCollectionHook();
 		virtual void Destroy() = 0;
 		virtual Local<Value> GetProxy(Local<Object> This, UObject* Object, FProperty* Property) = 0;
 	};

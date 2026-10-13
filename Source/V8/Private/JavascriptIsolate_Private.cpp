@@ -144,10 +144,14 @@ public:
 	FMallocArrayBufferAllocator AllocatorInstance;
 
 	IDelegateManager* Delegates;
+	UnrealConsoleDelegate* ConsoleDelegate{ nullptr };
 
 	FTickerDelegate TickDelegate;
 	FTSTicker::FDelegateHandle TickHandle;
 	bool bIsEditor;
+
+	// Owned by a single worker thread; never touched by the game-thread ticker
+	bool bIsWorker{ false };
 
 	struct FObjectPropertyAccessors
 	{
@@ -302,7 +306,8 @@ public:
 		isolate_ = isolate;
 		isolate->SetData(0, this);
 		Delegates = IDelegateManager::Create(isolate);
-		v8::debug::SetConsoleDelegate(isolate_, new UnrealConsoleDelegate(isolate_));
+		ConsoleDelegate = new UnrealConsoleDelegate(isolate_);
+		v8::debug::SetConsoleDelegate(isolate_, ConsoleDelegate);
 
 #if STATS
 		SetupCallbacks();
@@ -356,9 +361,10 @@ public:
 	}
 #endif
 
-	FJavascriptIsolateImplementation(bool bIsEditorIsolate)
+	FJavascriptIsolateImplementation(bool bIsEditorIsolate, bool bIsWorkerIsolate)
 	{
 		bIsEditor = bIsEditorIsolate;
+		bIsWorker = bIsWorkerIsolate;
 		Isolate::CreateParams params;
 
 		// Set our array buffer allocator instance
@@ -367,13 +373,20 @@ public:
 		// Bind this instance to newly created V8 isolate
 		RegisterSelf(Isolate::New(params));
 
-		GenerateBlueprintFunctionLibraryMapping();
-
 		//InitializeGlobalTemplate(); is now called via SetAvailableFeatures
 
 		//OnWorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddRaw(this, &FJavascriptIsolateImplementation::OnWorldCleanup);
-		TickDelegate = FTickerDelegate::CreateRaw(this, &FJavascriptIsolateImplementation::HandleTicker);
-		TickHandle = FTSTicker::GetCoreTicker().AddTicker(TickDelegate);
+
+		// Worker isolates are created off the game thread: TObjectIterator is not safe there,
+		// and their message loop is pumped by the worker thread itself (PumpMessageLoop must
+		// run on the thread that uses the isolate).
+		if (!bIsWorker)
+		{
+			GenerateBlueprintFunctionLibraryMapping();
+
+			TickDelegate = FTickerDelegate::CreateRaw(this, &FJavascriptIsolateImplementation::HandleTicker);
+			TickHandle = FTSTicker::GetCoreTicker().AddTicker(TickDelegate);
+		}
 	}
 
 	void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources)
@@ -487,8 +500,13 @@ public:
 		Delegates->Destroy();
 		Delegates = nullptr;
 
-		FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
+		if (!bIsWorker)
+		{
+			FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
+		}
 		v8::debug::SetConsoleDelegate(isolate_, nullptr);
+		delete ConsoleDelegate;
+		ConsoleDelegate = nullptr;
 
 		isolate_->Dispose();
 	}
@@ -3289,9 +3307,9 @@ public:
 	}
 };
 
-FJavascriptIsolate* FJavascriptIsolate::Create(bool bIsEditor)
+FJavascriptIsolate* FJavascriptIsolate::Create(bool bIsEditor, bool bIsWorker)
 {
-	return new FJavascriptIsolateImplementation(bIsEditor);
+	return new FJavascriptIsolateImplementation(bIsEditor, bIsWorker);
 }
 
 Local<Value> FJavascriptIsolate::ReadProperty(Isolate* isolate, FProperty* Property, uint8* Buffer, const IPropertyOwner& Owner, const FPropertyAccessorFlags& Flags)

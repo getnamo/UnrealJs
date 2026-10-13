@@ -66,10 +66,12 @@ These **must** match the gn args the lib was built with or every V8 handle silen
 
 ## Tests
 
-C++ automation tests (`UnrealJS.V8.*`) spawn and manipulate real actors from JavaScript. Run headless:
+C++ automation tests run headless. `UnrealJS.V8.*` spawn and manipulate real actors from JavaScript;
+`UnrealJS.Async.*` cover `Async.Lambda` workers (messaging, one-shot cleanup, runaway termination,
+reload soak through `UJavascriptInstanceComponent::Reload()`).
 
 ```
-UnrealEditor-Cmd <Project>.uproject -ExecCmds="Automation RunTests UnrealJS.V8;Quit" -unattended -nullrhi -nopause -log
+UnrealEditor-Cmd <Project>.uproject -ExecCmds="Automation RunTests UnrealJS;Quit" -unattended -nullrhi -nopause -log
 ```
 
 ## Fork Changes
@@ -81,9 +83,30 @@ Call a function on a background thread and optionally expose communication bridg
 [![example.png](https://i.imgur.com/ozenYI8.png)](https://twitter.com/getnamo/status/1276977110762979328)
 
 Format is 
-```Async.Lambda( capture params, function, result callback );```
+```Async.Lambda( capture params, function, result callback, {persist, enableRequire} );```
 
-See https://github.com/getnamo/UnrealJs/blob/master/Content/Scripts/async.js for detailed API.
+```js
+const lambda = Async.Lambda({value: 1, notify}, () => {
+    exports.work = (args) => { notify('working'); return args.a + value; };
+    return 'ready';
+}, (result) => console.log(result));
+
+lambda.exports.work({a: 2}, (r) => console.log(r));   // callback style
+const r = await lambda.exports.work({a: 2});           // promise style; rejects with the worker's stack
+lambda.stop();
+```
+
+- Each lambda runs in its own worker: a dedicated thread that owns its own V8 isolate.
+- Captures are the lambda's only view of the calling scope. Values are copied (JSON), functions
+  become async bridges back to the game thread (`fn(args, callback)` or `await fn(args)`), and
+  UObjects are exposed in the worker as globals.
+- A lambda that defines `exports` (or passes `{persist: true}`) stays alive to serve calls until
+  `stop()`; otherwise its worker exits once the body and any bridge calls settle.
+- Workers belong to the `Async` object of the `UJavascriptInstanceComponent` that started them
+  (feature `Async`). `Reload()`, EndPlay and engine exit stop and join them, interrupting script
+  that never yields, so saving a script never leaves old workers running.
+
+See `Content/Scripts/async.js` for the API and `Content/Scripts/async-worker.js` for the worker side.
 
 ### JavascriptInstance
 
