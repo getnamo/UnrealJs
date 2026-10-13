@@ -181,6 +181,7 @@ void UJavascriptSharedMemoryRegion::Dispose()
 {
 	if (Region)
 	{
+		ReleaseMemoryViews();
 		FPlatformMemory_Hack::UnmapNamedSharedMemoryRegion(Region);
 		Region = nullptr;
 	}

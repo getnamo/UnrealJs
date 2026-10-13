@@ -21,6 +21,7 @@
 #include "JavascriptGeneratedClass_Native.h"
 #include "StructMemoryInstance.h"
 #include "JavascriptMemoryObject.h"
+#include "JavascriptMemoryViews.h"
 #include "Containers/Ticker.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/TextProperty.h"
@@ -99,6 +100,22 @@ struct TStructReader
 
 	bool Read(Isolate* isolate, Local<Value> Value, CppType& Target) const;
 };
+
+/** True when a typed array's elements have exactly the property's type, so its bytes can be copied as they are. */
+static bool TypedArrayMatches(v8::Local<v8::TypedArray> View, FProperty* Inner)
+{
+	if (CastField<FFloatProperty>(Inner)) { return View->IsFloat32Array(); }
+	if (CastField<FDoubleProperty>(Inner)) { return View->IsFloat64Array(); }
+	if (CastField<FIntProperty>(Inner)) { return View->IsInt32Array(); }
+	if (CastField<FUInt32Property>(Inner)) { return View->IsUint32Array(); }
+	if (CastField<FInt16Property>(Inner)) { return View->IsInt16Array(); }
+	if (CastField<FUInt16Property>(Inner)) { return View->IsUint16Array(); }
+	if (CastField<FInt8Property>(Inner)) { return View->IsInt8Array(); }
+	if (CastField<FInt64Property>(Inner)) { return View->IsBigInt64Array(); }
+	if (CastField<FUInt64Property>(Inner)) { return View->IsBigUint64Array(); }
+	if (FByteProperty* Byte = CastField<FByteProperty>(Inner)) { return !Byte->Enum && (View->IsUint8Array() || View->IsUint8ClampedArray()); }
+	return false;
+}
 
 // V8 8.0 removed ArrayBuffer::Contents / Externalize(); backing stores are
 // ref-counted via shared_ptr and keep the buffer alive while held.
@@ -495,6 +512,7 @@ public:
 
 	~FJavascriptIsolateImplementation()
 	{
+		FJavascriptMemoryViews::ForgetIsolate(isolate_);
 		ReleaseAllPersistentHandles();
 
 		Delegates->Destroy();
@@ -1176,6 +1194,53 @@ public:
 					}
 				}
 			}
+			// Typed arrays: one copy when the element types match (Float32Array -> TArray<float>), else converted per element
+			else if (Value->IsTypedArray())
+			{
+				auto View = Value.As<v8::TypedArray>();
+				const int32 Length = (int32)View->Length();
+				FScriptArrayHelper_InContainer helper(p, Buffer);
+				if (TypedArrayMatches(View, p->Inner))
+				{
+					helper.EmptyAndAddUninitializedValues(Length);
+					View->CopyContents(helper.GetRawPtr(), (size_t)Length * p->Inner->GetSize());
+				}
+				else
+				{
+					helper.EmptyAndAddValues(Length);
+					auto context = isolate_->GetCurrentContext();
+					for (int32 Index = 0; Index < Length; ++Index)
+					{
+						auto maybe_value = View->Get(context, (uint32_t)Index);
+						if (!maybe_value.IsEmpty())
+						{
+							WriteProperty(isolate_, p->Inner, helper.GetRawPtr(Index), maybe_value.ToLocalChecked(), Owner, Flags);
+						}
+					}
+				}
+			}
+			// Raw bytes: an ArrayBuffer or a DataView into TArray<uint8>
+			else if ((Value->IsArrayBuffer() || Value->IsDataView()) && p->Inner->IsA<FByteProperty>() && !CastField<FByteProperty>(p->Inner)->Enum)
+			{
+				FScriptArrayHelper_InContainer helper(p, Buffer);
+				if (Value->IsArrayBuffer())
+				{
+					auto Bytes = Value.As<v8::ArrayBuffer>();
+					const int32 Size = (int32)Bytes->ByteLength();
+					helper.EmptyAndAddUninitializedValues(Size);
+					if (Size > 0)
+					{
+						FMemory::Memcpy(helper.GetRawPtr(), Bytes->Data(), Size);
+					}
+				}
+				else
+				{
+					auto View = Value.As<v8::DataView>();
+					const int32 Size = (int32)View->ByteLength();
+					helper.EmptyAndAddUninitializedValues(Size);
+					View->CopyContents(helper.GetRawPtr(), Size);
+				}
+			}
 			//are we trying to fill a binary value?
 			else if (p->Inner->IsA<FByteProperty>())
 			{
@@ -1487,6 +1552,8 @@ public:
 					auto bs = ArrayBuffer::NewBackingStore(Source->GetMemory(), Source->GetSize(), [](void*, size_t, void*) {}, nullptr);
 					auto ab = ArrayBuffer::New(isolate, std::move(bs));
 					(void)ab->Set(context, I.Keyword("$source"), info[0]);
+					// Detached by Source->ReleaseMemoryViews() (and when Source is destroyed), so it can't outlive the memory
+					FJavascriptMemoryViews::Register(Source, isolate, ab);
 					info.GetReturnValue().Set(ab);
 					return;
 				}
@@ -2634,13 +2701,21 @@ public:
 					{
 						Handle<Value> argv[1];
 
-						{
-							auto bs = ArrayBuffer::NewBackingStore(helper.GetRawPtr(), helper.Num() * p->Inner->GetSize(), [](void*, size_t, void*) {}, nullptr);
-							argv[0] = ArrayBuffer::New(isolate, std::move(bs));
-						}
+						auto bs = ArrayBuffer::NewBackingStore(helper.GetRawPtr(), helper.Num() * p->Inner->GetSize(), [](void*, size_t, void*) {}, nullptr);
+						auto ab = ArrayBuffer::New(isolate, std::move(bs));
+						argv[0] = ab;
 
-						auto out = function->Call(Context, info.This(), 1, argv).ToLocalChecked();
-						info.GetReturnValue().Set(out);
+						auto out = function->Call(Context, info.This(), 1, argv);
+
+						// The array's memory can move once the callback returns: a view kept past it reads as empty
+						if (ab->IsDetachable())
+						{
+							(void)ab->Detach(Local<Value>());
+						}
+						if (!out.IsEmpty())
+						{
+							info.GetReturnValue().Set(out.ToLocalChecked());
+						}
 						break;
 					}
 				}

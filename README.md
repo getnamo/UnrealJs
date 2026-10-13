@@ -66,7 +66,8 @@ These **must** match the gn args the lib was built with or every V8 handle silen
 
 ## Tests
 
-C++ automation tests run headless. `UnrealJS.V8.*` spawn and manipulate real actors from JavaScript;
+C++ automation tests run headless. `UnrealJS.V8.*` spawn and manipulate real actors from JavaScript
+and cover binary data (typed arrays into `TArray`s, memory views detached on release);
 `UnrealJS.Async.*` cover `Async.Lambda` workers (messaging, one-shot cleanup, runaway termination,
 reload soak through `UJavascriptInstanceComponent::Reload()`).
 
@@ -134,6 +135,20 @@ a file watcher wired to `Reload()` stops the old workers and starts new ones in 
 
 The script's header lists the actor it expects: a `JavascriptInstanceComponent` with the `Async`
 feature, plus four display planes and text labels.
+
+### Binary data
+
+- Typed arrays go straight into `TArray` parameters and properties: `Float32Array` to `TArray<float>`,
+  `Int32Array` to `TArray<int32>`, `Uint8Array`, `ArrayBuffer` or `DataView` to `TArray<uint8>`, and so
+  on. Matching element types are copied in one go, others converted per element; a view copies only its
+  own range.
+- `memory.access(object)` views a `JavascriptMemoryObject`'s memory in place, as an ArrayBuffer. Those
+  ArrayBuffers are detached (they read as empty) once the memory goes away, so a view a script kept can't
+  reach freed memory: `ReleaseMemoryViews()` does it, and it runs on destruction, on
+  `JavascriptExternalMemory.Release()`, and after each `Async` message's bytes are delivered.
+- `JavascriptExternalMemory` lends memory that C++ owns to scripts, with a callback that gives it back on
+  `Release()`. For example, WebGPUCompute lends mapped GPU readback frames to JavaScript this way, with no
+  copy.
 
 ### JavascriptInstance
 

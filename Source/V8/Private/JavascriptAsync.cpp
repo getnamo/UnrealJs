@@ -171,9 +171,10 @@ void UJavascriptAsync::HandleWorkerMessage(FJavascriptWorkerMessage& Message)
 
 	OnWorkerMessage.ExecuteIfBound(Message.Kind, Message.WorkerId, Message.RequestId, Message.Name, Message.Payload, NumBytes);
 
-	// Valid only during the call above; release it rather than keep the largest frame around
+	// Valid only during the call above: detach the script's views, and release it rather than keep the largest frame around
 	if (MessageBytes && NumBytes > 0)
 	{
+		MessageBytes->ReleaseMemoryViews();
 		MessageBytes->Bytes.Empty();
 	}
 }
